@@ -12,10 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Settings, Save } from "lucide-react";
+import { Plus, Settings, Save, Trash2, Calendar } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const ContractConfig = () => {
+  const kitchenPeriods = [
+    { id: 1, kitchen: "Kuchnia Centralna A", startDate: "2025-01-01", endDate: "2025-06-30" },
+    { id: 2, kitchen: "Kuchnia Regionalna B", startDate: "2025-07-01", endDate: null },
+  ];
+
   const departments = [
     { name: "Interna", diets: ["Podstawowa", "Cukrzycowa", "Lekkostrawna"] },
     { name: "Chirurgia", diets: ["Płynna", "Podstawowa"] },
@@ -91,18 +96,6 @@ const ContractConfig = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="kitchen">Przypisana kuchnia</Label>
-              <Select defaultValue="central-a">
-                <SelectTrigger id="kitchen">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="central-a">Kuchnia Centralna A</SelectItem>
-                  <SelectItem value="regional-b">Kuchnia Regionalna B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <div className="mt-6">
             <Button className="gap-2">
@@ -113,10 +106,81 @@ const ContractConfig = () => {
         </div>
       </Card>
 
-      {/* Section B: Client Departments */}
+      {/* Section B: Kitchen Periods */}
       <Card className="mb-6">
-        <div className="border-b p-4">
+        <div className="border-b p-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Okresy obsługi przez kuchnie</h2>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Dodaj okres obsługi
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Kuchnia</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">
+                  Data rozpoczęcia
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">
+                  Data zakończenia
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium text-foreground">Akcje</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {kitchenPeriods.map((period) => (
+                <tr key={period.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <Select defaultValue={period.kitchen}>
+                      <SelectTrigger className="max-w-[250px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Kuchnia Centralna A">Kuchnia Centralna A</SelectItem>
+                        <SelectItem value="Kuchnia Regionalna B">Kuchnia Regionalna B</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Input type="date" defaultValue={period.startDate} className="max-w-[160px]" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <Input
+                      type="date"
+                      defaultValue={period.endDate || ""}
+                      placeholder="Brak daty końcowej"
+                      className="max-w-[160px]"
+                    />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Edytuj
+                      </Button>
+                      <Button variant="ghost" size="sm" className="gap-2 text-danger hover:text-danger">
+                        <Trash2 className="h-4 w-4" />
+                        Usuń
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Section C: Client Departments */}
+      <Card className="mb-6">
+        <div className="border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Oddziały klienta</h2>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Dodaj oddział
+          </Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -155,7 +219,7 @@ const ContractConfig = () => {
         </div>
       </Card>
 
-      {/* Section C: Diets */}
+      {/* Section D: Diets */}
       <Card className="mb-6">
         <div className="border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Diety klienta</h2>
@@ -198,7 +262,7 @@ const ContractConfig = () => {
         </div>
       </Card>
 
-      {/* Section D: Meal Types */}
+      {/* Section E: Meal Types */}
       <Card>
         <div className="border-b p-4">
           <h2 className="text-lg font-semibold text-foreground">Posiłki (meal types)</h2>
