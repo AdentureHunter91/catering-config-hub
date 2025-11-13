@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, FileText, Settings, DollarSign } from "lucide-react";
+import { Home, FileText, Settings, DollarSign, ChefHat } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -15,6 +15,7 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/posilki", label: "Posiłki", icon: FileText },
     { path: "/rozliczenia", label: "Rozliczenia", icon: DollarSign },
     { path: "/kontrakty", label: "Kontrakty", icon: Settings },
+    { path: "/kuchnie", label: "Kuchnie", icon: ChefHat },
   ];
 
   return (
