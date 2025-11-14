@@ -5,7 +5,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    navigate("/uzytkownicy");
+    navigate("/kontrakty");
   }, [navigate]);
 
   return null;
