@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Settings, ChefHat, Users } from "lucide-react";
+import { Settings, ChefHat, Users, Building2, Utensils, Apple, Shield, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -12,8 +12,14 @@ const Layout = ({ children }: LayoutProps) => {
 
   const navItems = [
     { path: "/kontrakty", label: "Kontrakty", icon: Settings },
+    { path: "/klienci", label: "Klienci", icon: Users },
     { path: "/kuchnie", label: "Kuchnie", icon: ChefHat },
+    { path: "/oddzialy", label: "Oddziały", icon: Settings },
+    { path: "/diety", label: "Diety", icon: Settings },
+    { path: "/posilki", label: "Typy posiłków", icon: Settings },
     { path: "/uzytkownicy", label: "Użytkownicy", icon: Users },
+    { path: "/uprawnienia", label: "Uprawnienia", icon: Settings },
+    { path: "/audit", label: "Dziennik zdarzeń", icon: Settings },
   ];
 
   return (
