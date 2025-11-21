@@ -1,106 +1,230 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Settings, ChefHat, Users, Building2, Utensils, Apple, Shield, FileText } from "lucide-react";
+import {
+  Home,
+  ShoppingCart,
+  ChefHat,
+  Settings,
+  Users,
+  Shield,
+  Building2,
+  BookOpen,
+  UtensilsCrossed,
+  FileText,
+} from "lucide-react";
+
 import { cn } from "@/lib/utils";
+import { useAccessContext } from "@/auth/AccessContext";
+import { usePageAccess } from "@/auth/usePageAccess";
 
 interface LayoutProps {
   children: ReactNode;
+  pageKey?: string;
 }
 
-const Layout = ({ children }: LayoutProps) => {
+const Layout = ({ children, pageKey }: LayoutProps) => {
   const location = useLocation();
+  const { access, me } = useAccessContext();
+  const { canView, canEdit } = usePageAccess(pageKey || "");
 
-  const navItems = [
-    { path: "/kontrakty", label: "Kontrakty", icon: Settings },
-    { path: "/klienci", label: "Klienci", icon: Users },
-    { path: "/kuchnie", label: "Kuchnie", icon: ChefHat },
-    { path: "/oddzialy", label: "Oddziały", icon: Settings },
-    { path: "/diety", label: "Diety", icon: Settings },
-    { path: "/posilki", label: "Typy posiłków", icon: Settings },
-    { path: "/uzytkownicy", label: "Użytkownicy", icon: Users },
-    { path: "/uprawnienia", label: "Uprawnienia", icon: Settings },
-    { path: "/audit", label: "Dziennik zdarzeń", icon: Settings },
+  // Dropdowny
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Rola (opcjonalnie — do wyświetlania obok nazwiska)
+  const role = me?.roles?.join(", ") || "Użytkownik";
+
+  // Zamknij menu przy kliknięciu poza
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  if (pageKey && !canView) {
+    return (
+        <div className="p-10 text-center text-red-500 text-xl">
+          🔒 Brak dostępu do tej strony.
+        </div>
+    );
+  }
+
+  const readOnlyClass = !canEdit ? "opacity-60 pointer-events-none select-none" : "";
+
+  // ---- PODMENU (USTAWIENIA) ----
+  const settingsItems = [
+    { label: "Kontrakty", path: "/kontrakty", pageKey: "config.contracts_list", icon: FileText },
+    { label: "Klienci", path: "/klienci", pageKey: "config.clients_list", icon: Users },
+    { label: "Kuchnie", path: "/kuchnie", pageKey: "config.kitchens_list", icon: Building2 },
+    { label: "Oddziały", path: "/oddzialy", pageKey: "config.departments_list", icon: Building2 },
+    { label: "Diety", path: "/diety", pageKey: "config.diets", icon: BookOpen },
+    { label: "Typy posiłków", path: "/posilki", pageKey: "config.meal_types", icon: UtensilsCrossed },
+    { label: "Użytkownicy", path: "/uzytkownicy", pageKey: "config.users", icon: Users },
+    { label: "Role i uprawnienia", path: "/uprawnienia", pageKey: "config.permissions", icon: Shield },
+    { label: "Dostęp do stron", path: "/dostep-stron", pageKey: "config.page_access", icon: Shield },
+    { label: "Dziennik zdarzeń", path: "/audit", pageKey: "config.audit", icon: FileText },
   ];
 
+  const dropdownAnimation =
+      "transition-all duration-150 origin-top transform scale-95 opacity-0 data-[open=true]:scale-100 data-[open=true]:opacity-100";
+
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
-        <div className="flex h-16 items-center px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="h-6 w-6 text-primary-foreground"
-              >
-                <path
-                  d="M12 2L2 7L12 12L22 7L12 2Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M2 17L12 22L22 17"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M2 12L12 17L22 12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">CateringHub</h1>
-              <p className="text-xs text-muted-foreground">System zarządzania posiłkami</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-background">
+        {/* === TOP NAV === */}
+        <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
+          <div className="flex h-16 items-center px-6">
 
-          <nav className="ml-12 flex gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
+            {/* LOGO */}
+            <Link to="/dashboard" className="font-bold text-xl mr-10">CateringHub</Link>
+
+            {/* === LEWE MENU === */}
+            <nav className="flex gap-4 items-center" ref={menuRef}>
+
+              {/* DASHBOARD */}
+              <Link
+                  to="/dashboard"
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                      location.pathname.startsWith("/dashboard")
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+              >
+                <Home className="h-4 w-4" />
+                Dashboard
+              </Link>
 
-          <div className="ml-auto flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">Anna Nowak</p>
-              <p className="text-xs text-muted-foreground">Koordynator</p>
+              {/* ZAKUPY */}
+              <Dropdown
+                  label="Zakupy"
+                  icon={ShoppingCart}
+                  isOpen={openMenu === "zakupy"}
+                  onOpen={() => setOpenMenu(openMenu === "zakupy" ? null : "zakupy")}
+              >
+                <div className="p-2 text-muted-foreground text-xs">Wkrótce…</div>
+              </Dropdown>
+
+              {/* DIETETYKA */}
+              <Dropdown
+                  label="Dietetyka"
+                  icon={ChefHat}
+                  isOpen={openMenu === "dietetyka"}
+                  onOpen={() => setOpenMenu(openMenu === "dietetyka" ? null : "dietetyka")}
+              >
+                <div className="p-2 text-muted-foreground text-xs">Wkrótce…</div>
+              </Dropdown>
+
+              {/* USTAWIENIA */}
+              <Dropdown
+                  label="Ustawienia"
+                  icon={Settings}
+                  isOpen={openMenu === "settings"}
+                  onOpen={() => setOpenMenu(openMenu === "settings" ? null : "settings")}
+              >
+                {settingsItems
+                    .filter((i) => access[i.pageKey]?.view)
+                    .map((item) => (
+                        <Link
+                            key={item.path}
+                            to={item.path}
+                            className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                    ))}
+              </Dropdown>
+
+            </nav>
+
+            {/* === PRAWA CZĘŚĆ (UŻYTKOWNIK) === */}
+            <div className="ml-auto relative">
+              <button
+                  onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}
+                  className="flex items-center gap-3"
+              >
+                <div className="text-right">
+                  <p className="text-sm font-medium text-foreground">
+                    {me?.first_name} {me?.last_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{role}</p>
+                </div>
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  {me?.first_name?.[0]}
+                  {me?.last_name?.[0]}
+                </div>
+              </button>
+
+              {openMenu === "user" && (
+                  <div
+                      data-open={true}
+                      className={cn(
+                          "absolute right-0 mt-3 bg-card shadow-lg rounded-md p-2 w-48 z-50",
+                          dropdownAnimation
+                      )}
+                  >
+                    <Link to="/profil" className="block px-3 py-2 rounded hover:bg-secondary">
+                      Profil
+                    </Link>
+                    <a
+                        href="/Login/logout.php"
+                        className="block px-3 py-2 rounded hover:bg-secondary text-red-500"
+                    >
+                      Wyloguj
+                    </a>
+                  </div>
+              )}
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-              AN
-            </div>
+
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-[1600px] p-6">{children}</main>
-    </div>
+        {/* === TREŚĆ STRONY === */}
+        <main className={cn("mx-auto max-w-[1600px] p-6", readOnlyClass)}>{children}</main>
+      </div>
   );
 };
 
 export default Layout;
+
+interface DropdownProps {
+  label: string;
+  icon: React.ElementType;
+  isOpen: boolean;
+  onOpen: () => void;
+  children: ReactNode;
+}
+
+const Dropdown = ({ label, icon: Icon, isOpen, onOpen, children }: DropdownProps) => {
+  const animation = "transition-all duration-150 origin-top transform scale-95 opacity-0 data-[open=true]:scale-100 data-[open=true]:opacity-100";
+
+  return (
+      <div className="relative">
+        <button
+            onClick={onOpen}
+            className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                isOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
+        >
+          <Icon className="h-4 w-4" />
+          {label}
+        </button>
+
+        {isOpen && (
+            <div
+                data-open={isOpen}
+                className={cn("absolute mt-2 w-64 bg-card shadow-lg rounded-lg p-2 z-50", animation)}
+            >
+              {children}
+            </div>
+        )}
+      </div>
+  );
+};

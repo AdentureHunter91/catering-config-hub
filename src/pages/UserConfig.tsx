@@ -1,3 +1,7 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+
 import Layout from "@/components/Layout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
@@ -9,117 +13,238 @@ import { Switch } from "@/components/ui/switch";
 import { Save, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const UserConfig = () => {
-  const availableRoles = [
-    { id: 1, name: "Admin", description: "Pełny dostęp do systemu" },
-    { id: 2, name: "Koordynator", description: "Zarządzanie kontraktami i kuchniami" },
-    { id: 3, name: "User", description: "Podstawowy dostęp" },
-    { id: 4, name: "Moderator", description: "Moderacja treści" },
-  ];
+import { getUser, createUser, updateUser, setUserRoles } from "@/api/users";
+import { getRoles } from "@/api/roles";
 
-  const userRoles = [1, 2]; // IDs of roles assigned to this user
+const UserConfig = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const isNew = id === "nowy";
+
+  // Load roles
+  const {
+    data: allRoles = [],
+    isLoading: loadingRoles
+  } = useQuery({
+    queryKey: ["roles"],
+    queryFn: getRoles
+  });
+
+  // Load user if editing
+  const {
+    data: userData,
+    isLoading: loadingUser,
+    error: userError
+  } = useQuery({
+    queryKey: ["user", id],
+    queryFn: () => getUser(Number(id)),
+    enabled: !isNew
+  });
+
+  // Form state
+  const [form, setForm] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    isActive: true,
+    password: "",
+    passwordConfirm: "",
+    roles: [] as number[]
+  });
+
+  // Populate form after loading user
+  useEffect(() => {
+    if (!isNew && userData) {
+      setForm({
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isActive: userData.isActive,
+        password: "",
+        passwordConfirm: "",
+        roles: userData.roles.map((r: any) => r.id)
+      });
+    }
+  }, [isNew, userData]);
+
+  if (userError) {
+    return (
+        <Layout pageKey="config.users">
+          <div className="p-6 text-red-500">Nie znaleziono użytkownika.</div>
+        </Layout>
+    );
+  }
+
+  if (loadingUser || loadingRoles) {
+    return (
+        <Layout pageKey="config.users">
+          <div className="p-6">Ładowanie...</div>
+        </Layout>
+    );
+  }
+
+  const toggleRole = (roleId: number) => {
+    setForm((prev) => ({
+      ...prev,
+      roles: prev.roles.includes(roleId)
+          ? prev.roles.filter((id) => id !== roleId)
+          : [...prev.roles, roleId],
+    }));
+  };
+
+  const saveHandler = async () => {
+    if (!isNew) {
+      await updateUser({
+        id: Number(id),
+        email: form.email,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        isActive: form.isActive,
+        password: form.password || undefined
+      });
+
+      await setUserRoles(Number(id), form.roles);
+      navigate("/uzytkownicy");
+      return;
+    }
+
+    const newId = await createUser({
+      email: form.email,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      isActive: form.isActive,
+      password: form.password
+    });
+
+    await setUserRoles(newId, form.roles);
+    navigate(`/uzytkownicy`);
+  };
 
   return (
-    <Layout>
-      <Breadcrumb
-        items={[
-          { label: "Konfiguracja systemu" },
-          { label: "Użytkownicy", href: "/uzytkownicy" },
-          { label: "Anna Nowak" },
-        ]}
-      />
+      <Layout pageKey="config.users">
+        <Breadcrumb
+            items={[
+              { label: "Konfiguracja systemu" },
+              { label: "Użytkownicy", href: "/uzytkownicy" },
+              { label: isNew ? "Nowy użytkownik" : form.firstName + " " + form.lastName },
+            ]}
+        />
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Konfiguracja użytkownika</h1>
-          <p className="mt-1 text-muted-foreground">Zarządzanie danymi i uprawnieniami</p>
-        </div>
-        <Badge className="bg-success text-success-foreground text-base px-4 py-2">
-          Status: Aktywny
-        </Badge>
-      </div>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">
+            {isNew ? "Nowy użytkownik" : "Konfiguracja użytkownika"}
+          </h1>
 
-      {/* Section A: User Data */}
-      <Card className="mb-6">
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold text-foreground">Dane użytkownika</h2>
+          {!isNew && (
+              <Badge className={form.isActive ? "bg-success" : "bg-secondary"}>
+                Status: {form.isActive ? "Aktywny" : "Nieaktywny"}
+              </Badge>
+          )}
         </div>
-        <div className="p-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="anna.nowak@example.com" />
-            </div>
-            <div className="space-y-2 flex items-center gap-3 pt-8">
-              <Switch id="is-active" defaultChecked />
-              <Label htmlFor="is-active" className="cursor-pointer">
-                Konto aktywne
-              </Label>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="first-name">Imię</Label>
-              <Input id="first-name" defaultValue="Anna" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="last-name">Nazwisko</Label>
-              <Input id="last-name" defaultValue="Nowak" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Nowe hasło (opcjonalne)</Label>
-              <Input id="password" type="password" placeholder="Zostaw puste, aby nie zmieniać" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password-confirm">Potwierdź hasło</Label>
-              <Input id="password-confirm" type="password" />
-            </div>
+
+        {/* Dane użytkownika */}
+        <Card className="mb-6">
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Dane użytkownika</h2>
           </div>
-          <div className="mt-6 flex gap-2">
-            <Button className="gap-2">
-              <Save className="h-4 w-4" />
-              Zapisz zmiany
-            </Button>
-            <Button variant="outline" className="gap-2 text-danger hover:text-danger">
-              <Trash2 className="h-4 w-4" />
-              Usuń użytkownika
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Section B: User Roles */}
-      <Card>
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold text-foreground">Przypisane role</h2>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {availableRoles.map((role) => (
-              <div
-                key={role.id}
-                className="flex items-start gap-3 rounded-lg border p-4 hover:bg-muted/30 transition-colors"
-              >
-                <Checkbox
-                  id={`role-${role.id}`}
-                  defaultChecked={userRoles.includes(role.id)}
+          <div className="p-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
-                <div className="flex-1">
-                  <Label htmlFor={`role-${role.id}`} className="cursor-pointer font-medium">
-                    {role.name}
-                  </Label>
-                  <p className="text-sm text-muted-foreground">{role.description}</p>
-                </div>
               </div>
-            ))}
+
+              <div className="space-y-2 flex items-center gap-3 pt-8">
+                <Switch
+                    checked={form.isActive}
+                    onCheckedChange={(val) => setForm({ ...form, isActive: val })}
+                />
+                <Label className="cursor-pointer">Konto aktywne</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Imię</Label>
+                <Input
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Nazwisko</Label>
+                <Input
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Hasło</Label>
+                <Input
+                    type="password"
+                    placeholder={isNew ? "" : "Zostaw puste, aby nie zmieniać"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Potwierdź hasło</Label>
+                <Input
+                    type="password"
+                    value={form.passwordConfirm}
+                    onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-2">
+              <Button className="gap-2" onClick={saveHandler}>
+                <Save className="h-4 w-4" />
+                Zapisz
+              </Button>
+
+              {!isNew && (
+                  <Button variant="outline" className="gap-2 text-danger">
+                    <Trash2 className="h-4 w-4" />
+                    Usuń
+                  </Button>
+              )}
+            </div>
           </div>
-          <div className="mt-6">
-            <Button className="gap-2">
+        </Card>
+
+        {/* Role */}
+        <Card>
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Przypisane role</h2>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {allRoles.map((role: any) => (
+                <div key={role.id} className="flex items-start gap-3 border rounded-lg p-4">
+                  <Checkbox
+                      checked={form.roles.includes(role.id)}
+                      onCheckedChange={() => toggleRole(role.id)}
+                  />
+                  <div>
+                    <Label className="font-medium">{role.name}</Label>
+                    <p className="text-sm text-muted-foreground">{role.description}</p>
+                  </div>
+                </div>
+            ))}
+
+            <Button className="mt-4" onClick={saveHandler}>
               <Save className="h-4 w-4" />
               Zapisz role
             </Button>
           </div>
-        </div>
-      </Card>
-    </Layout>
+        </Card>
+      </Layout>
   );
 };
 

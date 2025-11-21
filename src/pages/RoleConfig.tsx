@@ -1,3 +1,7 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+
 import Layout from "@/components/Layout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
@@ -8,125 +12,229 @@ import { Textarea } from "@/components/ui/textarea";
 import { Save, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
+import {
+  getRole,
+  createRole,
+  updateRole,
+  deleteRole,
+  setRolePermissions,
+} from "@/api/roles";
+import { getPermissions } from "@/api/permissions";
+
 const RoleConfig = () => {
-  const availablePermissions = [
-    { id: 1, name: "contracts.view", description: "Przeglądanie kontraktów", category: "Kontrakty" },
-    { id: 2, name: "contracts.create", description: "Tworzenie kontraktów", category: "Kontrakty" },
-    { id: 3, name: "contracts.edit", description: "Edycja kontraktów", category: "Kontrakty" },
-    { id: 4, name: "contracts.delete", description: "Usuwanie kontraktów", category: "Kontrakty" },
-    { id: 5, name: "kitchens.view", description: "Przeglądanie kuchni", category: "Kuchnie" },
-    { id: 6, name: "kitchens.create", description: "Tworzenie kuchni", category: "Kuchnie" },
-    { id: 7, name: "kitchens.edit", description: "Edycja kuchni", category: "Kuchnie" },
-    { id: 8, name: "kitchens.delete", description: "Usuwanie kuchni", category: "Kuchnie" },
-    { id: 9, name: "users.view", description: "Przeglądanie użytkowników", category: "Użytkownicy" },
-    { id: 10, name: "users.create", description: "Tworzenie użytkowników", category: "Użytkownicy" },
-    { id: 11, name: "users.edit", description: "Edycja użytkowników", category: "Użytkownicy" },
-    { id: 12, name: "users.delete", description: "Usuwanie użytkowników", category: "Użytkownicy" },
-  ];
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const rolePermissions = [1, 2, 3, 5, 6, 7]; // IDs of permissions assigned to this role
+  const isNew = id === "nowa";
 
-  // Group permissions by category
-  const groupedPermissions = availablePermissions.reduce((acc, perm) => {
-    if (!acc[perm.category]) {
-      acc[perm.category] = [];
+  // Pobierz listę permissions
+  const {
+    data: allPermissions = [],
+    isLoading: loadingPerms,
+  } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: getPermissions,
+  });
+
+  // Pobierz dane roli (jeśli edycja)
+  const {
+    data: roleData,
+    isLoading: loadingRole,
+    error: roleError,
+  } = useQuery({
+    queryKey: ["role", id],
+    queryFn: () => getRole(Number(id)),
+    enabled: !isNew,
+  });
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    permissions: [] as number[],
+  });
+
+  // Uzupełnij dane, gdy backend zwróci rolę
+  useEffect(() => {
+    if (!isNew && roleData) {
+      setForm({
+        name: roleData.name,
+        description: roleData.description ?? "",
+        permissions: roleData.permissions,
+      });
     }
+  }, [isNew, roleData]);
+
+  if (roleError) {
+    return (
+        <Layout pageKey="config.roles">
+          <div className="p-6 text-red-600">Nie znaleziono roli.</div>
+        </Layout>
+    );
+  }
+
+  if (loadingPerms || loadingRole) {
+    return (
+        <Layout pageKey="config.roles">
+          <div className="p-6">Ładowanie...</div>
+        </Layout>
+    );
+  }
+
+  const togglePermission = (pid: number) => {
+    setForm((prev) => ({
+      ...prev,
+      permissions: prev.permissions.includes(pid)
+          ? prev.permissions.filter((p) => p !== pid)
+          : [...prev.permissions, pid],
+    }));
+  };
+
+  const saveHandler = async () => {
+    if (isNew) {
+      const created = await createRole({
+        name: form.name,
+        description: form.description,
+      });
+
+      const newRoleId = created?.id ?? created;
+
+      await setRolePermissions(newRoleId, form.permissions);
+
+      navigate("/uzytkownicy");
+      return;
+    }
+
+    // update
+    await updateRole({
+      id: Number(id),
+      name: form.name,
+      description: form.description,
+    });
+
+    await setRolePermissions(Number(id), form.permissions);
+
+    navigate("/uzytkownicy");
+  };
+
+  const deleteHandler = async () => {
+    if (!isNew && confirm("Czy na pewno usunąć tę rolę?")) {
+      await deleteRole(Number(id));
+      navigate("/uzytkownicy");
+    }
+  };
+
+  // pogrupuj permissions
+  const grouped = allPermissions.reduce((acc: any, perm: any) => {
+    if (!acc[perm.category]) acc[perm.category] = [];
     acc[perm.category].push(perm);
     return acc;
-  }, {} as Record<string, typeof availablePermissions>);
+  }, {});
 
   return (
-    <Layout>
-      <Breadcrumb
-        items={[
-          { label: "Konfiguracja systemu" },
-          { label: "Użytkownicy", href: "/uzytkownicy" },
-          { label: "Rola: Koordynator" },
-        ]}
-      />
+      <Layout pageKey="config.roles">
+        <Breadcrumb
+            items={[
+              { label: "Konfiguracja systemu" },
+              { label: "Użytkownicy", href: "/uzytkownicy" },
+              { label: isNew ? "Nowa rola" : `Rola: ${form.name}` },
+            ]}
+        />
 
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Konfiguracja roli</h1>
-        <p className="mt-1 text-muted-foreground">Zarządzanie nazwą, opisem i uprawnieniami</p>
-      </div>
-
-      {/* Section A: Role Data */}
-      <Card className="mb-6">
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold text-foreground">Dane roli</h2>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">
+            {isNew ? "Nowa rola" : "Konfiguracja roli"}
+          </h1>
+          <p className="text-muted-foreground">
+            Zarządzanie nazwą, opisem i uprawnieniami
+          </p>
         </div>
-        <div className="p-6">
-          <div className="grid gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="role-name">Nazwa roli</Label>
-              <Input id="role-name" defaultValue="Koordynator" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role-description">Opis</Label>
-              <Textarea
-                id="role-description"
-                defaultValue="Zarządzanie kontraktami i kuchniami"
-                rows={3}
+
+        {/* Dane roli */}
+        <Card className="mb-6">
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Dane roli</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <Label>Nazwa roli</Label>
+              <Input
+                  value={form.name}
+                  onChange={(e) =>
+                      setForm({ ...form, name: e.target.value })
+                  }
               />
             </div>
-          </div>
-          <div className="mt-6 flex gap-2">
-            <Button className="gap-2">
-              <Save className="h-4 w-4" />
-              Zapisz zmiany
-            </Button>
-            <Button variant="outline" className="gap-2 text-danger hover:text-danger">
-              <Trash2 className="h-4 w-4" />
-              Usuń rolę
-            </Button>
-          </div>
-        </div>
-      </Card>
 
-      {/* Section B: Permissions */}
-      <Card>
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold text-foreground">Uprawnienia (permissions)</h2>
-        </div>
-        <div className="p-6">
-          <div className="space-y-6">
-            {Object.entries(groupedPermissions).map(([category, permissions]) => (
-              <div key={category}>
-                <h3 className="mb-3 text-sm font-semibold text-foreground">{category}</h3>
-                <div className="space-y-2">
-                  {permissions.map((permission) => (
-                    <div
-                      key={permission.id}
-                      className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/30 transition-colors"
-                    >
-                      <Checkbox
-                        id={`perm-${permission.id}`}
-                        defaultChecked={rolePermissions.includes(permission.id)}
-                      />
-                      <div className="flex-1">
-                        <Label
-                          htmlFor={`perm-${permission.id}`}
-                          className="cursor-pointer font-medium text-sm"
-                        >
-                          {permission.name}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">{permission.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div>
+              <Label>Opis</Label>
+              <Textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                  }
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button className="gap-2" onClick={saveHandler}>
+                <Save className="h-4 w-4" /> Zapisz zmiany
+              </Button>
+
+              {!isNew && (
+                  <Button
+                      variant="outline"
+                      className="gap-2 text-danger"
+                      onClick={deleteHandler}
+                  >
+                    <Trash2 className="h-4 w-4" /> Usuń rolę
+                  </Button>
+              )}
+            </div>
           </div>
-          <div className="mt-6">
-            <Button className="gap-2">
+        </Card>
+
+        {/* Uprawnienia */}
+        <Card>
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Uprawnienia</h2>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {Object.entries(grouped).map(([category, items]: any) => (
+                <div key={category}>
+                  <h3 className="mb-3 text-sm font-semibold">{category}</h3>
+
+                  <div className="space-y-2">
+                    {items.map((perm: any) => (
+                        <div
+                            key={perm.id}
+                            className="flex items-start gap-3 border rounded-lg p-3 hover:bg-muted/30"
+                        >
+                          <Checkbox
+                              checked={form.permissions.includes(perm.id)}
+                              onCheckedChange={() => togglePermission(perm.id)}
+                          />
+
+                          <div className="flex-1">
+                            <Label className="font-medium">{perm.name}</Label>
+                            <p className="text-xs text-muted-foreground">
+                              {perm.description}
+                            </p>
+                          </div>
+                        </div>
+                    ))}
+                  </div>
+                </div>
+            ))}
+
+            <Button className="mt-4 gap-2" onClick={saveHandler}>
               <Save className="h-4 w-4" />
               Zapisz uprawnienia
             </Button>
           </div>
-        </div>
-      </Card>
-    </Layout>
+        </Card>
+      </Layout>
   );
 };
 
