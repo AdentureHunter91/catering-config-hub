@@ -8,6 +8,10 @@ $id           = isset($data['id']) ? (int)$data['id'] : 0;
 $departmentId = isset($data['department_id']) ? (int)$data['department_id'] : 0;
 $customName   = trim($data['custom_name'] ?? '');
 $customShort  = trim($data['custom_short_name'] ?? '');
+$city            = trim($data['city'] ?? '');
+$postalCode      = trim($data['postal_code'] ?? '');
+$street          = trim($data['street'] ?? '');
+$buildingNumber  = trim($data['building_number'] ?? '');
 
 if ($id <= 0 || $departmentId <= 0) {
     jsonResponse(null, false, "INVALID_DATA", 422);
@@ -36,13 +40,24 @@ if ($existing) {
 
 $upd = $pdo->prepare("
     UPDATE client_departments
-    SET department_id = ?, custom_name = ?, custom_short_name = ?
+    SET 
+      department_id = ?,
+      custom_name = ?,
+      custom_short_name = ?,
+      city = ?,
+      postal_code = ?,
+      street = ?,
+      building_number = ?
     WHERE id = ?
 ");
 $upd->execute([
     $departmentId,
     $customName ?: null,
     $customShort ?: null,
+    $city ?: null,
+    $postalCode ?: null,
+    $street ?: null,
+    $buildingNumber ?: null,
     $id
 ]);
 

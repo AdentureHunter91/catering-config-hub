@@ -75,6 +75,14 @@ import {
   updateClientMealType
 } from "@/api/clientMealTypes";
 
+import {
+  getClientContacts,
+  addClientContact,
+  updateClientContact,
+  deleteClientContact,
+  ClientContact,
+} from "@/api/clientContacts";
+
 
 type ContractItem = {
   id: number;
@@ -107,6 +115,7 @@ const ClientConfig = () => {
   const [clientDiets, setClientDietsState] = useState<ClientDiet[]>([]);
   const [clientDepartmentDiets, setClientDepartmentDiets] = useState<ClientDepartmentDiet[]>([]);
   const [clientMealTypes, setClientMealTypes] = useState([]);
+  const [contacts, setContacts] = useState<ClientContact[]>([]);
 
 
   const [loading, setLoading] = useState(true);
@@ -131,9 +140,10 @@ const ClientConfig = () => {
       getDiets(),
       getClientDiets(clientId),
       getClientDepartmentDiets(clientId),
-      getClientMealTypes(clientId),   // ⬅ DODANE
+      getClientMealTypes(clientId),
+      getClientContacts(clientId),
     ])
-        .then(([client, kontrakty, deps, cDeps, dts, cDts, cddList, cMealTypes]) => {
+        .then(([client, kontrakty, deps, cDeps, dts, cDts, cddList, cMealTypes, cContacts]) => {
           setForm({
             id: client.id,
             short_name: client.short_name,
@@ -151,6 +161,7 @@ const ClientConfig = () => {
           setClientDietsState(cDts ?? []);
           setClientDepartmentDiets(cddList ?? []);
           setClientMealTypes(cMealTypes ?? []);
+          setContacts(cContacts ?? []);
         })
         .finally(() => setLoading(false));
   }, [id, isNew]);
@@ -186,6 +197,84 @@ const ClientConfig = () => {
   const handleDelete = () => {
     alert("Funkcja usuwania klienta będzie dodana później (TODO).");
   };
+
+  // ------------------------------
+// OSOBY KONTAKTOWE — HANDLERY
+// ------------------------------
+
+  const handleAddContact = async () => {
+    if (!form.id) return;
+
+    try {
+      const created = await addClientContact({
+        client_id: form.id,
+        full_name: "",
+        position: "",
+        phone: "",
+        email: "",
+        notes: "",
+      });
+
+      setContacts((prev) => [...prev, created]);
+    } catch (e: any) {
+      console.error("Błąd dodawania kontaktu klienta", e);
+      alert(e?.message || "Nie udało się dodać kontaktu.");
+    }
+  };
+
+  type ContactField =
+      | "full_name"
+      | "position"
+      | "phone"
+      | "email"
+      | "notes";
+
+  const handleContactFieldChange = async (
+      index: number,
+      field: ContactField,
+      value: string
+  ) => {
+    const row = contacts[index];
+    if (!row) return;
+
+    // lokalna zmiana
+    setContacts((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+
+    if (!row.id) return; // teoretycznie nie powinno się zdarzyć
+
+    try {
+      await updateClientContact({
+        id: row.id,
+        full_name: field === "full_name" ? value : row.full_name,
+        position: field === "position" ? value : row.position,
+        phone: field === "phone" ? value : row.phone,
+        email: field === "email" ? value : row.email,
+        notes: field === "notes" ? value : row.notes,
+      });
+    } catch (e) {
+      console.error("Błąd auto-zapisu kontaktu klienta", e);
+    }
+  };
+
+  const handleDeleteContact = async (index: number) => {
+    const row = contacts[index];
+    if (!row) return;
+
+    if (!confirm("Czy na pewno chcesz usunąć tę osobę kontaktową?")) return;
+
+    try {
+      await deleteClientContact(row.id);
+      setContacts((prev) => prev.filter((_, i) => i !== index));
+    } catch (e: any) {
+      console.error("Błąd usuwania kontaktu klienta", e);
+      alert(e?.message || "Nie udało się usunąć kontaktu.");
+    }
+  };
+
 
   // ------------------------------
   // ODDZIAŁY KLIENTA — HANDLERY
@@ -261,29 +350,40 @@ const ClientConfig = () => {
 
   const handleClientDepartmentFieldChange = async (
       index: number,
-      field: "custom_name" | "custom_short_name",
+      field:
+          | "custom_name"
+          | "custom_short_name"
+          | "city"
+          | "postal_code"
+          | "street"
+          | "building_number",
       value: string
   ) => {
     const row = clientDepartments[index];
     if (!row) return;
 
-    // lokalna zmiana
+    let updatedRow: ClientDepartment | null = null;
+
+    // lokalna zmiana + zapamiętanie pełnego, zaktualizowanego rekordu
     setClientDepartmentsState((prev) => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: value };
+      updatedRow = { ...copy[index], [field]: value };
+      copy[index] = updatedRow;
       return copy;
     });
 
-    // jeśli zapisany w bazie → auto-save
-    if (row.id !== null) {
+    // jeśli rekord jest zapisany w bazie → auto-save
+    if (row.id !== null && updatedRow) {
       try {
         await updateClientDepartment({
-          id: row.id,
-          department_id: row.department_id || 0,
-          custom_name:
-              field === "custom_name" ? value : row.custom_name,
-          custom_short_name:
-              field === "custom_short_name" ? value : row.custom_short_name,
+          id: updatedRow.id!,                              // na pewno jest
+          department_id: updatedRow.department_id || 0,
+          custom_name: updatedRow.custom_name || "",
+          custom_short_name: updatedRow.custom_short_name || "",
+          city: updatedRow.city || "",
+          postal_code: updatedRow.postal_code || "",
+          street: updatedRow.street || "",
+          building_number: updatedRow.building_number || "",
         });
       } catch (e: any) {
         console.error("Błąd auto-zapisu oddziału klienta", e);
@@ -667,6 +767,159 @@ const ClientConfig = () => {
           </div>
         </Card>
 
+        {/* SECTION A.1 — Osoby kontaktowe */}
+        {!isNew && (
+            <Card className="mb-6">
+              <div className="border-b p-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Osoby kontaktowe
+                </h2>
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleAddContact}
+                >
+                  <Plus className="h-4 w-4" />
+                  Dodaj osobę
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Imię i nazwisko
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Stanowisko
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Telefon
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      E-mail
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Dodatkowe informacje
+                    </th>
+                    <th className="px-6 py-3 text-right font-medium text-foreground">
+                      Akcje
+                    </th>
+                  </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                  {contacts.length === 0 && (
+                      <tr>
+                        <td
+                            colSpan={6}
+                            className="px-6 py-4 text-sm text-muted-foreground"
+                        >
+                          Brak zdefiniowanych osób kontaktowych. Użyj przycisku
+                          „Dodaj osobę”.
+                        </td>
+                      </tr>
+                  )}
+
+                  {contacts.map((row, index) => (
+                      <tr
+                          key={row.id}
+                          className="hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.full_name ?? ""}
+                              onChange={(e) =>
+                                  handleContactFieldChange(
+                                      index,
+                                      "full_name",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Imię i nazwisko"
+                          />
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.position ?? ""}
+                              onChange={(e) =>
+                                  handleContactFieldChange(
+                                      index,
+                                      "position",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Stanowisko"
+                          />
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.phone ?? ""}
+                              onChange={(e) =>
+                                  handleContactFieldChange(
+                                      index,
+                                      "phone",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Numer telefonu"
+                          />
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <Input
+                              type="email"
+                              value={row.email ?? ""}
+                              onChange={(e) =>
+                                  handleContactFieldChange(
+                                      index,
+                                      "email",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="adres@szpital.pl"
+                          />
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <Textarea
+                              rows={2}
+                              value={row.notes ?? ""}
+                              onChange={(e) =>
+                                  handleContactFieldChange(
+                                      index,
+                                      "notes",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Dodatkowe informacje (godziny kontaktu, zakres odpowiedzialności...)"
+                          />
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                          <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-2 text-destructive"
+                              onClick={() => handleDeleteContact(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Usuń
+                          </Button>
+                        </td>
+                      </tr>
+                  ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+        )}
+
+
         {/* SECTION B — Kontrakty klienta */}
         {!isNew && (
             <Card className="mb-6">
@@ -746,42 +999,34 @@ const ClientConfig = () => {
                 <table className="w-full text-sm">
                   <thead className="border-b bg-muted/50">
                   <tr>
-                    <th className="px-6 py-3 text-left font-medium text-foreground">
-                      Oddział (globalny)
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-foreground">
-                      Nazwa własna
-                    </th>
-                    <th className="px-6 py-3 text-left font-medium text-foreground">
-                      Skrót własny
-                    </th>
-                    <th className="px-6 py-3 text-right font-medium text-foreground">
-                      Akcje
-                    </th>
+                    <th className="px-6 py-3 text-left font-medium">Oddział (globalny)</th>
+                    <th className="px-6 py-3 text-left font-medium">Nazwa własna</th>
+                    <th className="px-6 py-3 text-left font-medium">Skrót własny</th>
+
+                    <th className="px-6 py-3 text-left font-medium">Miasto</th>
+                    <th className="px-6 py-3 text-left font-medium">Kod pocztowy</th>
+                    <th className="px-6 py-3 text-left font-medium">Ulica</th>
+                    <th className="px-6 py-3 text-left font-medium">Nr</th>
+
+                    <th className="px-6 py-3 text-right font-medium">Akcje</th>
                   </tr>
                   </thead>
+
                   <tbody className="divide-y">
                   {clientDepartments.length === 0 && (
                       <tr>
-                        <td
-                            colSpan={4}
-                            className="px-6 py-4 text-sm text-muted-foreground"
-                        >
+                        <td colSpan={8} className="px-6 py-4 text-sm text-muted-foreground">
                           Brak przypisanych oddziałów. Użyj przycisku „Dodaj oddział”.
                         </td>
                       </tr>
                   )}
 
                   {clientDepartments.map((row, index) => (
-                      <tr
-                          key={row.id ?? `temp-${index}`}
-                          className="hover:bg-muted/30 transition-colors"
-                      >
+                      <tr key={row.id ?? `temp-${index}`} className="hover:bg-muted/30">
+                        {/* Globalny oddział */}
                         <td className="px-6 py-4">
                           <Select
-                              value={
-                                row.department_id ? String(row.department_id) : ""
-                              }
+                              value={row.department_id ? String(row.department_id) : ""}
                               onValueChange={(val) =>
                                   handleClientDepartmentDepartmentChange(
                                       row.id,
@@ -803,6 +1048,7 @@ const ClientConfig = () => {
                           </Select>
                         </td>
 
+                        {/* Nazwa własna */}
                         <td className="px-6 py-4">
                           <Input
                               value={row.custom_name ?? ""}
@@ -817,6 +1063,7 @@ const ClientConfig = () => {
                           />
                         </td>
 
+                        {/* Skrót własny */}
                         <td className="px-6 py-4">
                           <Input
                               value={row.custom_short_name ?? ""}
@@ -828,10 +1075,70 @@ const ClientConfig = () => {
                                   )
                               }
                               placeholder="Opcjonalny skrót"
-                              className="max-w-[180px]"
                           />
                         </td>
 
+                        {/* Miasto */}
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.city ?? ""}
+                              onChange={(e) =>
+                                  handleClientDepartmentFieldChange(
+                                      index,
+                                      "city",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Miasto"
+                          />
+                        </td>
+
+                        {/* Kod pocztowy */}
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.postal_code ?? ""}
+                              onChange={(e) =>
+                                  handleClientDepartmentFieldChange(
+                                      index,
+                                      "postal_code",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="00-000"
+                          />
+                        </td>
+
+                        {/* Ulica */}
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.street ?? ""}
+                              onChange={(e) =>
+                                  handleClientDepartmentFieldChange(
+                                      index,
+                                      "street",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Ulica"
+                          />
+                        </td>
+
+                        {/* Nr budynku */}
+                        <td className="px-6 py-4">
+                          <Input
+                              value={row.building_number ?? ""}
+                              onChange={(e) =>
+                                  handleClientDepartmentFieldChange(
+                                      index,
+                                      "building_number",
+                                      e.target.value
+                                  )
+                              }
+                              placeholder="Nr"
+                          />
+                        </td>
+
+                        {/* Usuwanie */}
                         <td className="px-6 py-4 text-right">
                           <Button
                               variant="ghost"
@@ -850,6 +1157,7 @@ const ClientConfig = () => {
               </div>
             </Card>
         )}
+
 
         {/* SECTION D — Diety klienta */}
         {!isNew && (

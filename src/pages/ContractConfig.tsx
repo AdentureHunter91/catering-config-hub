@@ -47,16 +47,22 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 
-import { getContractMealTypes, updateContractMealType } from "@/api/contractMealTypes";
+import {
+  getContractMealTypes,
+  updateContractMealType,
+} from "@/api/contractMealTypes";
 
-// tymczasowy mock dla sekcji meal types – do podpięcia pod bazę w 2 kroku
-const mealTypes = [
-  { name: "Śniadanie", shortName: "ŚN", sortOrder: 1, cutoff: "06:00", offset: "0", active: true },
-  { name: "II Śniadanie", shortName: "IIŚ", sortOrder: 2, cutoff: "09:00", offset: "0", active: true },
-  { name: "Obiad", shortName: "OB", sortOrder: 3, cutoff: "11:00", offset: "-1", active: true },
-  { name: "Podwieczorek", shortName: "POD", sortOrder: 4, cutoff: "14:00", offset: "0", active: true },
-  { name: "Kolacja", shortName: "KOL", sortOrder: 5, cutoff: "17:00", offset: "0", active: true },
-];
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown } from "lucide-react";
+
+import {
+  getContractDietMealTypes,
+  updateContractDietMealType,
+} from "@/api/contractDietMealTypes";
+
+// --- TYPY DANYCH ---
 
 type ContractForm = {
   id: number;
@@ -73,6 +79,7 @@ type ClientOption = {
   id: number;
   short_name: string;
   full_name: string;
+  total_beds?: number;
 };
 
 type KitchenPeriod = {
@@ -124,6 +131,36 @@ type ContractMealTypeRow = {
   copy_from_client_meal_type_id: number | null;
 };
 
+// --- TYPY DOT. CEN ---
+
+type PriceColumn = {
+  id: string;
+  label: string;
+  department_ids: number[]; // max 1 element – jeden oddział na kolumnę
+};
+
+type PriceRule = {
+  id: string;
+  name: string;
+  mealTypeIds: number[];   // puste = wszystkie posiłki
+  dietIds: number[];       // puste = wszystkie diety
+  departmentIds: number[]; // puste = wszystkie oddziały
+  amount: number;          // rabat/dopłata (może być ujemny)
+  valid_from: string | null;
+  valid_to: string | null;
+};
+
+// --- Typ powiązań dieta - posiłek
+
+type ContractDietMealTypeLink = {
+  contract_id: number;
+  client_diet_id: number;
+  client_meal_type_id: number;
+  is_active: number; // 0/1
+  // valid_from?: string | null; // future
+  // valid_to?: string | null;   // future
+};
+
 const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -142,14 +179,56 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [kitchenPeriods, setKitchenPeriods] = useState<KitchenPeriod[]>([]);
-  const [contractDepartments, setContractDepartments] = useState<ContractDepartmentRow[]>([]);
+  const [contractDepartments, setContractDepartments] = useState<
+      ContractDepartmentRow[]
+  >([]);
   const [contractDiets, setContractDiets] = useState<ContractDietRow[]>([]);
-  const [contractMealTypes, setContractMealTypes] = useState<ContractMealTypeRow[]>([]);
-
+  const [contractMealTypes, setContractMealTypes] = useState<
+      ContractMealTypeRow[]
+  >([]);
+  const [dietMealLinks, setDietMealLinks] = useState<ContractDietMealTypeLink[]>([]);
 
   const [loading, setLoading] = useState<boolean>(!isNew);
 
-  // lista klientów
+  // --- STANY DOT. CEN ---
+
+  const [priceViewMode, setPriceViewMode] = useState<"basic" | "detailed">(
+      "basic"
+  );
+
+  const [priceColumns, setPriceColumns] = useState<PriceColumn[]>([]);
+
+  useEffect(() => {
+    if (contractDepartments.length === 0) return;
+
+    const deps = contractDepartments
+        .filter(d => d.is_active === 1)
+        .map(d => d.client_department_id);
+
+    setPriceColumns([
+      {
+        id: "col_1",
+        label: "Wszystkie oddziały",
+        department_ids: deps,
+      },
+    ]);
+  }, [contractDepartments]);
+
+
+  // basePrices[mealTypeId][columnId] = number | ""
+  const [basePrices, setBasePrices] = useState<
+      Record<number, Record<string, number | "">>
+  >({});
+
+  // dietPrices[mealTypeId][dietId][columnId] = number | ""
+  const [dietPrices, setDietPrices] = useState<
+      Record<number, Record<number, Record<string, number | "">>>
+  >({});
+
+  const [priceRules, setPriceRules] = useState<PriceRule[]>([]);
+
+  // --- POBRANIE LISTY KLIENTÓW ---
+
   useEffect(() => {
     getClientsList()
         .then((list) => setClients(list ?? []))
@@ -159,7 +238,8 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         });
   }, []);
 
-  // tryb NOWY
+  // --- TRYB NOWY ---
+
   useEffect(() => {
     if (isNew) {
       setForm({
@@ -170,12 +250,14 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         end_date: "",
         contract_value: "",
         status: "active",
+        contract_beds: null,
       });
       setLoading(false);
     }
   }, [isNew]);
 
-  // tryb EDYCJI
+  // --- TRYB EDYCJI ---
+
   useEffect(() => {
     if (isNew || !id) return;
 
@@ -188,30 +270,47 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
       getContractDepartments(Number(id)),
       getContractDiets(Number(id)),
       getContractMealTypes(Number(id)),
+      getContractDietMealTypes(Number(id)), // ⬅️ NOWE
     ])
-        .then(([contractData, kitchensList, periodsList, depList, dietList, mealTypeList]) => {
-          setForm({
-            id: contractData.id,
-            client_id: contractData.client_id,
-            contract_number: contractData.contract_number ?? "",
-            start_date: contractData.start_date ?? "",
-            end_date: contractData.end_date ?? "",
-            contract_value: contractData.contract_value ?? "",
-            status: (contractData.status as "active" | "planned" | "expired") ?? "active",
-            contract_beds: contractData.contract_beds ?? null,
-          });
+        .then(
+            ([
+               contractData,
+               kitchensList,
+               periodsList,
+               depList,
+               dietList,
+               mealTypeList,
+               dietMealMatrix, // ⬅️ NOWE
+             ]) => {
+              setForm({
+                id: contractData.id,
+                client_id: contractData.client_id,
+                contract_number: contractData.contract_number ?? "",
+                start_date: contractData.start_date ?? "",
+                end_date: contractData.end_date ?? "",
+                contract_value: contractData.contract_value ?? "",
+                status:
+                    (contractData.status as "active" | "planned" | "expired") ??
+                    "active",
+                contract_beds: contractData.contract_beds ?? null,
+              });
 
-          setKitchens(kitchensList ?? []);
-          setKitchenPeriods(periodsList ?? []);
-          setContractDepartments(depList ?? []);
-          setContractDiets(dietList ?? []);
-          setContractMealTypes(mealTypeList.data ?? []);
-        })
+              setKitchens(kitchensList ?? []);
+              setKitchenPeriods(periodsList ?? []);
+              setContractDepartments(depList ?? []);
+              setContractDiets(dietList ?? []);
+              setContractMealTypes(mealTypeList.data ?? []);
+
+              setDietMealLinks(dietMealMatrix ?? []); // ⬅️ NOWE
+            }
+        )
         .catch((err) => {
           console.error("Błąd ładowania szczegółów kontraktu", err);
         })
         .finally(() => setLoading(false));
   }, [id, isNew]);
+
+  // --- HANDLERY FORMULARZA KONTRAKTU ---
 
   const handleChange = (field: keyof ContractForm, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -225,7 +324,8 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
     navigate("/kontrakty");
   };
 
-  // okresy obsługi
+  // --- OKRESY OBSŁUGI ---
+
   const handleAddPeriod = async () => {
     const contractId = form.id;
     if (!contractId || !kitchens.length) return;
@@ -298,6 +398,8 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
     );
   }
 
+  // --- AKTUALIZACJA POLA MEAL TYPE ---
+
   const updateContractMealTypeField = async (
       mt: ContractMealTypeRow,
       field: keyof ContractMealTypeRow,
@@ -321,6 +423,155 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
     });
   };
 
+  // --- LOGIKA CEN: DODANIE KOLUMNY ---
+
+  const handleAddPriceColumn = () => {
+    const id = "col_" + Math.random().toString(36).slice(2);
+    setPriceColumns((prev) => [
+      ...prev,
+      {
+        id,
+        label: "Oddział – wybierz",
+        department_ids: [],
+      },
+    ]);
+  };
+
+  // --- LOGIKA CEN: ZMIANA ODDZIAŁU W KOLUMNIE (BEZ NAKŁADANIA) ---
+
+  const handleUpdatePriceColumnDepartment = () => {};
+
+
+  const handleRemovePriceColumn = (columnId: string) => {
+    setPriceColumns((prev) => {
+      if (prev.length <= 1) return prev; // zawsze musi zostać minimum jedna kolumna
+      return prev.filter((c) => c.id !== columnId);
+    });
+  };
+
+  // --- LOGIKA CEN: ZAPIS (na razie tylko console.log) ---
+
+  const handleSavePrices = () => {
+    console.log("Zapis cen – TODO backend", {
+      mode: priceViewMode,
+      priceColumns,
+      basePrices,
+      dietPrices,
+      priceRules,
+    });
+  };
+
+  // --- TOGGLE DEPARTMENT ---
+  const toggleDepartment = (columnId: string, deptId: number) => {
+    setPriceColumns((prev) => {
+      let cols = [...prev];
+
+      // 1. usuń dept ze wszystkich kolumn
+      cols = cols.map((c) => ({
+        ...c,
+        department_ids: c.department_ids.filter((id) => id !== deptId),
+      }));
+
+      // 2. dodaj dept tylko do tej właściwej kolumny
+      cols = cols.map((c) =>
+          c.id === columnId
+              ? { ...c, department_ids: [...c.department_ids, deptId] }
+              : c
+      );
+
+      return cols;
+    });
+  };
+
+
+  // --- ZAPIS POJEDYNCZEJ REGUŁY (placeholder) ---
+
+  const handleSavePriceRule = (rule: PriceRule) => {
+    console.log("Zapis reguły cenowej – TODO backend", rule);
+  };
+
+  // --- POMOCNICZE: sprawdzenie czy są niewycenione oddziały ---
+
+  const uncoveredDepartments = (() => {
+    const activeIds = contractDepartments
+        .filter((d) => d.is_active === 1)
+        .map((d) => d.client_department_id);
+    const covered = priceColumns.flatMap((c) => c.department_ids);
+    return activeIds.filter((id) => !covered.includes(id));
+  })();
+
+  const activeDiets = contractDiets; // na razie wszystkie
+
+  // wszystkie aktywne oddziały
+  const activeDepartments = contractDepartments
+      .filter((d) => d.is_active === 1)
+      .map((d) => d.client_department_id);
+
+  // --- MATRYCA DIETA × POSIŁEK ---
+
+  const isMealEnabledForDiet = (dietId: number, mealTypeId: number): boolean => {
+    const link = dietMealLinks.find(
+        (l) =>
+            l.client_diet_id === dietId &&
+            l.client_meal_type_id === mealTypeId
+    );
+    // jeśli backend nie zwrócił rekordu – traktujemy jak ON (domyślnie wszystko włączone)
+    if (!link) return false;
+    return link.is_active === 1;
+  };
+
+  const handleToggleDietMeal = async (
+      dietId: number,
+      mealTypeId: number,
+      checked: boolean
+  ) => {
+    if (!form.id) return;
+
+    const newVal = checked ? 1 : 0;
+
+    // optymistyczny update w stanie
+    setDietMealLinks((prev) => {
+      const exists = prev.find(
+          (l) =>
+              l.client_diet_id === dietId &&
+              l.client_meal_type_id === mealTypeId
+      );
+
+      if (exists) {
+        return prev.map((l) =>
+            l.client_diet_id === dietId &&
+            l.client_meal_type_id === mealTypeId
+                ? { ...l, is_active: newVal }
+                : l
+        );
+      }
+
+      // brak rekordu -> dodajemy
+      return [
+        ...prev,
+        {
+          contract_id: form.id,
+          client_diet_id: dietId,
+          client_meal_type_id: mealTypeId,
+          is_active: newVal,
+        },
+      ];
+    });
+
+    try {
+      await updateContractDietMealType({
+        contract_id: form.id,
+        client_diet_id: dietId,
+        client_meal_type_id: mealTypeId,
+        is_active: newVal,
+      });
+    } catch (e) {
+      console.error("Błąd zapisu powiązania dieta–posiłek", e);
+      // TODO: opcjonalnie rollback, toast
+    }
+  };
+
+
   return (
       <Layout pageKey="config.contracts">
         <Breadcrumb
@@ -343,7 +594,9 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         {/* A – Dane kontraktu */}
         <Card className="mb-6">
           <div className="border-b p-4">
-            <h2 className="text-lg font-semibold text-foreground">Dane kontraktu</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Dane kontraktu
+            </h2>
           </div>
           <div className="p-6">
             <div className="grid gap-6 md:grid-cols-2">
@@ -352,7 +605,9 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                 <Input
                     id="contract-number"
                     value={form.contract_number}
-                    onChange={(e) => handleChange("contract_number", e.target.value)}
+                    onChange={(e) =>
+                        handleChange("contract_number", e.target.value)
+                    }
                 />
               </div>
 
@@ -400,7 +655,10 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                 <Select
                     value={form.status}
                     onValueChange={(val) =>
-                        handleChange("status", val as "active" | "planned" | "expired")
+                        handleChange(
+                            "status",
+                            val as "active" | "planned" | "expired"
+                        )
                     }
                 >
                   <SelectTrigger id="status">
@@ -420,19 +678,26 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                     id="contract-value"
                     type="number"
                     value={form.contract_value ?? ""}
-                    onChange={(e) => handleChange("contract_value", e.target.value)}
+                    onChange={(e) =>
+                        handleChange("contract_value", e.target.value)
+                    }
                 />
               </div>
 
               {/* Liczba miejsc wg kontraktu */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="contract-beds">Liczba miejsc (w kontrakcie)</Label>
+                  <Label htmlFor="contract-beds">
+                    Liczba miejsc (w kontrakcie)
+                  </Label>
 
-                  {/* Badge z konfiguracji klienta */}
                   {form.client_id && (
                       <Badge variant="secondary" className="text-xs">
-                        wg konfiguracji klienta: {clients.find(c => c.id === Number(form.client_id))?.total_beds ?? "—"}
+                        wg konfiguracji klienta:{" "}
+                        {
+                            clients.find((c) => c.id === Number(form.client_id))
+                                ?.total_beds ?? "—"
+                        }
                       </Badge>
                   )}
                 </div>
@@ -443,13 +708,14 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                     placeholder="np. 180"
                     value={form.contract_beds ?? ""}
                     onChange={(e) =>
-                        handleChange("contract_beds", e.target.value ? Number(e.target.value) : null)
+                        handleChange(
+                            "contract_beds",
+                            e.target.value ? Number(e.target.value) : null
+                        )
                     }
                 />
               </div>
-
             </div>
-
 
             <div className="mt-6">
               <Button className="gap-2" onClick={handleSave}>
@@ -502,12 +768,19 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                   </thead>
                   <tbody className="divide-y">
                   {kitchenPeriods.map((period) => (
-                      <tr key={period.id} className="hover:bg-muted/30 transition-colors">
+                      <tr
+                          key={period.id}
+                          className="hover:bg-muted/30 transition-colors"
+                      >
                         <td className="px-6 py-4">
                           <Select
                               value={String(period.kitchen_id)}
                               onValueChange={(val) =>
-                                  handlePeriodFieldChange(period.id, "kitchen_id", Number(val))
+                                  handlePeriodFieldChange(
+                                      period.id,
+                                      "kitchen_id",
+                                      Number(val)
+                                  )
                               }
                           >
                             <SelectTrigger className="max-w-[250px]">
@@ -528,7 +801,11 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                               value={period.start_date ?? ""}
                               className="max-w-[160px]"
                               onChange={(e) =>
-                                  handlePeriodFieldChange(period.id, "start_date", e.target.value)
+                                  handlePeriodFieldChange(
+                                      period.id,
+                                      "start_date",
+                                      e.target.value
+                                  )
                               }
                           />
                         </td>
@@ -574,7 +851,6 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                 Oddziały w ramach kontraktu
               </h2>
 
-              {/* Tooltip */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -614,18 +890,15 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                       key={dept.client_department_id}
                       className="hover:bg-muted/30 transition-colors"
                   >
-                    {/* Nazwa + custom */}
                     <td className="px-6 py-4 font-medium">
                       {dept.name}
                       {dept.custom_name ? ` (${dept.custom_name})` : ""}
                     </td>
 
-                    {/* Skrót + custom */}
                     <td className="px-6 py-4">
                       {dept.custom_short_name || dept.short_name}
                     </td>
 
-                    {/* Switch */}
                     <td className="px-6 py-4 text-center">
                       <Switch
                           checked={dept.is_active === 1}
@@ -640,13 +913,17 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
                               setContractDepartments((prev) =>
                                   prev.map((d) =>
-                                      d.client_department_id === dept.client_department_id
+                                      d.client_department_id ===
+                                      dept.client_department_id
                                           ? { ...d, is_active: newVal }
                                           : d
                                   )
                               );
                             } catch (e) {
-                              console.error("Błąd zapisu oddziału w kontrakcie", e);
+                              console.error(
+                                  "Błąd zapisu oddziału w kontrakcie",
+                                  e
+                              );
                             }
                           }}
                       />
@@ -657,7 +934,6 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
             </table>
           </div>
         </Card>
-
 
         {/* D – Diety w ramach kontraktu */}
         <Card className="mb-6">
@@ -703,9 +979,9 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
               <tbody className="divide-y">
               {contractDiets.map((diet) => {
                 const dietId =
-                    diet.client_diet_id ??
-                    diet.clientDietId ??
-                    diet.id ??
+                    (diet as any).client_diet_id ??
+                    (diet as any).clientDietId ??
+                    (diet as any).id ??
                     0;
 
                 return (
@@ -713,17 +989,14 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                         key={dietId}
                         className="hover:bg-muted/30 transition-colors"
                     >
-                      {/* Nazwa */}
                       <td className="px-6 py-4">
                         {diet.custom_name || diet.name}
                       </td>
 
-                      {/* Skrót */}
                       <td className="px-6 py-4 text-muted-foreground">
                         {diet.custom_short_name || diet.short_name}
                       </td>
 
-                      {/* Switch */}
                       <td className="px-6 py-4 text-center">
                         <Switch
                             checked={diet.is_active === 1}
@@ -739,13 +1012,17 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
                                 setContractDiets((prev) =>
                                     prev.map((d) =>
-                                        (d.client_diet_id ?? d.id) === dietId
+                                        ((d as any).client_diet_id ?? (d as any).id) ===
+                                        dietId
                                             ? { ...d, is_active: newVal }
                                             : d
                                     )
                                 );
                               } catch (e) {
-                                console.error("Błąd zapisu diety w kontrakcie", e);
+                                console.error(
+                                    "Błąd zapisu diety w kontrakcie",
+                                    e
+                                );
                               }
                             }}
                         />
@@ -770,48 +1047,69 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
             <table className="w-full">
               <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium">Nazwa</th>
-                <th className="px-6 py-3 text-left text-sm font-medium">Short</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Sort</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Cutoff</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Offset</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Copy from</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Aktywny</th>
+                <th className="px-6 py-3 text-left text-sm font-medium">
+                  Nazwa
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium">
+                  Short
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium">
+                  Sort
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium">
+                  Cutoff
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium">
+                  Offset
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium">
+                  Copy from
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-medium">
+                  Aktywny
+                </th>
               </tr>
               </thead>
 
               <tbody className="divide-y">
               {contractMealTypes.map((mt) => (
                   <tr key={mt.client_meal_type_id} className="hover:bg-muted/30">
-                    {/* Nazwa */}
-                    <td className="px-6 py-4">{mt.custom_name ?? mt.global_name}</td>
+                    <td className="px-6 py-4">
+                      {mt.custom_name ?? mt.global_name}
+                    </td>
 
-                    {/* Short */}
-                    <td className="px-6 py-4">{mt.custom_short_name ?? mt.global_short}</td>
+                    <td className="px-6 py-4">
+                      {mt.custom_short_name ?? mt.global_short}
+                    </td>
 
-                    {/* Sort – tylko readonly (ustawiane u klienta) */}
                     <td className="px-6 py-4 text-center">
                       {mt.custom_sort_order ?? mt.global_sort}
                     </td>
 
-                    {/* Cutoff */}
                     <td className="px-6 py-4 text-center">
                       <Input
                           className="max-w-[120px] mx-auto"
                           type="time"
                           value={mt.cutoff_time ?? "00:00"}
                           onChange={(e) =>
-                              updateContractMealTypeField(mt, "cutoff_time", e.target.value)
+                              updateContractMealTypeField(
+                                  mt,
+                                  "cutoff_time",
+                                  e.target.value
+                              )
                           }
                       />
                     </td>
 
-                    {/* Offset */}
                     <td className="px-6 py-4 text-center">
                       <Select
                           value={String(mt.cutoff_days_offset)}
                           onValueChange={(v) =>
-                              updateContractMealTypeField(mt, "cutoff_days_offset", Number(v))
+                              updateContractMealTypeField(
+                                  mt,
+                                  "cutoff_days_offset",
+                                  Number(v)
+                              )
                           }
                       >
                         <SelectTrigger className="max-w-[80px] mx-auto">
@@ -824,7 +1122,6 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                       </Select>
                     </td>
 
-                    {/* Copy from */}
                     <td className="px-6 py-4 text-center">
                       <Select
                           value={
@@ -847,7 +1144,11 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                         <SelectContent>
                           <SelectItem value="none">Brak</SelectItem>
                           {contractMealTypes
-                              .filter((x) => x.client_meal_type_id !== mt.client_meal_type_id)
+                              .filter(
+                                  (x) =>
+                                      x.client_meal_type_id !==
+                                      mt.client_meal_type_id
+                              )
                               .map((x) => (
                                   <SelectItem
                                       key={x.client_meal_type_id}
@@ -860,13 +1161,15 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                       </Select>
                     </td>
 
-
-                    {/* Active */}
                     <td className="px-6 py-4 text-center">
                       <Switch
                           checked={mt.is_active === 1}
                           onCheckedChange={(checked) =>
-                              updateContractMealTypeField(mt, "is_active", checked ? 1 : 0)
+                              updateContractMealTypeField(
+                                  mt,
+                                  "is_active",
+                                  checked ? 1 : 0
+                              )
                           }
                       />
                     </td>
@@ -874,6 +1177,672 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
               ))}
               </tbody>
             </table>
+          </div>
+        </Card>
+
+        {/* E.1 – Posiłki dostępne w dietach (matryca) */}
+        <Card className="mb-6">
+          <div className="border-b p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-foreground">
+                Posiłki w ramach diet
+              </h2>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="cursor-help select-none">
+                      ?
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Określasz, które posiłki są dostępne
+                    dla poszczególnych diet w tym kontrakcie.
+                    <br />
+                    Tylko te kombinacje będą dostępne do wprowadzania
+                    danych w Portalu Klienta i dalszych modułach.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            {contractDiets.filter((d) => d.is_active === 1).length === 0 ||
+            contractMealTypes.filter((m) => m.is_active === 1).length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  Brak aktywnych diet lub posiłków w kontrakcie. Najpierw włącz
+                  co najmniej jedną dietę i jeden posiłek.
+                </p>
+            ) : (
+                <table className="w-full">
+                  <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-medium text-foreground">
+                      Dieta
+                    </th>
+
+                    {contractMealTypes
+                        .filter((mt) => mt.is_active === 1)
+                        .sort(
+                            (a, b) =>
+                                (a.custom_sort_order ?? a.global_sort) -
+                                (b.custom_sort_order ?? b.global_sort)
+                        )
+                        .map((mt) => (
+                            <th
+                                key={mt.client_meal_type_id}
+                                className="px-6 py-3 text-center text-sm font-medium text-foreground"
+                            >
+                              {mt.custom_name ?? mt.global_name}
+                            </th>
+                        ))}
+                  </tr>
+                  </thead>
+
+                  <tbody className="divide-y">
+                  {contractDiets
+                      .filter((d) => d.is_active === 1)
+                      .map((diet) => {
+                        const dietId =
+                            (diet as any).client_diet_id ??
+                            (diet as any).clientDietId ??
+                            (diet as any).id ??
+                            0;
+
+                        return (
+                            <tr
+                                key={dietId}
+                                className="hover:bg-muted/30 transition-colors"
+                            >
+                              <td className="px-6 py-4 font-medium">
+                                {diet.custom_name || diet.name}
+                                {diet.custom_short_name || diet.short_name ? (
+                                    <span className="ml-2 text-xs text-muted-foreground">
+                                (
+                                      {diet.custom_short_name || diet.short_name}
+                                      )
+                              </span>
+                                ) : null}
+                              </td>
+
+                              {contractMealTypes
+                                  .filter((mt) => mt.is_active === 1)
+                                  .sort(
+                                      (a, b) =>
+                                          (a.custom_sort_order ?? a.global_sort) -
+                                          (b.custom_sort_order ?? b.global_sort)
+                                  )
+                                  .map((mt) => (
+                                      <td
+                                          key={mt.client_meal_type_id}
+                                          className="px-6 py-4 text-center"
+                                      >
+                                        <Switch
+                                            checked={isMealEnabledForDiet(
+                                                dietId,
+                                                mt.client_meal_type_id
+                                            )}
+                                            onCheckedChange={(checked) =>
+                                                handleToggleDietMeal(
+                                                    dietId,
+                                                    mt.client_meal_type_id,
+                                                    checked
+                                                )
+                                            }
+                                        />
+                                      </td>
+                                  ))}
+                            </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+            )}
+          </div>
+        </Card>
+
+
+        {/* F – Ceny posiłków */}
+        <Card className="mb-6">
+          <div className="border-b p-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Ceny posiłków
+            </h2>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* przełącznik rozliczania */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">Rozliczanie podstawowe</span>
+
+              <Switch
+                  checked={priceViewMode === "detailed"}
+                  onCheckedChange={(val) =>
+                      setPriceViewMode(val ? "detailed" : "basic")
+                  }
+              />
+
+              <span className="text-sm font-medium">
+              Rozliczanie szczegółowe (per dieta)
+            </span>
+            </div>
+
+            {uncoveredDepartments.length > 0 && (
+                <p className="text-xs text-amber-600">
+                  Uwaga: część aktywnych oddziałów nie ma przypisanej kolumny
+                  cenowej.
+                </p>
+            )}
+
+            {/* kolumny cen */}
+            <div className="flex items-center justify-between mt-4 mb-2">
+              <h3 className="font-medium text-sm">Kolumny cen</h3>
+
+              <Button variant="outline" size="sm" onClick={handleAddPriceColumn}>
+                <Plus className="h-4 w-4 mr-1" />
+                Dodaj kolumnę
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">
+                    Posiłek / Dieta
+                  </th>
+
+                  {priceColumns.map((col) => {
+                    const usedInOther = priceColumns
+                        .filter((c) => c.id !== col.id)
+                        .flatMap((c) => c.department_ids);
+
+                    return (
+                        <th
+                            key={col.id}
+                            className="px-4 py-3 text-center font-medium min-w-[190px]"
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                          <span className="text-xs text-foreground/70">
+                            {col.department_ids.length === 0
+                                ? "Brak"
+                                : col.department_ids.length === activeDepartments.length
+                                    ? "Wszystkie oddziały"
+                                    : contractDepartments
+                                        .filter((d) => col.department_ids.includes(d.client_department_id))
+                                        .map((d) => d.name)
+                                        .join(", ")}
+                          </span>
+
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-[160px] justify-between"
+                                >
+                                  {col.department_ids.length === activeDepartments.length
+                                      ? "Wszystkie oddziały"
+                                      : col.department_ids.length === 0
+                                          ? "Brak"
+                                          : `${col.department_ids.length} wybrane`}
+
+                                  <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+
+                              <PopoverContent className="p-0 w-[220px]">
+                                <Command>
+                                  <CommandList>
+                                    <CommandGroup>
+                                      {contractDepartments
+                                          .filter((d) => d.is_active === 1)
+                                          .map((d) => {
+                                            const id = d.client_department_id;
+                                            const checked = col.department_ids.includes(id);
+
+                                            return (
+                                                <CommandItem
+                                                    key={id}
+                                                    onSelect={() => toggleDepartment(col.id, id)}
+                                                    className="flex items-center gap-2 cursor-pointer"
+                                                >
+                                                  <Checkbox checked={checked} />
+                                                  {d.name}
+                                                </CommandItem>
+                                            );
+                                          })}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+
+
+
+                            {priceColumns.length > 1 && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-destructive h-6 px-2 text-xs"
+                                    onClick={() => handleRemovePriceColumn(col.id)}
+                                >
+                                  Usuń
+                                </Button>
+                            )}
+                          </div>
+                        </th>
+                    );
+                  })}
+                </tr>
+                </thead>
+
+                {/* PODSTAWOWY */}
+                {priceViewMode === "basic" && (
+                    <tbody className="divide-y">
+                    {contractMealTypes.map((mt) => (
+                        <tr
+                            key={mt.client_meal_type_id}
+                            className="hover:bg-muted/30"
+                        >
+                          <td className="px-4 py-3 font-medium">
+                            {mt.custom_name ?? mt.global_name}
+                          </td>
+
+                          {priceColumns.map((col) => {
+                            const price =
+                                basePrices?.[mt.client_meal_type_id]?.[col.id] ?? "";
+
+                            return (
+                                <td
+                                    key={col.id}
+                                    className="px-4 py-3 text-center"
+                                >
+                                  <Input
+                                      type="number"
+                                      step="0.01"
+                                      className="w-[120px] mx-auto"
+                                      value={price}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setBasePrices((prev) => ({
+                                          ...prev,
+                                          [mt.client_meal_type_id]: {
+                                            ...(prev[mt.client_meal_type_id] || {}),
+                                            [col.id]:
+                                                val === "" ? "" : Number(val),
+                                          },
+                                        }));
+                                      }}
+                                  />
+                                </td>
+                            );
+                          })}
+                        </tr>
+                    ))}
+                    </tbody>
+                )}
+
+                {/* SZCZEGÓŁOWY (DIETY) */}
+                {priceViewMode === "detailed" && (
+                    <tbody className="divide-y">
+                    {contractMealTypes.map((mt) =>
+                        activeDiets
+                            .filter((d) => d.is_active === 1)
+                            .map((diet) => {
+                              const dietId = diet.client_diet_id;
+
+                              return (
+                                  <tr
+                                      key={mt.client_meal_type_id + "_" + dietId}
+                                      className="hover:bg-muted/30"
+                                  >
+                                    <td className="px-4 py-3 font-medium">
+                                      {mt.custom_name ?? mt.global_name}
+                                      {" • "}
+                                      <span className="text-muted-foreground">
+                                {diet.custom_name ?? diet.name}
+                              </span>
+                                    </td>
+
+                                    {priceColumns.map((col) => {
+                                      const price =
+                                          dietPrices?.[mt.client_meal_type_id]?.[
+                                              dietId
+                                              ]?.[col.id] ?? "";
+
+                                      return (
+                                          <td
+                                              key={col.id}
+                                              className="px-4 py-3 text-center"
+                                          >
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                className="w-[120px] mx-auto"
+                                                value={price}
+                                                onChange={(e) => {
+                                                  const val = e.target.value;
+
+                                                  setDietPrices((prev) => ({
+                                                    ...prev,
+                                                    [mt.client_meal_type_id]: {
+                                                      ...(prev[mt.client_meal_type_id] ||
+                                                          {}),
+                                                      [dietId]: {
+                                                        ...(prev[mt.client_meal_type_id]?.[
+                                                            dietId
+                                                            ] || {}),
+                                                        [col.id]:
+                                                            val === ""
+                                                                ? ""
+                                                                : Number(val),
+                                                      },
+                                                    },
+                                                  }));
+                                                }}
+                                            />
+                                          </td>
+                                      );
+                                    })}
+                                  </tr>
+                              );
+                            })
+                    )}
+                    </tbody>
+                )}
+              </table>
+            </div>
+
+            {/* ZAPISZ CENY */}
+            <div className="flex justify-end mt-6">
+              <Button className="gap-2" onClick={handleSavePrices}>
+                <Save className="h-4 w-4" />
+                Zapisz ceny
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* G – Reguły cenowe */}
+        <Card className="mb-6">
+          <div className="border-b p-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Reguły cenowe
+            </h2>
+
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const id = "rule_" + Math.random().toString(36).slice(2);
+                  setPriceRules((prev) => [
+                    ...prev,
+                    {
+                      id,
+                      name: "Nowa reguła",
+                      mealTypeIds: [],
+                      dietIds: [],
+                      departmentIds: [],
+                      amount: 0,
+                      valid_from: null,
+                      valid_to: null,
+                    },
+                  ]);
+                }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Dodaj regułę
+            </Button>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {priceRules.length === 0 && (
+                <p className="text-muted-foreground text-sm">
+                  Brak zdefiniowanych reguł cenowych.
+                </p>
+            )}
+
+            {priceRules.map((rule) => (
+                <Card key={rule.id} className="p-4 border bg-muted/30">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="w-full space-y-3">
+                      <Input
+                          value={rule.name}
+                          className="font-medium"
+                          onChange={(e) =>
+                              setPriceRules((prev) =>
+                                  prev.map((r) =>
+                                      r.id === rule.id
+                                          ? { ...r, name: e.target.value }
+                                          : r
+                                  )
+                              )
+                          }
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Posiłki */}
+                        <div>
+                          <Label className="text-sm">Posiłek</Label>
+                          <Select
+                              value={
+                                rule.mealTypeIds.length
+                                    ? String(rule.mealTypeIds[0])
+                                    : "all"
+                              }
+                              onValueChange={(v) =>
+                                  setPriceRules((prev) =>
+                                      prev.map((r) =>
+                                          r.id === rule.id
+                                              ? {
+                                                ...r,
+                                                mealTypeIds:
+                                                    v === "all" ? [] : [Number(v)],
+                                              }
+                                              : r
+                                      )
+                                  )
+                              }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Wszystkie posiłki" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Wszystkie</SelectItem>
+                              {contractMealTypes.map((mt) => (
+                                  <SelectItem
+                                      key={mt.client_meal_type_id}
+                                      value={String(mt.client_meal_type_id)}
+                                  >
+                                    {mt.custom_name ?? mt.global_name}
+                                  </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Diety */}
+                        <div>
+                          <Label className="text-sm">Dieta</Label>
+                          <Select
+                              value={
+                                rule.dietIds.length
+                                    ? String(rule.dietIds[0])
+                                    : "all"
+                              }
+                              onValueChange={(v) =>
+                                  setPriceRules((prev) =>
+                                      prev.map((r) =>
+                                          r.id === rule.id
+                                              ? {
+                                                ...r,
+                                                dietIds:
+                                                    v === "all" ? [] : [Number(v)],
+                                              }
+                                              : r
+                                      )
+                                  )
+                              }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Wszystkie diety" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Wszystkie</SelectItem>
+                              {contractDiets.map((d) => (
+                                  <SelectItem
+                                      key={
+                                          (d as any).client_diet_id ?? (d as any).id
+                                      }
+                                      value={String(
+                                          (d as any).client_diet_id ?? (d as any).id
+                                      )}
+                                  >
+                                    {d.custom_name ?? d.name}
+                                  </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Oddziały */}
+                        <div>
+                          <Label className="text-sm">Oddział</Label>
+                          <Select
+                              value={
+                                rule.departmentIds.length
+                                    ? String(rule.departmentIds[0])
+                                    : "all"
+                              }
+                              onValueChange={(v) =>
+                                  setPriceRules((prev) =>
+                                      prev.map((r) =>
+                                          r.id === rule.id
+                                              ? {
+                                                ...r,
+                                                departmentIds:
+                                                    v === "all" ? [] : [Number(v)],
+                                              }
+                                              : r
+                                      )
+                                  )
+                              }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Wszystkie oddziały" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Wszystkie</SelectItem>
+                              {contractDepartments
+                                  .filter((d) => d.is_active === 1)
+                                  .map((d) => (
+                                      <SelectItem
+                                          key={d.client_department_id}
+                                          value={String(d.client_department_id)}
+                                      >
+                                        {d.name}
+                                      </SelectItem>
+                                  ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="mt-2">
+                        <Label className="text-sm">
+                          Kwota (rabat/dopłata) [PLN]
+                        </Label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            className="w-[180px] mt-1"
+                            value={rule.amount}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPriceRules((prev) =>
+                                  prev.map((r) =>
+                                      r.id === rule.id
+                                          ? {
+                                            ...r,
+                                            amount:
+                                                val === "" ? 0 : Number(val),
+                                          }
+                                          : r
+                                  )
+                              );
+                            }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <div>
+                          <Label className="text-sm">Obowiązuje od</Label>
+                          <Input
+                              type="date"
+                              className="mt-1"
+                              value={rule.valid_from ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value || null;
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? { ...r, valid_from: val }
+                                            : r
+                                    )
+                                );
+                              }}
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm">Obowiązuje do</Label>
+                          <Input
+                              type="date"
+                              className="mt-1"
+                              value={rule.valid_to ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value || null;
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? { ...r, valid_to: val }
+                                            : r
+                                    )
+                                );
+                              }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 items-end">
+                      <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => handleSavePriceRule(rule)}
+                      >
+                        <Save className="h-4 w-4" />
+                        Zapisz regułę
+                      </Button>
+
+                      <Button
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() =>
+                              setPriceRules((prev) =>
+                                  prev.filter((r) => r.id !== rule.id)
+                              )
+                          }
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+            ))}
           </div>
         </Card>
       </Layout>

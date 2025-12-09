@@ -17,7 +17,11 @@ $stmt = $pdo->prepare("
         d.name AS department_name,
         d.short_name AS department_short_name,
         cd.custom_name,
-        cd.custom_short_name
+        cd.custom_short_name,
+        cd.city,
+        cd.postal_code,
+        cd.street,
+        cd.building_number
     FROM client_departments cd
     JOIN departments d ON d.id = cd.department_id
     WHERE cd.client_id = ?

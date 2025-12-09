@@ -3,14 +3,20 @@ import type { Department } from "./departments";
 const API = "/Config/api/client_departments";
 
 export type ClientDepartment = {
-    id: number | null;           // null = jeszcze nie zapisany
+    id: number | null;
     client_id: number;
     department_id: number | null;
     department_name?: string;
     department_short_name?: string;
     custom_name: string;
     custom_short_name: string;
-    _temp?: boolean;             // lokalny wiersz tymczasowy
+
+    city?: string | null;
+    postal_code?: string | null;
+    street?: string | null;
+    building_number?: string | null;
+
+    _temp?: boolean;
 };
 
 export async function getClientDepartments(clientId: number): Promise<ClientDepartment[]> {
@@ -25,6 +31,10 @@ export async function addClientDepartment(payload: {
     department_id: number;
     custom_name?: string;
     custom_short_name?: string;
+    city?: string;
+    postal_code?: string;
+    street?: string;
+    building_number?: string;
 }): Promise<ClientDepartment> {
     const r = await fetch(`${API}/add.php`, {
         method: "POST",
@@ -43,6 +53,10 @@ export async function updateClientDepartment(payload: {
     department_id: number;
     custom_name?: string;
     custom_short_name?: string;
+    city?: string;
+    postal_code?: string;
+    street?: string;
+    building_number?: string;
 }): Promise<void> {
     const r = await fetch(`${API}/update.php`, {
         method: "POST",
