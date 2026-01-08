@@ -38,6 +38,8 @@ import PageAccessConfig from "./pages/PageAccessConfig";
 import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
 
+import MealsApproval from "./pages/MealsApproval";
+
 
 export default function Router() {
     return (
@@ -274,6 +276,16 @@ export default function Router() {
 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
+
+                {/* --- DIETETYKA ---*/}
+                {/* Przegląd i akceptacja posiłków */}
+                <Route
+                    path="/dietetyka/akceptacja-posilkow"
+                    element={
+                        <MealsApproval />
+                    }
+                />
+
 
             </Routes>
         </RequireLogin>

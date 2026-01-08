@@ -22,6 +22,15 @@ interface LayoutProps {
   pageKey?: string;
 }
 
+type MenuItem = {
+  label: string;
+  path: string;
+  pageKey: string;
+  icon: React.ElementType;
+  // opcjonalnie: np. edit-only, ale na razie nie używamy
+  // requiresEdit?: boolean;
+};
+
 const Layout = ({ children, pageKey }: LayoutProps) => {
   const location = useLocation();
   const { access, me } = useAccessContext();
@@ -53,48 +62,105 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
     );
   }
 
-  const readOnlyClass = !canEdit ? "opacity-60 pointer-events-none select-none" : "";
+  const readOnlyClass = !canEdit
+      ? "opacity-60 pointer-events-none select-none"
+      : "";
+
+  // ---- PODMENU (DIETETYKA) ----
+  const dietItems: MenuItem[] = [
+    {
+      label: "Zamówienia / Akceptacja",
+      path: "/dietetyka/akceptacja-posilkow",
+      pageKey: "diet.meals_approval",
+      icon: UtensilsCrossed,
+    },
+    // tu w przyszłości dopniesz kolejne:
+    // { label: "Jadłospisy", path: "/dietetyka/jadlospisy", pageKey: "diet.menus", icon: BookOpen },
+    // { label: "Diety kontraktowe", path: "/dietetyka/diety", pageKey: "diet.contract_diets", icon: BookOpen },
+  ];
 
   // ---- PODMENU (USTAWIENIA) ----
-  const settingsItems = [
-    { label: "Kontrakty", path: "/kontrakty", pageKey: "config.contracts_list", icon: FileText },
+  const settingsItems: MenuItem[] = [
+    {
+      label: "Kontrakty",
+      path: "/kontrakty",
+      pageKey: "config.contracts_list",
+      icon: FileText,
+    },
     { label: "Klienci", path: "/klienci", pageKey: "config.clients_list", icon: Users },
     { label: "Kuchnie", path: "/kuchnie", pageKey: "config.kitchens_list", icon: Building2 },
-    { label: "Oddziały", path: "/oddzialy", pageKey: "config.departments_list", icon: Building2 },
+    {
+      label: "Oddziały",
+      path: "/oddzialy",
+      pageKey: "config.departments_list",
+      icon: Building2,
+    },
     { label: "Diety", path: "/diety", pageKey: "config.diets", icon: BookOpen },
-    { label: "Typy posiłków", path: "/posilki", pageKey: "config.meal_types", icon: UtensilsCrossed },
+    {
+      label: "Typy posiłków",
+      path: "/posilki",
+      pageKey: "config.meal_types",
+      icon: UtensilsCrossed,
+    },
     { label: "Użytkownicy", path: "/uzytkownicy", pageKey: "config.users", icon: Users },
-    { label: "Role i uprawnienia", path: "/uprawnienia", pageKey: "config.permissions", icon: Shield },
-    { label: "Dostęp do stron", path: "/dostep-stron", pageKey: "config.page_access", icon: Shield },
+    {
+      label: "Role i uprawnienia",
+      path: "/uprawnienia",
+      pageKey: "config.permissions",
+      icon: Shield,
+    },
+    {
+      label: "Dostęp do stron",
+      path: "/dostep-stron",
+      pageKey: "config.page_access",
+      icon: Shield,
+    },
     { label: "Dziennik zdarzeń", path: "/audit", pageKey: "config.audit", icon: FileText },
   ];
 
   const dropdownAnimation =
       "transition-all duration-150 origin-top transform scale-95 opacity-0 data-[open=true]:scale-100 data-[open=true]:opacity-100";
 
+  const navLinkClass = (isActive: boolean) =>
+      cn(
+          "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+          isActive
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+      );
+
+  const renderDropdownItems = (items: MenuItem[]) => {
+    const visible = items.filter((i) => access[i.pageKey]?.view);
+    if (visible.length === 0) {
+      return <div className="p-2 text-muted-foreground text-xs">Brak dostępu</div>;
+    }
+
+    return visible.map((item) => (
+        <Link
+            key={item.path}
+            to={item.path}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+        </Link>
+    ));
+  };
 
   return (
       <div className="min-h-screen bg-background">
         {/* === TOP NAV === */}
         <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
           <div className="flex h-16 items-center px-6">
-
             {/* LOGO */}
-            <Link to="/dashboard" className="font-bold text-xl mr-10">CateringHub</Link>
+            <Link to="/dashboard" className="font-bold text-xl mr-10">
+              CateringHub
+            </Link>
 
             {/* === LEWE MENU === */}
             <nav className="flex gap-4 items-center" ref={menuRef}>
-
               {/* DASHBOARD */}
-              <Link
-                  to="/dashboard"
-                  className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                      location.pathname.startsWith("/dashboard")
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  )}
-              >
+              <Link to="/dashboard" className={navLinkClass(location.pathname.startsWith("/dashboard"))}>
                 <Home className="h-4 w-4" />
                 Dashboard
               </Link>
@@ -116,7 +182,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
                   isOpen={openMenu === "dietetyka"}
                   onOpen={() => setOpenMenu(openMenu === "dietetyka" ? null : "dietetyka")}
               >
-                <div className="p-2 text-muted-foreground text-xs">Wkrótce…</div>
+                {renderDropdownItems(dietItems)}
               </Dropdown>
 
               {/* USTAWIENIA */}
@@ -126,20 +192,8 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
                   isOpen={openMenu === "settings"}
                   onOpen={() => setOpenMenu(openMenu === "settings" ? null : "settings")}
               >
-                {settingsItems
-                    .filter((i) => access[i.pageKey]?.view)
-                    .map((item) => (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {item.label}
-                        </Link>
-                    ))}
+                {renderDropdownItems(settingsItems)}
               </Dropdown>
-
             </nav>
 
             {/* === PRAWA CZĘŚĆ (UŻYTKOWNIK) === */}
@@ -181,7 +235,6 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
                   </div>
               )}
             </div>
-
           </div>
         </header>
 
@@ -202,7 +255,8 @@ interface DropdownProps {
 }
 
 const Dropdown = ({ label, icon: Icon, isOpen, onOpen, children }: DropdownProps) => {
-  const animation = "transition-all duration-150 origin-top transform scale-95 opacity-0 data-[open=true]:scale-100 data-[open=true]:opacity-100";
+  const animation =
+      "transition-all duration-150 origin-top transform scale-95 opacity-0 data-[open=true]:scale-100 data-[open=true]:opacity-100";
 
   return (
       <div className="relative">
@@ -210,7 +264,9 @@ const Dropdown = ({ label, icon: Icon, isOpen, onOpen, children }: DropdownProps
             onClick={onOpen}
             className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                isOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                isOpen
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
         >
           <Icon className="h-4 w-4" />

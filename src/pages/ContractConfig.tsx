@@ -62,6 +62,9 @@ import {
   updateContractDietMealType,
 } from "@/api/contractDietMealTypes";
 
+import { toast } from "sonner";
+
+
 // --- TYPY DANYCH ---
 
 type ContractForm = {
@@ -198,7 +201,10 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
   const [priceColumns, setPriceColumns] = useState<PriceColumn[]>([]);
 
+  const [pricesLoaded, setPricesLoaded] = useState(false);
+
   useEffect(() => {
+    if (pricesLoaded) return;            // ✅ nie nadpisuj jak już wczytaliśmy z backendu
     if (contractDepartments.length === 0) return;
 
     const deps = contractDepartments
@@ -212,7 +218,8 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         department_ids: deps,
       },
     ]);
-  }, [contractDepartments]);
+  }, [contractDepartments, pricesLoaded]);
+
 
 
   // basePrices[mealTypeId][columnId] = number | ""
@@ -226,6 +233,32 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   >({});
 
   const [priceRules, setPriceRules] = useState<PriceRule[]>([]);
+
+  const loadPrices = async (contractId: number) => {
+    const res = await fetch(
+        `/Config/api/contracts/prices/get_contract_meal_prices.php?contract_id=${contractId}`,
+        { credentials: "include" }
+    );
+    const json = await res.json();
+
+    if (!json?.success) {
+      throw new Error(json?.error || "Nie udało się pobrać cen");
+    }
+
+    const data = json.data || {};
+    if (data.mode === "detailed" || data.mode === "basic") {
+      setPriceViewMode(data.mode);
+    }
+
+    if (Array.isArray(data.priceColumns) && data.priceColumns.length) {
+      setPriceColumns(data.priceColumns);
+    }
+
+    setBasePrices(data.basePrices || {});
+    setDietPrices(data.dietPrices || {});
+    setPricesLoaded(true);
+  };
+
 
   // --- POBRANIE LISTY KLIENTÓW ---
 
@@ -309,6 +342,17 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         })
         .finally(() => setLoading(false));
   }, [id, isNew]);
+
+  useEffect(() => {
+    if (isNew) return;
+    if (!form.id) return;
+    if (pricesLoaded) return;
+
+    loadPrices(form.id).catch((e) => {
+      console.error("Błąd pobierania cen", e);
+      // nie blokujemy UI, zostaną domyślne kolumny
+    });
+  }, [form.id, isNew, pricesLoaded]);
 
   // --- HANDLERY FORMULARZA KONTRAKTU ---
 
@@ -451,15 +495,52 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
   // --- LOGIKA CEN: ZAPIS (na razie tylko console.log) ---
 
-  const handleSavePrices = () => {
-    console.log("Zapis cen – TODO backend", {
+  const handleSavePrices = async () => {
+    if (!form.id) {
+      toast.error("Najpierw zapisz kontrakt (żeby miał ID).");
+      return;
+    }
+
+    if (uncoveredDepartments.length > 0) {
+      toast.error("Część oddziałów nie ma przypisanej kolumny cenowej.");
+      return;
+    }
+
+    const payload = {
+      contract_id: form.id,
       mode: priceViewMode,
       priceColumns,
       basePrices,
       dietPrices,
-      priceRules,
-    });
+    };
+
+    try {
+      const res = await fetch(
+          `/Config/api/contracts/prices/save_contract_meal_prices.php`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          }
+      );
+
+      const json = await res.json();
+      if (!json?.success) {
+        throw new Error(json?.error || "Nie udało się zapisać cen");
+      }
+
+      toast.success("Ceny zapisane");
+      // odśwież z backendu (żeby mieć spójny stan)
+      setPricesLoaded(false);
+      await loadPrices(form.id);
+
+    } catch (e: any) {
+      console.error("Błąd zapisu cen", e);
+      toast.error(e?.message || "Błąd zapisu cen");
+    }
   };
+
 
   // --- TOGGLE DEPARTMENT ---
   const toggleDepartment = (columnId: string, deptId: number) => {

@@ -27,6 +27,8 @@ import PageAccessList from "./pages/PageAccessList";
 import PageAccessConfig from "./pages/PageAccessConfig";
 import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
+import MealsApproval from "./pages/MealsApproval";
+
 
 import { AccessProvider } from "./auth/AccessContext";
 import Router from "./Router";
@@ -57,6 +59,7 @@ const App = () => (
                   DepartmentConfig,
                   DietsList,
                   DietConfig,
+                  MealsApproval,
                   MealTypesList,
                   MealTypeConfig,
                   UsersList,
