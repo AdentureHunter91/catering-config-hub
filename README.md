@@ -78,6 +78,16 @@ VITE_API_BASE=https://your-domain.example.com/Config/api
 VITE_AUTH_BASE=https://your-domain.example.com
 ```
 
+> ⚠️ If you load the frontend from a different origin (e.g. Lovable preview) and
+> call `Login/*` on your backend, your backend must send CORS headers allowing
+> that preview origin and enable credentials (cookies) for session-based auth.
+> Example headers:
+> - `Access-Control-Allow-Origin: https://<preview-host>`
+> - `Access-Control-Allow-Credentials: true`
+> - `Access-Control-Allow-Headers: Content-Type`
+> - `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+> Also ensure cookies are set with `SameSite=None; Secure` if you rely on them.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/d017e342-c02f-476a-94a1-a72ec0222267) and click on Share -> Publish.
