@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once $_SERVER['DOCUMENT_ROOT'] . "/Config/api/db.php";
+require_once __DIR__ . "/../../db.php";
 
 header("Content-Type: application/json; charset=utf-8");
 
