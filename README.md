@@ -73,6 +73,9 @@ VITE_BASE=/Config
 
 # Optional absolute or relative API base (overrides VITE_BASE)
 VITE_API_BASE=https://your-domain.example.com/Config/api
+
+# Optional auth/login base (overrides auto-detection from API base)
+VITE_AUTH_BASE=https://your-domain.example.com
 ```
 
 ## How can I deploy this project?
