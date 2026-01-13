@@ -25,13 +25,16 @@ function setCurrentUserId(PDO $pdo): void
  */
 function createPDO(): PDO
 {
-    $dbHost = "localhost";
+//  $dbHost = "localhost";
+    $dbHost = "188.210.222.6";
+    $dbPort = 3306;
     $dbName = "srv83804_contracts";
     $dbUser = "srv83804_contracts";
     $dbPass = "kCnFVMF6wzLLpdMMx2Vy";
     $charset = "utf8mb4";
 
-    $dsn = "mysql:host={$dbHost};dbname={$dbName};charset={$charset}";
+
+    $dsn = "mysql:host={$dbHost};port={$dbPort};dbname={$dbName};charset={$charset}";
 
     $pdo = new PDO($dsn, $dbUser, $dbPass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
