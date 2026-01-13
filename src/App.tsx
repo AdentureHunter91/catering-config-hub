@@ -35,14 +35,15 @@ import Router from "./Router";
 
 const queryClient = new QueryClient();
 
+const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
 
-        {/** Aplikacja działa w /Config więc basename musi zostać */}
-        <BrowserRouter basename="/Config">
+        <BrowserRouter basename={routerBase}>
 
           {/** AccessProvider musi otaczać cały Router */}
           <AccessProvider>

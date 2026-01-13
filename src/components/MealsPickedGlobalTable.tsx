@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getMealsPickedGlobal, type PickedGlobalRow } from "@/api/mealsPickedGlobal";
+import { buildApiUrl } from "@/api/apiBase";
 
 /** global listy do nazw (jak w MealsApproval.tsx) */
 type ClientRow = { id: number; short_name: string; full_name: string };
@@ -51,8 +52,7 @@ type VariantRow = {
   menu_selection_json: string | null;
 };
 
-const BASE = (import.meta as any).env?.BASE_URL || "/Config/";
-const apiUrl = (p: string) => `${BASE.replace(/\/?$/, "/")}${p.replace(/^\//, "")}`;
+const apiUrl = (p: string) => buildApiUrl(p);
 
 async function fetchJsonAny(url: string, init?: RequestInit): Promise<any> {
   const res = await fetch(url, { credentials: "include", ...init });
@@ -227,10 +227,10 @@ export default function MealsPickedGlobalTable({
 
   const loadStaticLists = async () => {
     const [cRaw, dRaw, diRaw, mtRaw] = await Promise.all([
-      fetchJsonAny(apiUrl("api/clients/list.php")),
-      fetchJsonAny(apiUrl("api/departments/list.php")),
-      fetchJsonAny(apiUrl("api/diets/list.php")),
-      fetchJsonAny(apiUrl("api/meal_types/list.php")),
+      fetchJsonAny(apiUrl("clients/list.php")),
+      fetchJsonAny(apiUrl("departments/list.php")),
+      fetchJsonAny(apiUrl("diets/list.php")),
+      fetchJsonAny(apiUrl("meal_types/list.php")),
     ]);
 
     setClients(unwrapArray<ClientRow>(cRaw, ["clients"]));
@@ -239,7 +239,7 @@ export default function MealsPickedGlobalTable({
     setMealTypes(unwrapArray<MealTypeRow>(mtRaw, ["meal_types", "types"]));
 
     try {
-      const kRaw = await fetchJsonAny(apiUrl("api/kitchens/list.php"));
+      const kRaw = await fetchJsonAny(apiUrl("kitchens/list.php"));
       setKitchens(unwrapArray<KitchenRow>(kRaw, ["kitchens"]));
     } catch {
       setKitchens([]);
@@ -362,7 +362,7 @@ export default function MealsPickedGlobalTable({
             missing.map(async (clientId) => {
               // client_departments
               try {
-                const payload = await fetchJsonAny(apiUrl(`api/client_departments/list.php?client_id=${clientId}`));
+                const payload = await fetchJsonAny(apiUrl(`client_departments/list.php?client_id=${clientId}`));
                 const list = unwrapArray<ClientDepartmentRow>(payload, ["client_departments", "departments"]);
                 for (const cd of list) {
                   const name = (cd.custom_name ?? cd.department_name ?? "").trim();
@@ -373,7 +373,7 @@ export default function MealsPickedGlobalTable({
 
               // client_diets
               try {
-                const payload = await fetchJsonAny(apiUrl(`api/client_diets/list.php?client_id=${clientId}`));
+                const payload = await fetchJsonAny(apiUrl(`client_diets/list.php?client_id=${clientId}`));
                 const list = unwrapArray<ClientDietRow>(payload, ["client_diets", "diets"]);
                 for (const cd of list) {
                   const name = (cd.custom_name ?? cd.diet_name ?? "").trim();
@@ -384,7 +384,7 @@ export default function MealsPickedGlobalTable({
 
               // meal types (global->custom per klient)
               try {
-                const payload = await fetchJsonAny(apiUrl(`api/clients/mealTypes/list.php?client_id=${clientId}`));
+                const payload = await fetchJsonAny(apiUrl(`clients/mealTypes/list.php?client_id=${clientId}`));
                 const list = unwrapArray<ClientMealTypeRow>(payload, ["mealTypes", "client_meal_types", "types"]);
                 for (const mt of list) {
                   const name = pickClientLabel([mt.custom_name, mt.name]) || `#${mt.meal_type_id}`;
@@ -426,7 +426,7 @@ export default function MealsPickedGlobalTable({
 
     (async () => {
       try {
-        const payload = await fetchJsonAny(apiUrl("api/diet/meal_variants/batch.php"), {
+        const payload = await fetchJsonAny(apiUrl("diet/meal_variants/batch.php"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ variant_labels: missing }),

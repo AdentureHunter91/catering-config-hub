@@ -23,7 +23,7 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
     const meQuery = useQuery({
         queryKey: ["me"],
         queryFn: async () => {
-            const res = await fetch(AUTH_API.me);
+            const res = await fetch(AUTH_API.me, { credentials: "include" });
             return res.json();
         }
     });
@@ -31,7 +31,7 @@ export const AccessProvider = ({ children }: { children: React.ReactNode }) => {
     const accessQuery = useQuery({
         queryKey: ["access"],
         queryFn: async () => {
-            const res = await fetch(AUTH_API.access);
+            const res = await fetch(AUTH_API.access, { credentials: "include" });
             return res.json();
         }
     });
