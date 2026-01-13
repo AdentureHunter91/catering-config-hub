@@ -1,4 +1,6 @@
-const API = "/Config/api/contracts";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/contracts`;
 
 export async function getContracts(clientId?: number) {
     let url = `${API}/list.php`;

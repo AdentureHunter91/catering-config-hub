@@ -1,4 +1,8 @@
-const API = "/Config/api/client_diets";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/client_diets`;
+
+
 
 export type ClientDiet = {
     id: number | null;

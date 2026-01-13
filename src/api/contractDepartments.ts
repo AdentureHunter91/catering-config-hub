@@ -1,6 +1,8 @@
 // src/api/contractDepartments.ts
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/contracts/departments";
+
+const API = `${API_BASE}/contracts/departments`;
 
 export async function getContractDepartments(contractId: number) {
     const r = await fetch(`${API}/list.php?contract_id=${contractId}`);

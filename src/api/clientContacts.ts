@@ -1,4 +1,6 @@
 // src/api/clientContacts.ts
+import { API_BASE } from "./apiBase.ts";
+
 export type ClientContact = {
     id: number;
     client_id: number;
@@ -9,7 +11,7 @@ export type ClientContact = {
     notes: string | null;
 };
 
-const API_BASE = "/Config/api/clientContacts";
+const API = `${API_BASE}/clientContacts`;
 
 async function handleResponse(res: Response) {
     const json = await res.json();
@@ -20,7 +22,7 @@ async function handleResponse(res: Response) {
 }
 
 export async function getClientContacts(clientId: number): Promise<ClientContact[]> {
-    const res = await fetch(`${API_BASE}/list.php?client_id=${clientId}`, {
+    const res = await fetch(`${API}/list.php?client_id=${clientId}`, {
         method: "GET",
         credentials: "include",
     });
@@ -37,7 +39,7 @@ type CreateContactPayload = {
 };
 
 export async function addClientContact(payload: CreateContactPayload): Promise<ClientContact> {
-    const res = await fetch(`${API_BASE}/create.php`, {
+    const res = await fetch(`${API}/create.php`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -56,7 +58,7 @@ type UpdateContactPayload = {
 };
 
 export async function updateClientContact(payload: UpdateContactPayload): Promise<ClientContact> {
-    const res = await fetch(`${API_BASE}/update.php`, {
+    const res = await fetch(`${API}/update.php`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +68,7 @@ export async function updateClientContact(payload: UpdateContactPayload): Promis
 }
 
 export async function deleteClientContact(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/delete.php`, {
+    const res = await fetch(`${API}/delete.php`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -1,4 +1,6 @@
-const API = "/Config/api/users";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/users`;
 
 export async function getUsers() {
     const r = await fetch(`${API}/list.php`);

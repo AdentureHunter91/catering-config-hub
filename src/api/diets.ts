@@ -1,3 +1,7 @@
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/diets`;
+
 export type Diet = {
     id: number;
     name: string;
@@ -6,21 +10,21 @@ export type Diet = {
 };
 
 export async function getDiets(): Promise<Diet[]> {
-    const r = await fetch("/Config/api/diets/list.php");
+    const r = await fetch(`${API}/list.php`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || "Failed to load diets");
     return j.data || [];
 }
 
 export async function getDiet(id: number): Promise<Diet> {
-    const r = await fetch(`/Config/api/diets/get.php?id=${id}`);
+    const r = await fetch(`${API}/get.php?id=${id}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || "Failed to load diet");
     return j.data;
 }
 
 export async function saveDiet(data: Diet): Promise<any> {
-    const r = await fetch("/Config/api/diets/save.php", {
+    const r = await fetch(`${API}/save.php`, {
         method: "POST",
         body: JSON.stringify(data),
     });
@@ -32,7 +36,7 @@ export async function saveDiet(data: Diet): Promise<any> {
 }
 
 export async function deleteDiet(id: number): Promise<any> {
-    const r = await fetch("/Config/api/diets/delete.php", {
+    const r = await fetch(`${API}/delete.php`, {
         method: "POST",
         body: JSON.stringify({ id }),
     });

@@ -1,7 +1,7 @@
 // src/api/kitchens.ts
+import { API_BASE } from "./apiBase";
 
-// Tutaj NIE ma folderu "kitchens", więc korzystamy z istniejącego pliku
-// /Config/api/list_kitchens.php
+const API = `${API_BASE}/contracts`;
 
 export type Kitchen = {
     id: number;
@@ -9,7 +9,7 @@ export type Kitchen = {
 };
 
 export async function getKitchens(): Promise<Kitchen[]> {
-    const r = await fetch("/Config/api/contracts/list_kitchens.php");
+    const r = await fetch(`${API}/list_kitchens.php`);
     const j = await r.json();
 
     if (!j.success) {

@@ -1,6 +1,8 @@
 // src/api/contractDietMealTypes.ts
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/contracts/diet_meal_types";
+
+const API = `${API_BASE}/contracts/diet_meal_types`;
 
 /**
  * Pobiera pełną matrycę połączeń dieta–posiłek.

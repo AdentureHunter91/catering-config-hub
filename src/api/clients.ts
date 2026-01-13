@@ -1,4 +1,8 @@
-const API = "/Config/api/clients";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/clients`;
+
+
 
 // ============================
 // LISTA KLIENTÓW (DROP-DOWN)

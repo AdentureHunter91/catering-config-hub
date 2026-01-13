@@ -1,4 +1,8 @@
-const API = "/Config/api/clients/mealTypes";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/clients/mealTypes`;
+
+
 
 export async function getClientMealTypes(clientId: number) {
     const r = await fetch(`${API}/list.php?client_id=${clientId}`);

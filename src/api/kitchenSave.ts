@@ -1,4 +1,6 @@
-const API = "/Config/api/kitchens";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/kitchens`;
 
 export async function saveKitchenAll(payload: any) {
     const r = await fetch(`${API}/save_all.php`, {

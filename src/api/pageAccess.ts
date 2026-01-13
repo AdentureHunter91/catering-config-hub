@@ -1,4 +1,7 @@
 // src/api/pageAccess.ts
+import { API_BASE } from "./apiBase";
+
+
 export type PageAccess = {
     id?: number;
     page_key: string;
@@ -10,7 +13,7 @@ export type PageAccess = {
     updated_at?: string;
 };
 
-const BASE = "/Config/api/pageAccess";
+const BASE = `${API_BASE}/pageAccess`;
 
 export const getPageAccessList = async (): Promise<PageAccess[]> => {
     const res = await fetch(`${BASE}/list.php`);

@@ -1,6 +1,8 @@
 import type { Department } from "./departments";
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/client_departments";
+
+const API = `${API_BASE}/client_departments`;
 
 export type ClientDepartment = {
     id: number | null;

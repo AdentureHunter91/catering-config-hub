@@ -1,3 +1,7 @@
+import { API_BASE } from "./apiBase";
+
+
+
 const BASE = (import.meta as any).env?.BASE_URL || "/Config/";
 const apiUrl = (p: string) => `${BASE.replace(/\/?$/, "/")}${p.replace(/^\//, "")}`;
 

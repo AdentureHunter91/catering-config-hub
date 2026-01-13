@@ -1,4 +1,7 @@
-const API = "/Config/api/roles";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/roles`;
+
 
 export async function getRoles() {
     const r = await fetch(`${API}/list.php`);

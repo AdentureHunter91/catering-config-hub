@@ -1,6 +1,8 @@
 // src/api/kitchenDetails.ts
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/kitchens";
+const API = `${API_BASE}/kitchens`;
+
 
 export type KitchenPayload = {
     id?: number;

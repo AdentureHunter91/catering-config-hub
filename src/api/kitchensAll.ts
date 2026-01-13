@@ -1,6 +1,7 @@
 // src/api/kitchensAll.ts
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/kitchens";
+const API = `${API_BASE}/kitchens`;
 
 export async function getKitchenAll(id: number) {
     const r = await fetch(`${API}/get_all.php?id=${id}`);

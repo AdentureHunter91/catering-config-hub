@@ -1,6 +1,8 @@
 // src/api/kitchenPeriods.ts
+import { API_BASE } from "./apiBase";
 
-const API = "/Config/api/contracts/kitchen_periods";
+const API = `${API_BASE}/contracts/kitchen_periods`;
+
 
 export type KitchenPeriodPayload = {
     id?: number;

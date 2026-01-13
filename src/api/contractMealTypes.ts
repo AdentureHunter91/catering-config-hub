@@ -1,5 +1,6 @@
-const API = "/Config/api/contracts/meal_types";
+import { API_BASE } from "./apiBase";
 
+const API = `${API_BASE}/contracts/meal_types`;
 
 
 export const getContractMealTypes = async (contractId: number) => {

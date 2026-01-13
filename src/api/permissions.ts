@@ -1,4 +1,6 @@
-const API = "/Config/api/permissions";
+import { API_BASE } from "./apiBase";
+
+const API = `${API_BASE}/permissions`;
 
 export async function getPermissions() {
     const r = await fetch(`${API}/list.php`);
