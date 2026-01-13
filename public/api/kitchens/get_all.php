@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once $_SERVER['DOCUMENT_ROOT'] . "/Config/api/bootstrap.php";
+require_once __DIR__ . "/../bootstrap.php";
 
 $id = intval($_GET["id"] ?? 0);
 if ($id <= 0) {

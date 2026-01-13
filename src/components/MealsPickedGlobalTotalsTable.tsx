@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getMealsPickedGlobal, type PickedGlobalRow } from "@/api/mealsPickedGlobal";
+import { buildApiUrl } from "@/api/apiBase";
 
 type DietRow = { id: number; name: string; short_name: string };
 type MealTypeRow = { id: number; name: string; short_name: string; sort_order?: number | null };
@@ -32,8 +33,7 @@ type VariantRow = {
     menu_selection_json: string | null;
 };
 
-const BASE = (import.meta as any).env?.BASE_URL || "/Config/";
-const apiUrl = (p: string) => `${BASE.replace(/\/?$/, "/")}${p.replace(/^\//, "")}`;
+const apiUrl = (p: string) => buildApiUrl(p);
 
 async function fetchJsonAny(url: string, init?: RequestInit): Promise<any> {
     const res = await fetch(url, { credentials: "include", ...init });
@@ -162,8 +162,8 @@ export default function MealsPickedGlobalTotalsTable({
 
     const loadStaticLists = async () => {
         const [diRaw, mtRaw] = await Promise.all([
-            fetchJsonAny(apiUrl("api/diets/list.php")),
-            fetchJsonAny(apiUrl("api/meal_types/list.php")),
+            fetchJsonAny(apiUrl("diets/list.php")),
+            fetchJsonAny(apiUrl("meal_types/list.php")),
         ]);
         setDiets(unwrapArray<DietRow>(diRaw, ["diets"]));
         setMealTypes(unwrapArray<MealTypeRow>(mtRaw, ["meal_types", "types"]));
@@ -276,8 +276,8 @@ export default function MealsPickedGlobalTotalsTable({
         (async () => {
             try {
                 const [cdRaw, cmtRaw] = await Promise.all([
-                    fetchJsonAny(apiUrl(`api/client_diets/list.php?client_id=${singleClientId}`)),
-                    fetchJsonAny(apiUrl(`api/clients/mealTypes/list.php?client_id=${singleClientId}`)),
+                    fetchJsonAny(apiUrl(`client_diets/list.php?client_id=${singleClientId}`)),
+                    fetchJsonAny(apiUrl(`clients/mealTypes/list.php?client_id=${singleClientId}`)),
                 ]);
 
                 const cd = unwrapArray<ClientDietRow>(cdRaw, ["client_diets", "diets"]);
@@ -322,7 +322,7 @@ export default function MealsPickedGlobalTotalsTable({
 
         (async () => {
             try {
-                const payload = await fetchJsonAny(apiUrl("api/diet/meal_variants/batch.php"), {
+                const payload = await fetchJsonAny(apiUrl("diet/meal_variants/batch.php"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ variant_labels: missing }),

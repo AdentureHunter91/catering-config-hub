@@ -18,11 +18,11 @@ import {
 } from "lucide-react";
 import MealsPickedGlobalTable from "@/components/MealsPickedGlobalTable";
 import MealsPickedGlobalTotalsTable from "@/components/MealsPickedGlobalTotalsTable";
+import { buildApiUrl } from "@/api/apiBase";
 
 
 /** ===== helpers ===== */
-const BASE = (import.meta as any).env?.BASE_URL || "/Config/";
-const apiUrl = (p: string) => `${BASE.replace(/\/?$/, "/")}${p.replace(/^\//, "")}`;
+const apiUrl = (p: string) => buildApiUrl(p);
 
 async function fetchJsonAny(url: string): Promise<any> {
     const res = await fetch(url, { credentials: "include" });
@@ -368,8 +368,8 @@ function pickClientLabel(parts: Array<string | null | undefined>) {
 }
 
 /** ====== ustaw ścieżki do endpointów ====== */
-const AFTER_CUTOFF_PATH = "api/diet/meals_approval/list.php";
-const SET_STATUS_PATH = "api/diet/meals_approval/set_status.php";
+const AFTER_CUTOFF_PATH = "diet/meals_approval/list.php";
+const SET_STATUS_PATH = "diet/meals_approval/set_status.php";
 
 const MealsApproval = () => {
     /** ===== refresh config ===== */
@@ -432,11 +432,11 @@ const MealsApproval = () => {
                 setLoadingRows(true);
 
                 const [cRaw, dRaw, diRaw, mtRaw, kRaw, rowsRaw] = await Promise.all([
-                    fetchJsonAny(apiUrl("api/clients/list.php")),
-                    fetchJsonAny(apiUrl("api/departments/list.php")),
-                    fetchJsonAny(apiUrl("api/diets/list.php")),
-                    fetchJsonAny(apiUrl("api/meal_types/list.php")),
-                    fetchJsonAny(apiUrl("api/kitchens/list.php")),
+                    fetchJsonAny(apiUrl("clients/list.php")),
+                    fetchJsonAny(apiUrl("departments/list.php")),
+                    fetchJsonAny(apiUrl("diets/list.php")),
+                    fetchJsonAny(apiUrl("meal_types/list.php")),
+                    fetchJsonAny(apiUrl("kitchens/list.php")),
                     fetchJsonAny(apiUrl(AFTER_CUTOFF_PATH)),
                 ]);
 
@@ -512,7 +512,7 @@ const MealsApproval = () => {
                     uniqueClientIds.map(async (clientId) => {
                         // 1) client diets
                         try {
-                            const payload = await fetchJsonAny(apiUrl(`api/client_diets/list.php?client_id=${clientId}`));
+                            const payload = await fetchJsonAny(apiUrl(`client_diets/list.php?client_id=${clientId}`));
                             const list = unwrapArray<ClientDietRow>(payload, ["diets", "client_diets"]);
                             for (const cd of list) {
                                 const label =
@@ -524,7 +524,7 @@ const MealsApproval = () => {
 
                         // 2) client departments
                         try {
-                            const payload = await fetchJsonAny(apiUrl(`api/client_departments/list.php?client_id=${clientId}`));
+                            const payload = await fetchJsonAny(apiUrl(`client_departments/list.php?client_id=${clientId}`));
                             const list = unwrapArray<ClientDepartmentRow>(payload, ["departments", "client_departments"]);
                             for (const cd of list) {
                                 const label =
@@ -536,7 +536,7 @@ const MealsApproval = () => {
 
                         // 3) client meal types
                         try {
-                            const payload = await fetchJsonAny(apiUrl(`api/clients/mealTypes/list.php?client_id=${clientId}`));
+                            const payload = await fetchJsonAny(apiUrl(`clients/mealTypes/list.php?client_id=${clientId}`));
                             const list = unwrapArray<ClientMealTypeRow>(payload, ["mealTypes", "client_meal_types", "types"]);
                             for (const mt of list) {
                                 if (!mt.client_meal_type_id) continue;
