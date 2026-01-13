@@ -60,6 +60,34 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Base paths and API endpoints
+
+By default, the app assumes it is served from the domain root and calls `/api`.
+If you deploy it under a subpath (e.g. `/Config`) or need to point the frontend
+to a different backend (e.g. Lovable preview or local dev), set the following
+environment variables before building or running:
+
+```sh
+# Base URL for the frontend router and assets
+VITE_BASE=/Config
+
+# Optional absolute or relative API base (overrides VITE_BASE)
+VITE_API_BASE=https://your-domain.example.com/Config/api
+
+# Optional auth/login base (overrides auto-detection from API base)
+VITE_AUTH_BASE=https://your-domain.example.com
+```
+
+> ⚠️ If you load the frontend from a different origin (e.g. Lovable preview) and
+> call `Login/*` on your backend, your backend must send CORS headers allowing
+> that preview origin and enable credentials (cookies) for session-based auth.
+> Example headers:
+> - `Access-Control-Allow-Origin: https://<preview-host>`
+> - `Access-Control-Allow-Credentials: true`
+> - `Access-Control-Allow-Headers: Content-Type`
+> - `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+> Also ensure cookies are set with `SameSite=None; Secure` if you rely on them.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/d017e342-c02f-476a-94a1-a72ec0222267) and click on Share -> Publish.

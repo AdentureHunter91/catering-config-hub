@@ -63,6 +63,7 @@ import {
 } from "@/api/contractDietMealTypes";
 
 import { toast } from "sonner";
+import { buildApiUrl } from "@/api/apiBase";
 
 
 // --- TYPY DANYCH ---
@@ -236,7 +237,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
   const loadPrices = async (contractId: number) => {
     const res = await fetch(
-        `/Config/api/contracts/prices/get_contract_meal_prices.php?contract_id=${contractId}`,
+        buildApiUrl(`contracts/prices/get_contract_meal_prices.php?contract_id=${contractId}`),
         { credentials: "include" }
     );
     const json = await res.json();
@@ -516,7 +517,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
     try {
       const res = await fetch(
-          `/Config/api/contracts/prices/save_contract_meal_prices.php`,
+          buildApiUrl("contracts/prices/save_contract_meal_prices.php"),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

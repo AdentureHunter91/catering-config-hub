@@ -4,7 +4,7 @@ declare(strict_types=1);
 header("Content-Type: application/json; charset=utf-8");
 
 // Wymuszamy właściwą lokalizację db.php
-require_once $_SERVER['DOCUMENT_ROOT'] . "/Config/api/db.php";
+require_once __DIR__ . "/db.php";
 
 // 🔌 Połączenie z DB
 $db = getDB();

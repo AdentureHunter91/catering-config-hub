@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { buildAuthUrl } from "@/api/apiBase";
 import { useAccessContext } from "@/auth/AccessContext";
 import { usePageAccess } from "@/auth/usePageAccess";
 
@@ -227,7 +228,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
                       Profil
                     </Link>
                     <a
-                        href="/Login/logout.php"
+                        href={buildAuthUrl("Login/logout.php")}
                         className="block px-3 py-2 rounded hover:bg-secondary text-red-500"
                     >
                       Wyloguj

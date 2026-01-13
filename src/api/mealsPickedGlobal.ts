@@ -1,9 +1,8 @@
-import { API_BASE } from "./apiBase";
+import { buildApiUrl } from "./apiBase";
 
 
 
-const BASE = (import.meta as any).env?.BASE_URL || "/Config/";
-const apiUrl = (p: string) => `${BASE.replace(/\/?$/, "/")}${p.replace(/^\//, "")}`;
+const apiUrl = (p: string) => buildApiUrl(p);
 
 async function fetchJson(url: string) {
     const res = await fetch(url, { credentials: "include" });
@@ -44,6 +43,6 @@ export type PickedGlobalRow = {
 };
 
 export async function getMealsPickedGlobal(limit = 50000): Promise<PickedGlobalRow[]> {
-    const payload = await fetchJson(apiUrl(`api/diet/meals_table/list.php?limit=${limit}`));
+    const payload = await fetchJson(apiUrl(`diet/meals_table/list.php?limit=${limit}`));
     return unwrapArray<PickedGlobalRow>(payload);
 }
