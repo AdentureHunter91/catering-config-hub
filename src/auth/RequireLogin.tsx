@@ -7,8 +7,9 @@ export const RequireLogin = ({ children }: { children: React.ReactNode }) => {
 
     if (loading) return <div>Ładowanie...</div>;
     if (!me) {
+        const returnUrl = window.location.href;
         window.location.href = buildAuthUrl(
-            `Login?returnUrl=${encodeURIComponent(location.pathname + location.search)}`
+            `Login?returnUrl=${encodeURIComponent(returnUrl)}`
         );
         return null;
     }
