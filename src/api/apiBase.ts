@@ -2,12 +2,25 @@
 const base = import.meta.env.BASE_URL.replace(/\/$/, ""); // "" albo "/Config"
 const apiOverride = import.meta.env.VITE_API_BASE?.trim();
 const authOverride = import.meta.env.VITE_AUTH_BASE?.trim();
-const apiBase = apiOverride ? apiOverride.replace(/\/$/, "") : `${base}/api`;
-const authFromApi = apiOverride ? apiOverride.replace(/\/api\/?$/, "") : "";
 const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
+const browserHost = typeof window !== "undefined" ? window.location.hostname : "";
+const lovableHostSuffixes = [".lovable.app", ".lovable.dev", ".lovableproject.com"];
+const isLovableHost = lovableHostSuffixes.some((suffix) =>
+  browserHost.endsWith(suffix)
+);
+const lovableBackend = "https://srv83804.seohost.com.pl";
+const appBase = base || "";
+const apiBase = apiOverride
+  ? apiOverride.replace(/\/$/, "")
+  : isLovableHost
+    ? `${lovableBackend}/api`
+    : `${appBase}/api`;
+const authFromApi = apiOverride ? apiOverride.replace(/\/api\/?$/, "") : "";
 const authBase = authOverride
   ? authOverride.replace(/\/$/, "")
-  : authFromApi || browserOrigin;
+  : isLovableHost
+    ? lovableBackend
+    : authFromApi || browserOrigin;
 
 export const API_BASE = apiBase;
 export const AUTH_BASE = authBase;

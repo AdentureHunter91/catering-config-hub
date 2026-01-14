@@ -1,9 +1,15 @@
 <?php
+$isHttps = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off")
+    || (isset($_SERVER["SERVER_PORT"]) && (int)$_SERVER["SERVER_PORT"] === 443);
+$cookieParams = session_get_cookie_params();
+$cookieParams["samesite"] = $isHttps ? "None" : "Lax";
+$cookieParams["secure"] = $isHttps;
+session_set_cookie_params($cookieParams);
 session_start();
 
 if (isset($_SESSION["user_id"])) {
-    // Jeśli użytkownik już zalogowany — przekieruj do celu lub Config
-    $redirect = isset($_GET['returnUrl']) ? $_GET['returnUrl'] : '/Config';
+    // Jeśli użytkownik już zalogowany — przekieruj do celu lub strony głównej
+    $redirect = isset($_GET['returnUrl']) ? $_GET['returnUrl'] : '/';
     header("Location: " . $redirect);
     exit;
 }
@@ -66,7 +72,7 @@ if (isset($_SESSION["user_id"])) {
         }
 
         const url = new URL(window.location.href);
-        const returnUrl = url.searchParams.get("returnUrl") || "/Config";
+        const returnUrl = url.searchParams.get("returnUrl") || "/";
 
         window.location.href = returnUrl;
     });
