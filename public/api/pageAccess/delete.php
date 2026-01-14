@@ -1,5 +1,5 @@
 <?php
-// /Config/api/pageAccess/delete.php
+// /api/pageAccess/delete.php
 require_once __DIR__ . "/../bootstrap.php";
 
 $input = json_decode(file_get_contents("php://input"), true);

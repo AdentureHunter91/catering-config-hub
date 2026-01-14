@@ -69,10 +69,10 @@ environment variables before building or running:
 
 ```sh
 # Base URL for the frontend router and assets
-VITE_BASE=/Config
+VITE_BASE=/
 
 # Optional absolute or relative API base (overrides VITE_BASE)
-VITE_API_BASE=https://your-domain.example.com/Config/api
+VITE_API_BASE=https://your-domain.example.com/api
 
 # Optional auth/login base (overrides auto-detection from API base)
 VITE_AUTH_BASE=https://your-domain.example.com

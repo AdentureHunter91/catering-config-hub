@@ -2,8 +2,8 @@
 session_start();
 
 if (isset($_SESSION["user_id"])) {
-    // Jeśli użytkownik już zalogowany — przekieruj do celu lub Config
-    $redirect = isset($_GET['returnUrl']) ? $_GET['returnUrl'] : '/Config';
+    // Jeśli użytkownik już zalogowany — przekieruj do celu lub strony głównej
+    $redirect = isset($_GET['returnUrl']) ? $_GET['returnUrl'] : '/';
     header("Location: " . $redirect);
     exit;
 }
@@ -66,7 +66,7 @@ if (isset($_SESSION["user_id"])) {
         }
 
         const url = new URL(window.location.href);
-        const returnUrl = url.searchParams.get("returnUrl") || "/Config";
+        const returnUrl = url.searchParams.get("returnUrl") || "/";
 
         window.location.href = returnUrl;
     });
