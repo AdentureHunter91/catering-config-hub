@@ -165,7 +165,7 @@ const PageAccessConfig = () => {
                         <Button
                             variant="outline"
                             className="gap-2"
-                            disabled={deleteMutation.isLoading}
+                            disabled={deleteMutation.isPending}
                             onClick={() => {
                                 if (window.confirm("Na pewno chcesz usunąć konfigurację tej strony?")) {
                                     deleteMutation.mutate(form.id!);
@@ -179,7 +179,7 @@ const PageAccessConfig = () => {
 
                     <Button
                         className="gap-2"
-                        disabled={saveMutation.isLoading}
+                        disabled={saveMutation.isPending}
                         onClick={() => saveMutation.mutate(form)}
                     >
                         <Save className="h-4 w-4" />

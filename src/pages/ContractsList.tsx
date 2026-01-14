@@ -36,9 +36,9 @@ const ContractsList = () => {
   /** ------------------------------
    *  Pobranie danych z backendu
    * ------------------------------ */
-  const { data: contracts = [], isLoading } = useQuery({
+  const { data: contracts = [], isLoading } = useQuery<any[]>({
     queryKey: ["contracts"],
-    queryFn: getContracts,
+    queryFn: () => getContracts(),
   });
 
   /** ------------------------------

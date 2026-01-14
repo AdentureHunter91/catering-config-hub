@@ -37,8 +37,9 @@ import PageAccessConfig from "./pages/PageAccessConfig";
 
 import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
-
 import MealsApproval from "./pages/MealsApproval";
+import ProductCategories from "./pages/ProductCategories";
+import ProductsConfig from "./pages/ProductsConfig";
 
 
 export default function Router() {
@@ -269,6 +270,25 @@ export default function Router() {
                     element={
                         <RequireAccess page="config.audit">
                             <AuditLog />
+                        </RequireAccess>
+                    }
+                />
+
+                {/* PRODUKTY */}
+                <Route
+                    path="/settings/productCategories"
+                    element={
+                        <RequireAccess page="config.products">
+                            <ProductCategories />
+                        </RequireAccess>
+                    }
+                />
+
+                <Route
+                    path="/settings/products"
+                    element={
+                        <RequireAccess page="config.products">
+                            <ProductsConfig />
                         </RequireAccess>
                     }
                 />

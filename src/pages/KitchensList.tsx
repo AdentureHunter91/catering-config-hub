@@ -81,11 +81,11 @@ const KitchensList = () => {
 
           <StatCard
               icon={<TrendingUp className="h-4 w-4" />}
-              label="Planowane kontrakty (łącznie)"
-              value={filteredKitchens.reduce(
-                  (sum, k) => sum + (k.planned_contracts ?? 0),
+              label="Średnia posiłków / dzień"
+              value={Math.round(filteredKitchens.reduce(
+                  (sum, k) => sum + (k.avg_daily_meals ?? 0),
                   0
-              )}
+              ) / (filteredKitchens.length || 1))}
           />
         </div>
 
@@ -162,32 +162,14 @@ const KitchensList = () => {
 
                     {/* Kontrakty badge */}
                     <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        <Badge className="bg-green-600 text-white">
-                          {k.active_contracts}
-                        </Badge>
-                        <Badge className="bg-blue-600 text-white">
-                          {k.planned_contracts}
-                        </Badge>
-                        <Badge className="bg-gray-500 text-white">
-                          {k.expired_contracts}
-                        </Badge>
-                      </div>
+                      <Badge className="bg-green-600 text-white">
+                        {k.active_contracts}
+                      </Badge>
                     </td>
 
                     {/* Osobodni (na razie pusty placeholder) */}
                     <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        {/* Aktywne */}
-                        <Badge className="bg-green-600 text-white">
-                          {k.active_beds ?? 0}
-                        </Badge>
-
-                        {/* Planowane */}
-                        <Badge className="bg-blue-600 text-white">
-                          {k.planned_beds ?? 0}
-                        </Badge>
-                      </div>
+                      {k.avg_daily_meals ?? "—"}
                     </td>
 
                     {/* Pracownicy */}

@@ -47,33 +47,7 @@ const App = () => (
 
           {/** AccessProvider musi otaczać cały Router */}
           <AccessProvider>
-            <Router
-                pages={{
-                  Index,
-                  ContractsList,
-                  ContractConfig,
-                  ClientsList,
-                  ClientConfig,
-                  KitchensList,
-                  KitchenConfig,
-                  DepartmentsList,
-                  DepartmentConfig,
-                  DietsList,
-                  DietConfig,
-                  MealsApproval,
-                  MealTypesList,
-                  MealTypeConfig,
-                  UsersList,
-                  UserConfig,
-                  RoleConfig,
-                  PermissionsList,
-                  PermissionConfig,
-                  PageAccessList,
-                  PageAccessConfig,
-                  AuditLog,
-                  NotFound
-                }}
-            />
+            <Router />
           </AccessProvider>
 
         </BrowserRouter>
