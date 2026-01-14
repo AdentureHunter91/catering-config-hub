@@ -88,6 +88,10 @@ VITE_AUTH_BASE=https://your-domain.example.com
 > - `Access-Control-Allow-Methods: GET, POST, OPTIONS`
 > Also ensure cookies are set with `SameSite=None; Secure` if you rely on them.
 
+When serving the built SPA from an Apache host, ensure the server rewrites
+unknown routes to `index.html` (see `public/.htaccess`) so deep links like
+`/kontrakty/3` work on refresh.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/d017e342-c02f-476a-94a1-a72ec0222267) and click on Share -> Publish.

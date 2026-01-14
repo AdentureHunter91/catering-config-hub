@@ -1,5 +1,12 @@
 <?php
 require_once "../api/bootstrap.php";
+
+$isHttps = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off")
+    || (isset($_SERVER["SERVER_PORT"]) && (int)$_SERVER["SERVER_PORT"] === 443);
+$cookieParams = session_get_cookie_params();
+$cookieParams["samesite"] = $isHttps ? "None" : "Lax";
+$cookieParams["secure"] = $isHttps;
+session_set_cookie_params($cookieParams);
 session_start();
 
 $email = $_POST["email"] ?? "";
