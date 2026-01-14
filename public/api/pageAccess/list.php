@@ -1,5 +1,5 @@
 <?php
-// /Config/api/pageAccess/list.php
+// /api/pageAccess/list.php
 require_once __DIR__ . "/../bootstrap.php";
 
 $stmt = $pdo->query("

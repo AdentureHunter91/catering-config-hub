@@ -2,14 +2,30 @@
 // /Login/access.php
 
 // CORS for preview origins (Lovable / external)
+$origin = $_SERVER["HTTP_ORIGIN"] ?? "";
+$originHost = $origin ? parse_url($origin, PHP_URL_HOST) : "";
+$originScheme = $origin ? parse_url($origin, PHP_URL_SCHEME) : "";
 $allowedOrigins = [
     "https://id-preview--d017e342-c02f-476a-94a1-a72ec0222267.lovable.app",
     "https://preview-7c11c837--catering-config-hub.lovable.app",
     "https://d017e342-c02f-476a-94a1-a72ec0222267.lovableproject.com",
 ];
+$allowedHostSuffixes = [
+    ".lovable.app",
+    ".lovable.dev",
+    ".lovableproject.com",
+];
+$isAllowedOrigin = $origin
+    && $originScheme === "https"
+    && (in_array($origin, $allowedOrigins, true)
+        || array_reduce(
+            $allowedHostSuffixes,
+            fn($carry, $suffix) => $carry || ($originHost && str_ends_with($originHost, $suffix)),
+            false
+        ));
 
-if (isset($_SERVER["HTTP_ORIGIN"]) && in_array($_SERVER["HTTP_ORIGIN"], $allowedOrigins, true)) {
-    header("Access-Control-Allow-Origin: " . $_SERVER["HTTP_ORIGIN"]);
+if ($isAllowedOrigin) {
+    header("Access-Control-Allow-Origin: " . $origin);
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Allow-Headers: Content-Type");
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -20,8 +36,14 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     exit;
 }
 
+$isHttps = (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off")
+    || (isset($_SERVER["SERVER_PORT"]) && (int)$_SERVER["SERVER_PORT"] === 443);
+$cookieParams = session_get_cookie_params();
+$cookieParams["samesite"] = $isHttps ? "None" : "Lax";
+$cookieParams["secure"] = $isHttps;
+session_set_cookie_params($cookieParams);
 session_start();
-require_once "../Config/api/bootstrap.php";
+require_once "../api/bootstrap.php";
 
 // Jeśli użytkownik nie zalogowany → zwróć brak dostępu
 if (!isset($_SESSION["user_id"])) {
