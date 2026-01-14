@@ -5,7 +5,39 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Settings } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Search,
+  Plus,
+  ChevronRight,
+  ChevronDown,
+  Package,
+  Layers,
+  FolderOpen,
+  Folder,
+  Settings,
+  Pencil,
+  Trash2,
+  Archive,
+  RotateCcw,
+  AlertTriangle,
+  Wheat,
+  Milk,
+  Egg,
+  Fish,
+  Nut,
+  X,
+  Save,
+  Barcode,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -13,140 +45,460 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
-// Mock data
-interface Product {
+// Types
+interface Allergen {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+}
+
+interface NutritionalValues {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sodium: number;
+}
+
+interface ProductVariant {
   id: number;
   name: string;
-  variant: string;
-  content: string;
-  sku: string;
   ean: string;
-  category: string;
-  subcategory: string;
+  sku: string;
+  content: string;
+  unit: string;
   status: "active" | "inactive";
 }
 
-const mockProducts: Product[] = [
+interface SubProduct {
+  id: number;
+  productId: number;
+  name: string;
+  variants: ProductVariant[];
+  nutritionalValues: NutritionalValues;
+  allergens: string[];
+  status: "active" | "inactive";
+}
+
+interface Product {
+  id: number;
+  subcategoryId: number;
+  name: string;
+  description: string;
+  subProducts: SubProduct[];
+  status: "active" | "inactive";
+}
+
+interface Subcategory {
+  id: number;
+  categoryId: number;
+  name: string;
+  products: Product[];
+}
+
+interface Category {
+  id: number;
+  name: string;
+  subcategories: Subcategory[];
+}
+
+// Mock allergens
+const allergensList: Allergen[] = [
+  { id: "gluten", name: "Gluten", icon: <Wheat className="h-4 w-4" /> },
+  { id: "lactose", name: "Laktoza", icon: <Milk className="h-4 w-4" /> },
+  { id: "eggs", name: "Jaja", icon: <Egg className="h-4 w-4" /> },
+  { id: "fish", name: "Ryby", icon: <Fish className="h-4 w-4" /> },
+  { id: "nuts", name: "Orzechy", icon: <Nut className="h-4 w-4" /> },
+  { id: "soy", name: "Soja", icon: <AlertTriangle className="h-4 w-4" /> },
+  { id: "celery", name: "Seler", icon: <AlertTriangle className="h-4 w-4" /> },
+  { id: "mustard", name: "Gorczyca", icon: <AlertTriangle className="h-4 w-4" /> },
+];
+
+// Mock data with full hierarchy
+const mockCategories: Category[] = [
   {
     id: 1,
-    name: "Ser żółty",
-    variant: "Gouda",
-    content: "1 kg",
-    sku: "SER-GOUDA-1KG",
-    ean: "5901234567890",
-    category: "Produkty spożywcze",
-    subcategory: "Sery",
-    status: "active",
+    name: "Produkty spożywcze",
+    subcategories: [
+      {
+        id: 1,
+        categoryId: 1,
+        name: "Sery",
+        products: [
+          {
+            id: 1,
+            subcategoryId: 1,
+            name: "Ser żółty",
+            description: "Ser żółty twardy lub półtwardy",
+            status: "active",
+            subProducts: [
+              {
+                id: 1,
+                productId: 1,
+                name: "Ser Gouda",
+                status: "active",
+                nutritionalValues: { calories: 356, protein: 25, carbs: 2, fat: 27, fiber: 0, sodium: 819 },
+                allergens: ["lactose"],
+                variants: [
+                  { id: 1, name: "Gouda 500g", ean: "5901234567890", sku: "SER-GOUDA-500G", content: "500", unit: "g", status: "active" },
+                  { id: 2, name: "Gouda 1kg", ean: "5901234567891", sku: "SER-GOUDA-1KG", content: "1000", unit: "g", status: "active" },
+                ],
+              },
+              {
+                id: 2,
+                productId: 1,
+                name: "Ser Edamski",
+                status: "active",
+                nutritionalValues: { calories: 357, protein: 25, carbs: 1.4, fat: 28, fiber: 0, sodium: 965 },
+                allergens: ["lactose"],
+                variants: [
+                  { id: 3, name: "Edamski 500g", ean: "5901234567892", sku: "SER-EDAM-500G", content: "500", unit: "g", status: "active" },
+                ],
+              },
+            ],
+          },
+          {
+            id: 2,
+            subcategoryId: 1,
+            name: "Ser biały",
+            description: "Ser twarogowy i inne sery białe",
+            status: "active",
+            subProducts: [
+              {
+                id: 3,
+                productId: 2,
+                name: "Twaróg półtłusty",
+                status: "active",
+                nutritionalValues: { calories: 98, protein: 18, carbs: 3, fat: 2, fiber: 0, sodium: 450 },
+                allergens: ["lactose"],
+                variants: [
+                  { id: 4, name: "Twaróg 250g", ean: "5901234567893", sku: "SER-TWAROG-250G", content: "250", unit: "g", status: "active" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 2,
+        categoryId: 1,
+        name: "Wędliny",
+        products: [
+          {
+            id: 3,
+            subcategoryId: 2,
+            name: "Szynka",
+            description: "Produkty z szynki wieprzowej",
+            status: "active",
+            subProducts: [
+              {
+                id: 4,
+                productId: 3,
+                name: "Szynka wiejska",
+                status: "active",
+                nutritionalValues: { calories: 145, protein: 21, carbs: 2, fat: 6, fiber: 0, sodium: 1200 },
+                allergens: [],
+                variants: [
+                  { id: 5, name: "Szynka wiejska 1kg", ean: "5901234567894", sku: "WEDL-SZYNKA-1KG", content: "1000", unit: "g", status: "active" },
+                ],
+              },
+            ],
+          },
+          {
+            id: 4,
+            subcategoryId: 2,
+            name: "Kiełbasa",
+            description: "Różne rodzaje kiełbas",
+            status: "inactive",
+            subProducts: [
+              {
+                id: 5,
+                productId: 4,
+                name: "Kiełbasa podwawelska",
+                status: "active",
+                nutritionalValues: { calories: 290, protein: 16, carbs: 1, fat: 25, fiber: 0, sodium: 980 },
+                allergens: ["gluten", "mustard"],
+                variants: [
+                  { id: 6, name: "Podwawelska 500g", ean: "5901234567895", sku: "WEDL-PODWAW-500G", content: "500", unit: "g", status: "active" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 3,
+        categoryId: 1,
+        name: "Warzywa",
+        products: [
+          {
+            id: 5,
+            subcategoryId: 3,
+            name: "Warzywa korzeniowe",
+            description: "Marchew, pietruszka, seler",
+            status: "active",
+            subProducts: [
+              {
+                id: 6,
+                productId: 5,
+                name: "Marchew",
+                status: "active",
+                nutritionalValues: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2, fiber: 2.8, sodium: 69 },
+                allergens: [],
+                variants: [
+                  { id: 7, name: "Marchew 1kg", ean: "5901234567896", sku: "WARZY-MARCH-1KG", content: "1000", unit: "g", status: "active" },
+                  { id: 8, name: "Marchew 5kg", ean: "5901234567897", sku: "WARZY-MARCH-5KG", content: "5000", unit: "g", status: "active" },
+                ],
+              },
+              {
+                id: 7,
+                productId: 5,
+                name: "Pietruszka korzeń",
+                status: "active",
+                nutritionalValues: { calories: 36, protein: 2.5, carbs: 6, fat: 0.6, fiber: 3, sodium: 56 },
+                allergens: ["celery"],
+                variants: [
+                  { id: 9, name: "Pietruszka 1kg", ean: "5901234567898", sku: "WARZY-PIETR-1KG", content: "1000", unit: "g", status: "active" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
     id: 2,
-    name: "Ser żółty",
-    variant: "Edamski",
-    content: "500 g",
-    sku: "SER-EDAM-500G",
-    ean: "5901234567891",
-    category: "Produkty spożywcze",
-    subcategory: "Sery",
-    status: "active",
+    name: "Chemia",
+    subcategories: [
+      {
+        id: 4,
+        categoryId: 2,
+        name: "Środki czystości",
+        products: [
+          {
+            id: 6,
+            subcategoryId: 4,
+            name: "Płyny do mycia",
+            description: "Płyny do mycia naczyń i powierzchni",
+            status: "active",
+            subProducts: [
+              {
+                id: 8,
+                productId: 6,
+                name: "Płyn do naczyń cytrynowy",
+                status: "active",
+                nutritionalValues: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0 },
+                allergens: [],
+                variants: [
+                  { id: 10, name: "Płyn cytrynowy 1L", ean: "5901234567899", sku: "CHEM-PLYN-1L", content: "1000", unit: "ml", status: "active" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 5,
+        categoryId: 2,
+        name: "Rękawiczki",
+        products: [
+          {
+            id: 7,
+            subcategoryId: 5,
+            name: "Rękawiczki jednorazowe",
+            description: "Rękawiczki nitrylowe i lateksowe",
+            status: "active",
+            subProducts: [
+              {
+                id: 9,
+                productId: 7,
+                name: "Rękawiczki nitrylowe M",
+                status: "active",
+                nutritionalValues: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0 },
+                allergens: [],
+                variants: [
+                  { id: 11, name: "Nitrylowe M 100szt", ean: "5901234567900", sku: "CHEM-REKAW-M-100", content: "100", unit: "szt", status: "active" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
     id: 3,
-    name: "Szynka",
-    variant: "Wiejska",
-    content: "1 kg",
-    sku: "WEDL-SZYNKA-1KG",
-    ean: "5901234567892",
-    category: "Produkty spożywcze",
-    subcategory: "Wędliny",
-    status: "active",
-  },
-  {
-    id: 4,
-    name: "Kiełbasa",
-    variant: "Podwawelska",
-    content: "500 g",
-    sku: "WEDL-KIELB-500G",
-    ean: "5901234567893",
-    category: "Produkty spożywcze",
-    subcategory: "Wędliny",
-    status: "inactive",
-  },
-  {
-    id: 5,
-    name: "Marchew",
-    variant: "Świeża",
-    content: "1 kg",
-    sku: "WARZY-MARCH-1KG",
-    ean: "5901234567894",
-    category: "Produkty spożywcze",
-    subcategory: "Warzywa",
-    status: "active",
-  },
-  {
-    id: 6,
-    name: "Płyn do mycia naczyń",
-    variant: "Cytrynowy",
-    content: "1 L",
-    sku: "CHEM-PLYN-1L",
-    ean: "5901234567895",
-    category: "Chemia",
-    subcategory: "Środki czystości",
-    status: "active",
-  },
-  {
-    id: 7,
-    name: "Rękawiczki nitrylowe",
-    variant: "Rozmiar M",
-    content: "100 szt",
-    sku: "CHEM-REKAW-M-100",
-    ean: "5901234567896",
-    category: "Chemia",
-    subcategory: "Rękawiczki",
-    status: "active",
+    name: "Opakowania",
+    subcategories: [],
   },
 ];
 
-const categories = ["Produkty spożywcze", "Chemia", "Opakowania"];
-const subcategoriesMap: Record<string, string[]> = {
-  "Produkty spożywcze": ["Sery", "Wędliny", "Warzywa"],
-  Chemia: ["Środki czystości", "Rękawiczki"],
-  Opakowania: [],
+// Expanded state types
+type ExpandedState = {
+  categories: Set<number>;
+  subcategories: Set<number>;
+  products: Set<number>;
+  subProducts: Set<number>;
 };
 
 const ProductsConfig = () => {
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [subcategoryFilter, setSubcategoryFilter] = useState("all");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [expanded, setExpanded] = useState<ExpandedState>({
+    categories: new Set([1]),
+    subcategories: new Set(),
+    products: new Set(),
+    subProducts: new Set(),
+  });
 
-  const filteredProducts = mockProducts
-    .filter((p) => {
-      const s = search.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(s) ||
-        p.variant.toLowerCase().includes(s) ||
-        p.sku.toLowerCase().includes(s) ||
-        p.ean.includes(s)
-      );
-    })
-    .filter((p) => {
-      if (categoryFilter === "all") return true;
-      return p.category === categoryFilter;
-    })
-    .filter((p) => {
-      if (subcategoryFilter === "all") return true;
-      return p.subcategory === subcategoryFilter;
+  // Selected item for management panel
+  const [selectedItem, setSelectedItem] = useState<{
+    type: "product" | "subProduct" | "variant" | null;
+    data: Product | SubProduct | ProductVariant | null;
+    parentProduct?: Product;
+    parentSubProduct?: SubProduct;
+  }>({ type: null, data: null });
+
+  // Dialogs
+  const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
+  const [addSubProductDialogOpen, setAddSubProductDialogOpen] = useState(false);
+  const [addVariantDialogOpen, setAddVariantDialogOpen] = useState(false);
+
+  // Toggle expansion functions
+  const toggleCategory = (id: number) => {
+    setExpanded((prev) => {
+      const newCategories = new Set(prev.categories);
+      if (newCategories.has(id)) {
+        newCategories.delete(id);
+      } else {
+        newCategories.add(id);
+      }
+      return { ...prev, categories: newCategories };
     });
+  };
 
-  const availableSubcategories =
-    categoryFilter !== "all" ? subcategoriesMap[categoryFilter] || [] : [];
+  const toggleSubcategory = (id: number) => {
+    setExpanded((prev) => {
+      const newSubcategories = new Set(prev.subcategories);
+      if (newSubcategories.has(id)) {
+        newSubcategories.delete(id);
+      } else {
+        newSubcategories.add(id);
+      }
+      return { ...prev, subcategories: newSubcategories };
+    });
+  };
+
+  const toggleProduct = (id: number) => {
+    setExpanded((prev) => {
+      const newProducts = new Set(prev.products);
+      if (newProducts.has(id)) {
+        newProducts.delete(id);
+      } else {
+        newProducts.add(id);
+      }
+      return { ...prev, products: newProducts };
+    });
+  };
+
+  const toggleSubProduct = (id: number) => {
+    setExpanded((prev) => {
+      const newSubProducts = new Set(prev.subProducts);
+      if (newSubProducts.has(id)) {
+        newSubProducts.delete(id);
+      } else {
+        newSubProducts.add(id);
+      }
+      return { ...prev, subProducts: newSubProducts };
+    });
+  };
+
+  // Filter logic for search
+  const filterCategories = (cats: Category[]): Category[] => {
+    if (!search.trim()) return cats;
+    const s = search.toLowerCase();
+
+    return cats
+      .map((cat) => ({
+        ...cat,
+        subcategories: cat.subcategories
+          .map((sub) => ({
+            ...sub,
+            products: sub.products.filter(
+              (prod) =>
+                prod.name.toLowerCase().includes(s) ||
+                prod.subProducts.some(
+                  (sp) =>
+                    sp.name.toLowerCase().includes(s) ||
+                    sp.variants.some(
+                      (v) =>
+                        v.name.toLowerCase().includes(s) ||
+                        v.ean.includes(s) ||
+                        v.sku.toLowerCase().includes(s)
+                    )
+                )
+            ),
+          }))
+          .filter((sub) => sub.products.length > 0 || sub.name.toLowerCase().includes(s)),
+      }))
+      .filter(
+        (cat) =>
+          cat.subcategories.length > 0 || cat.name.toLowerCase().includes(s)
+      );
+  };
+
+  const filteredCategories = filterCategories(categories);
+
+  // Count totals
+  const totalProducts = categories.reduce(
+    (acc, cat) =>
+      acc +
+      cat.subcategories.reduce((a, sub) => a + sub.products.length, 0),
+    0
+  );
+  const totalSubProducts = categories.reduce(
+    (acc, cat) =>
+      acc +
+      cat.subcategories.reduce(
+        (a, sub) =>
+          a + sub.products.reduce((b, prod) => b + prod.subProducts.length, 0),
+        0
+      ),
+    0
+  );
+  const totalVariants = categories.reduce(
+    (acc, cat) =>
+      acc +
+      cat.subcategories.reduce(
+        (a, sub) =>
+          a +
+          sub.products.reduce(
+            (b, prod) =>
+              b + prod.subProducts.reduce((c, sp) => c + sp.variants.length, 0),
+            0
+          ),
+        0
+      ),
+    0
+  );
+
+  // Render allergen badge
+  const renderAllergenBadge = (allergenId: string) => {
+    const allergen = allergensList.find((a) => a.id === allergenId);
+    if (!allergen) return null;
+    return (
+      <Badge key={allergenId} variant="outline" className="gap-1 text-orange-600 border-orange-300">
+        {allergen.icon}
+        <span className="text-xs">{allergen.name}</span>
+      </Badge>
+    );
+  };
 
   return (
     <Layout pageKey="config.products">
@@ -159,146 +511,712 @@ const ProductsConfig = () => {
 
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Konfiguracja produktów</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            Konfiguracja produktów
+          </h1>
           <p className="mt-1 text-muted-foreground">
-            Zarządzaj produktami, wariantami i kodami EAN
+            Zarządzaj hierarchią produktów: Kategoria → Subkategoria → Produkt → Subprodukt → Wariant EAN
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setAddDialogOpen(true)}>
+        <Button className="gap-2" onClick={() => setAddProductDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           Dodaj produkt
         </Button>
       </div>
 
-      <Card>
-        <div className="border-b p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[250px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Szukaj produktu / EAN / SKU..."
-                className="pl-10"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+      {/* Stats */}
+      <div className="grid gap-4 mb-6 grid-cols-2 lg:grid-cols-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-100">
+              <Folder className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{categories.length}</p>
+              <p className="text-sm text-muted-foreground">Kategorie</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100">
+              <Package className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalProducts}</p>
+              <p className="text-sm text-muted-foreground">Produkty</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-green-100">
+              <Layers className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalSubProducts}</p>
+              <p className="text-sm text-muted-foreground">Subprodukty</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-orange-100">
+              <Barcode className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalVariants}</p>
+              <p className="text-sm text-muted-foreground">Warianty EAN</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* LEFT: Hierarchical tree */}
+        <div className="lg:col-span-2">
+          <Card>
+            <div className="border-b p-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj produktu, subproduktu, EAN, SKU..."
+                    className="pl-10"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Category filter */}
-            <Select
-              value={categoryFilter}
-              onValueChange={(val) => {
-                setCategoryFilter(val);
-                setSubcategoryFilter("all");
-              }}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Kategoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie kategorie</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Subcategory filter */}
-            <Select
-              value={subcategoryFilter}
-              onValueChange={setSubcategoryFilter}
-              disabled={categoryFilter === "all" || availableSubcategories.length === 0}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Subkategoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie subkategorie</SelectItem>
-                {availableSubcategories.map((sub) => (
-                  <SelectItem key={sub} value={sub}>
-                    {sub}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium">Produkt</th>
-                <th className="px-6 py-3 text-left text-sm font-medium">Podprodukt / Wariant</th>
-                <th className="px-6 py-3 text-left text-sm font-medium">Zawartość</th>
-                <th className="px-6 py-3 text-left text-sm font-medium">SKU</th>
-                <th className="px-6 py-3 text-left text-sm font-medium">EAN / GTIN</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Status</th>
-                <th className="px-6 py-3 text-center text-sm font-medium">Akcje</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <div>
-                      <span className="font-medium">{product.name}</span>
-                      <div className="text-xs text-muted-foreground">
-                        {product.category} / {product.subcategory}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">{product.variant}</td>
-                  <td className="px-6 py-4">{product.content}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{product.sku}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{product.ean}</td>
-                  <td className="px-6 py-4 text-center">
-                    <Badge
-                      variant={product.status === "active" ? "default" : "secondary"}
-                      className={product.status === "active" ? "bg-green-600" : ""}
-                    >
-                      {product.status === "active" ? "Aktywny" : "Nieaktywny"}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <Button variant="ghost" size="sm" className="gap-2" disabled>
-                      <Settings className="h-4 w-4" />
-                      Zarządzaj
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted-foreground">
+            <ScrollArea className="h-[600px]">
+              <div className="p-4">
+                {filteredCategories.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
                     Brak wyników dla zastosowanych filtrów
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredCategories.map((category) => (
+                      <div key={category.id}>
+                        {/* Category row */}
+                        <div
+                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => toggleCategory(category.id)}
+                        >
+                          {expanded.categories.has(category.id) ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {expanded.categories.has(category.id) ? (
+                            <FolderOpen className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <Folder className="h-4 w-4 text-blue-600" />
+                          )}
+                          <span className="font-semibold">{category.name}</span>
+                          <Badge variant="secondary" className="ml-auto">
+                            {category.subcategories.length} sub.
+                          </Badge>
+                        </div>
 
-      {/* Add Product Dialog - Placeholder */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
+                        {/* Subcategories */}
+                        {expanded.categories.has(category.id) && (
+                          <div className="ml-6 space-y-1">
+                            {category.subcategories.map((subcategory) => (
+                              <div key={subcategory.id}>
+                                {/* Subcategory row */}
+                                <div
+                                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                                  onClick={() => toggleSubcategory(subcategory.id)}
+                                >
+                                  {subcategory.products.length > 0 ? (
+                                    expanded.subcategories.has(subcategory.id) ? (
+                                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                    )
+                                  ) : (
+                                    <div className="w-4" />
+                                  )}
+                                  <FolderOpen className="h-4 w-4 text-purple-500" />
+                                  <span className="font-medium">{subcategory.name}</span>
+                                  <Badge variant="outline" className="ml-auto">
+                                    {subcategory.products.length} prod.
+                                  </Badge>
+                                </div>
+
+                                {/* Products */}
+                                {expanded.subcategories.has(subcategory.id) && (
+                                  <div className="ml-6 space-y-1">
+                                    {subcategory.products.map((product) => (
+                                      <div key={product.id}>
+                                        {/* Product row */}
+                                        <div
+                                          className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
+                                            selectedItem.type === "product" &&
+                                            (selectedItem.data as Product)?.id === product.id
+                                              ? "bg-primary/10 border border-primary"
+                                              : ""
+                                          }`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedItem({
+                                              type: "product",
+                                              data: product,
+                                            });
+                                          }}
+                                        >
+                                          {product.subProducts.length > 0 ? (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleProduct(product.id);
+                                              }}
+                                            >
+                                              {expanded.products.has(product.id) ? (
+                                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                              ) : (
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                              )}
+                                            </button>
+                                          ) : (
+                                            <div className="w-4" />
+                                          )}
+                                          <Package className="h-4 w-4 text-green-600" />
+                                          <span>{product.name}</span>
+                                          <Badge
+                                            variant={product.status === "active" ? "default" : "secondary"}
+                                            className={`ml-2 ${product.status === "active" ? "bg-green-600" : ""}`}
+                                          >
+                                            {product.status === "active" ? "Aktywny" : "Nieaktywny"}
+                                          </Badge>
+                                          <Badge variant="outline" className="ml-auto">
+                                            {product.subProducts.length} subprod.
+                                          </Badge>
+                                        </div>
+
+                                        {/* SubProducts */}
+                                        {expanded.products.has(product.id) && (
+                                          <div className="ml-6 space-y-1">
+                                            {product.subProducts.map((subProduct) => (
+                                              <div key={subProduct.id}>
+                                                {/* SubProduct row */}
+                                                <div
+                                                  className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
+                                                    selectedItem.type === "subProduct" &&
+                                                    (selectedItem.data as SubProduct)?.id === subProduct.id
+                                                      ? "bg-primary/10 border border-primary"
+                                                      : ""
+                                                  }`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedItem({
+                                                      type: "subProduct",
+                                                      data: subProduct,
+                                                      parentProduct: product,
+                                                    });
+                                                  }}
+                                                >
+                                                  {subProduct.variants.length > 0 ? (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleSubProduct(subProduct.id);
+                                                      }}
+                                                    >
+                                                      {expanded.subProducts.has(subProduct.id) ? (
+                                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                      ) : (
+                                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                      )}
+                                                    </button>
+                                                  ) : (
+                                                    <div className="w-4" />
+                                                  )}
+                                                  <Layers className="h-4 w-4 text-orange-500" />
+                                                  <span>{subProduct.name}</span>
+                                                  {subProduct.allergens.length > 0 && (
+                                                    <AlertTriangle className="h-4 w-4 text-orange-500 ml-1" />
+                                                  )}
+                                                  <Badge variant="outline" className="ml-auto">
+                                                    {subProduct.variants.length} EAN
+                                                  </Badge>
+                                                </div>
+
+                                                {/* Variants */}
+                                                {expanded.subProducts.has(subProduct.id) && (
+                                                  <div className="ml-6 space-y-1">
+                                                    {subProduct.variants.map((variant) => (
+                                                      <div
+                                                        key={variant.id}
+                                                        className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
+                                                          selectedItem.type === "variant" &&
+                                                          (selectedItem.data as ProductVariant)?.id === variant.id
+                                                            ? "bg-primary/10 border border-primary"
+                                                            : ""
+                                                        }`}
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setSelectedItem({
+                                                            type: "variant",
+                                                            data: variant,
+                                                            parentProduct: product,
+                                                            parentSubProduct: subProduct,
+                                                          });
+                                                        }}
+                                                      >
+                                                        <div className="w-4" />
+                                                        <Barcode className="h-4 w-4 text-gray-500" />
+                                                        <span className="text-sm">{variant.name}</span>
+                                                        <span className="text-xs text-muted-foreground ml-2">
+                                                          {variant.content} {variant.unit}
+                                                        </span>
+                                                        <code className="text-xs bg-muted px-2 py-0.5 rounded ml-auto">
+                                                          {variant.ean}
+                                                        </code>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </Card>
+        </div>
+
+        {/* RIGHT: Management Panel */}
+        <div className="lg:col-span-1">
+          <Card className="sticky top-4">
+            <div className="border-b p-4">
+              <h2 className="text-lg font-semibold">Panel zarządzania</h2>
+            </div>
+
+            {!selectedItem.data ? (
+              <div className="p-6 text-center text-muted-foreground">
+                <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p>Wybierz element z drzewa, aby zobaczyć szczegóły i opcje zarządzania</p>
+              </div>
+            ) : selectedItem.type === "product" ? (
+              <ProductManagementPanel
+                product={selectedItem.data as Product}
+                onAddSubProduct={() => setAddSubProductDialogOpen(true)}
+              />
+            ) : selectedItem.type === "subProduct" ? (
+              <SubProductManagementPanel
+                subProduct={selectedItem.data as SubProduct}
+                parentProduct={selectedItem.parentProduct!}
+                allergensList={allergensList}
+                renderAllergenBadge={renderAllergenBadge}
+                onAddVariant={() => setAddVariantDialogOpen(true)}
+              />
+            ) : selectedItem.type === "variant" ? (
+              <VariantManagementPanel
+                variant={selectedItem.data as ProductVariant}
+                parentSubProduct={selectedItem.parentSubProduct!}
+              />
+            ) : null}
+          </Card>
+        </div>
+      </div>
+
+      {/* Add Product Dialog */}
+      <Dialog open={addProductDialogOpen} onOpenChange={setAddProductDialogOpen}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Dodaj produkt</DialogTitle>
+            <DialogTitle>Dodaj nowy produkt</DialogTitle>
           </DialogHeader>
-          <div className="py-8 text-center text-muted-foreground">
-            <p className="text-lg font-medium mb-2">🚧 W przygotowaniu</p>
-            <p className="text-sm">
-              Formularz dodawania produktów będzie dostępny wkrótce.
-            </p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Kategoria</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz kategorię" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Subkategoria</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz subkategorię" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Sery</SelectItem>
+                  <SelectItem value="2">Wędliny</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nazwa produktu</Label>
+              <Input placeholder="np. Ser żółty" />
+            </div>
+            <div className="space-y-2">
+              <Label>Opis</Label>
+              <Input placeholder="Krótki opis produktu" />
+            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddProductDialogOpen(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={() => setAddProductDialogOpen(false)}>
+              <Save className="h-4 w-4 mr-2" />
+              Zapisz
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add SubProduct Dialog */}
+      <Dialog open={addSubProductDialogOpen} onOpenChange={setAddSubProductDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dodaj subprodukt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nazwa subproduktu</Label>
+              <Input placeholder="np. Ser Gouda" />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label>Alergeny</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {allergensList.map((allergen) => (
+                  <div key={allergen.id} className="flex items-center gap-2">
+                    <Checkbox id={allergen.id} />
+                    <Label htmlFor={allergen.id} className="flex items-center gap-1 text-sm cursor-pointer">
+                      {allergen.icon}
+                      {allergen.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label>Wartości odżywcze (na 100g)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Kalorie (kcal)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Białko (g)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Węglowodany (g)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Tłuszcze (g)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Błonnik (g)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Sód (mg)</Label>
+                  <Input type="number" placeholder="0" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddSubProductDialogOpen(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={() => setAddSubProductDialogOpen(false)}>
+              <Save className="h-4 w-4 mr-2" />
+              Zapisz
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Variant Dialog */}
+      <Dialog open={addVariantDialogOpen} onOpenChange={setAddVariantDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dodaj wariant EAN</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nazwa wariantu</Label>
+              <Input placeholder="np. Gouda 500g" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Zawartość</Label>
+                <Input type="number" placeholder="500" />
+              </div>
+              <div className="space-y-2">
+                <Label>Jednostka</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="g">g</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="ml">ml</SelectItem>
+                    <SelectItem value="l">l</SelectItem>
+                    <SelectItem value="szt">szt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Kod EAN / GTIN</Label>
+              <Input placeholder="5901234567890" />
+            </div>
+            <div className="space-y-2">
+              <Label>SKU</Label>
+              <Input placeholder="SER-GOUDA-500G" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddVariantDialogOpen(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={() => setAddVariantDialogOpen(false)}>
+              <Save className="h-4 w-4 mr-2" />
+              Zapisz
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Layout>
   );
 };
+
+// Product Management Panel Component
+const ProductManagementPanel = ({
+  product,
+  onAddSubProduct,
+}: {
+  product: Product;
+  onAddSubProduct: () => void;
+}) => (
+  <div className="p-4 space-y-4">
+    <div>
+      <Label className="text-xs text-muted-foreground">Produkt</Label>
+      <h3 className="text-lg font-semibold">{product.name}</h3>
+      <p className="text-sm text-muted-foreground">{product.description}</p>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <Badge
+        variant={product.status === "active" ? "default" : "secondary"}
+        className={product.status === "active" ? "bg-green-600" : ""}
+      >
+        {product.status === "active" ? "Aktywny" : "Nieaktywny"}
+      </Badge>
+      <span className="text-sm text-muted-foreground">
+        {product.subProducts.length} subproduktów
+      </span>
+    </div>
+
+    <Separator />
+
+    <div className="space-y-2">
+      <Button className="w-full gap-2" onClick={onAddSubProduct}>
+        <Plus className="h-4 w-4" />
+        Dodaj subprodukt
+      </Button>
+      <Button variant="outline" className="w-full gap-2">
+        <Pencil className="h-4 w-4" />
+        Edytuj produkt
+      </Button>
+      <Button variant="outline" className="w-full gap-2 text-orange-600 hover:text-orange-700">
+        <Archive className="h-4 w-4" />
+        Archiwizuj
+      </Button>
+    </div>
+  </div>
+);
+
+// SubProduct Management Panel Component
+const SubProductManagementPanel = ({
+  subProduct,
+  parentProduct,
+  allergensList,
+  renderAllergenBadge,
+  onAddVariant,
+}: {
+  subProduct: SubProduct;
+  parentProduct: Product;
+  allergensList: Allergen[];
+  renderAllergenBadge: (id: string) => React.ReactNode;
+  onAddVariant: () => void;
+}) => (
+  <ScrollArea className="h-[500px]">
+    <div className="p-4 space-y-4">
+      <div>
+        <Label className="text-xs text-muted-foreground">Subprodukt z: {parentProduct.name}</Label>
+        <h3 className="text-lg font-semibold">{subProduct.name}</h3>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Badge
+          variant={subProduct.status === "active" ? "default" : "secondary"}
+          className={subProduct.status === "active" ? "bg-green-600" : ""}
+        >
+          {subProduct.status === "active" ? "Aktywny" : "Nieaktywny"}
+        </Badge>
+        <span className="text-sm text-muted-foreground">
+          {subProduct.variants.length} wariantów
+        </span>
+      </div>
+
+      <Separator />
+
+      {/* Allergens */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-2 block">Alergeny</Label>
+        {subProduct.allergens.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {subProduct.allergens.map((a) => renderAllergenBadge(a))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Brak alergenów</p>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Nutritional Values */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-2 block">
+          Wartości odżywcze (na 100g)
+        </Label>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Kalorie</span>
+            <span className="font-medium">{subProduct.nutritionalValues.calories} kcal</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Białko</span>
+            <span className="font-medium">{subProduct.nutritionalValues.protein} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Węglowodany</span>
+            <span className="font-medium">{subProduct.nutritionalValues.carbs} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Tłuszcze</span>
+            <span className="font-medium">{subProduct.nutritionalValues.fat} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Błonnik</span>
+            <span className="font-medium">{subProduct.nutritionalValues.fiber} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Sód</span>
+            <span className="font-medium">{subProduct.nutritionalValues.sodium} mg</span>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Button className="w-full gap-2" onClick={onAddVariant}>
+          <Plus className="h-4 w-4" />
+          Dodaj wariant EAN
+        </Button>
+        <Button variant="outline" className="w-full gap-2">
+          <Pencil className="h-4 w-4" />
+          Edytuj subprodukt
+        </Button>
+        <Button variant="outline" className="w-full gap-2 text-orange-600 hover:text-orange-700">
+          <Archive className="h-4 w-4" />
+          Archiwizuj
+        </Button>
+      </div>
+    </div>
+  </ScrollArea>
+);
+
+// Variant Management Panel Component
+const VariantManagementPanel = ({
+  variant,
+  parentSubProduct,
+}: {
+  variant: ProductVariant;
+  parentSubProduct: SubProduct;
+}) => (
+  <div className="p-4 space-y-4">
+    <div>
+      <Label className="text-xs text-muted-foreground">Wariant z: {parentSubProduct.name}</Label>
+      <h3 className="text-lg font-semibold">{variant.name}</h3>
+    </div>
+
+    <div className="space-y-2">
+      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+        <span className="text-sm">Zawartość</span>
+        <span className="font-medium">
+          {variant.content} {variant.unit}
+        </span>
+      </div>
+      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+        <span className="text-sm">SKU</span>
+        <code className="text-sm bg-background px-2 py-0.5 rounded">{variant.sku}</code>
+      </div>
+      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+        <span className="text-sm">EAN / GTIN</span>
+        <code className="text-sm bg-background px-2 py-0.5 rounded">{variant.ean}</code>
+      </div>
+      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+        <span className="text-sm">Status</span>
+        <Badge
+          variant={variant.status === "active" ? "default" : "secondary"}
+          className={variant.status === "active" ? "bg-green-600" : ""}
+        >
+          {variant.status === "active" ? "Aktywny" : "Nieaktywny"}
+        </Badge>
+      </div>
+    </div>
+
+    <Separator />
+
+    <div className="space-y-2">
+      <Button variant="outline" className="w-full gap-2">
+        <Pencil className="h-4 w-4" />
+        Edytuj wariant
+      </Button>
+      <Button variant="outline" className="w-full gap-2 text-red-600 hover:text-red-700">
+        <Trash2 className="h-4 w-4" />
+        Usuń wariant
+      </Button>
+    </div>
+  </div>
+);
 
 export default ProductsConfig;
