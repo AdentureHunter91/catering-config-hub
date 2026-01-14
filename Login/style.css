@@ -1,0 +1,122 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #ffffff;
+    font-family: "Inter", sans-serif;
+    overflow: hidden;
+}
+
+/* Login Card */
+.login-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 420px;
+    transform: translate(-50%, -50%);
+    padding: 45px;
+
+    background: rgba(255, 255, 255, 0.75);
+    border-radius: 24px;
+    backdrop-filter: blur(30px);
+    box-shadow: 0 25px 70px rgba(0,0,0,0.08);
+
+    color: #1e2f47;
+}
+
+.login-card h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: #1e2f47;
+}
+
+.subtitle {
+    text-align: center;
+    font-size: 15px;
+    opacity: 0.75;
+    margin-bottom: 30px;
+}
+
+.field {
+    margin-bottom: 20px;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #1e2f47;
+}
+
+.field input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #c7d9ef;
+    font-size: 15px;
+    background: #ffffff;
+}
+
+.btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 16px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #3293ff, #6fc3ff);
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+
+/* Modal background */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+/* Modal window */
+.modal-content {
+    background: #ffffff;
+    padding: 35px 45px;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.1);
+    max-width: 420px;
+    text-align: center;
+}
+
+.modal-content h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #2b2b2b;
+}
+
+.modal-content p {
+    font-size: 15px;
+    color: #444;
+    margin-bottom: 5px;
+}
+
+.countdown {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #1a73e8;
+}
