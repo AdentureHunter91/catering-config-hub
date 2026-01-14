@@ -40,6 +40,7 @@ import NotFound from "./pages/NotFound";
 import MealsApproval from "./pages/MealsApproval";
 import ProductCategories from "./pages/ProductCategories";
 import ProductsConfig from "./pages/ProductsConfig";
+import NutritionDatabaseUpload from "./pages/NutritionDatabaseUpload";
 
 
 export default function Router() {
@@ -289,6 +290,15 @@ export default function Router() {
                     element={
                         <RequireAccess page="config.products">
                             <ProductsConfig />
+                        </RequireAccess>
+                    }
+                />
+
+                <Route
+                    path="/settings/nutritionDatabase"
+                    element={
+                        <RequireAccess page="config.products">
+                            <NutritionDatabaseUpload />
                         </RequireAccess>
                     }
                 />
