@@ -1214,13 +1214,13 @@ const ProductsConfig = () => {
                 Powiąż z bazą Instytutu Żywienia
               </Label>
               <Select 
-                value={selectedItem.type === "subProduct" ? (selectedItem.data as SubProduct)?.nutritionDatabaseId?.toString() || "" : ""}
+                value={selectedItem.type === "subProduct" ? (selectedItem.data as SubProduct)?.nutritionDatabaseId?.toString() || "none" : "none"}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz produkt z bazy IŻŻ..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">-- Brak powiązania --</SelectItem>
+                  <SelectItem value="none">-- Brak powiązania --</SelectItem>
                   {mockNutritionDatabase.map((entry) => (
                     <SelectItem key={entry.id} value={entry.id.toString()}>
                       {entry.name}
