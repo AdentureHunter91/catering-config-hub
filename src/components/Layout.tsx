@@ -118,6 +118,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
       submenu: [
         { label: "Kategorie", path: "/settings/productCategories", pageKey: "config.products" },
         { label: "Konfiguracja produktów", path: "/settings/products", pageKey: "config.products" },
+        { label: "Baza Instytutu Żywienia", path: "/settings/nutritionDatabase", pageKey: "config.products" },
       ],
     },
     { label: "Użytkownicy", path: "/uzytkownicy", pageKey: "config.users", icon: Users },
