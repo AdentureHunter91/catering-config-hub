@@ -20,7 +20,14 @@ const apiBase = apiOverrideValue
     ? `${lovableBackend}/api`
     : `${appBase}/api`;
 const authFromApi = isAbsoluteApi
-  ? apiOverrideValue.replace(/\/api\/?$/, "")
+  ? (() => {
+      const apiOrigin = browserOrigin ? new URL(apiOverrideValue).origin : "";
+      const fromApi = apiOverrideValue.replace(/\/api\/?$/, "");
+      if (apiOrigin && apiOrigin === browserOrigin && fromApi.includes("/Config")) {
+        return browserOrigin;
+      }
+      return fromApi;
+    })()
   : "";
 const authBase = authOverrideValue
   ? isAbsoluteUrl(authOverrideValue)
