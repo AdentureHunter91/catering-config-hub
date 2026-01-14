@@ -2,12 +2,65 @@
 const base = import.meta.env.BASE_URL.replace(/\/$/, ""); // "" albo "/Config"
 const apiOverride = import.meta.env.VITE_API_BASE?.trim();
 const authOverride = import.meta.env.VITE_AUTH_BASE?.trim();
-const apiBase = apiOverride ? apiOverride.replace(/\/$/, "") : `${base}/api`;
-const authFromApi = apiOverride ? apiOverride.replace(/\/api\/?$/, "") : "";
 const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
-const authBase = authOverride
-  ? authOverride.replace(/\/$/, "")
-  : authFromApi || browserOrigin;
+const browserHost = typeof window !== "undefined" ? window.location.hostname : "";
+const browserPath = typeof window !== "undefined" ? window.location.pathname : "";
+const isRootPath = browserPath ? !browserPath.startsWith("/Config") : false;
+const lovableHostSuffixes = [".lovable.app", ".lovable.dev", ".lovableproject.com"];
+const isLovableHost = lovableHostSuffixes.some((suffix) =>
+  browserHost.endsWith(suffix)
+);
+const lovableBackend = "https://srv83804.seohost.com.pl";
+const appBase = base || "";
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
+const apiOverrideValue = apiOverride ? apiOverride.replace(/\/$/, "") : "";
+const authOverrideValue = authOverride ? authOverride.replace(/\/$/, "") : "";
+const isAbsoluteApi = apiOverrideValue ? isAbsoluteUrl(apiOverrideValue) : false;
+const normalizedApiOverride = apiOverrideValue
+  ? (() => {
+      if (isAbsoluteApi && browserOrigin) {
+        const apiOrigin = new URL(apiOverrideValue).origin;
+        if (apiOrigin === browserOrigin && isRootPath && apiOverrideValue.includes("/Config")) {
+          return `${browserOrigin}/api`;
+        }
+      }
+      if (!isAbsoluteApi && isRootPath && apiOverrideValue.startsWith("/Config")) {
+        return "/api";
+      }
+      return apiOverrideValue;
+    })()
+  : "";
+const apiBase = normalizedApiOverride
+  ? normalizedApiOverride
+  : isLovableHost
+    ? `${lovableBackend}/api`
+    : `${appBase}/api`;
+const authFromApi = isAbsoluteApi
+  ? (() => {
+      const apiOrigin = browserOrigin ? new URL(apiOverrideValue).origin : "";
+      const fromApi = apiOverrideValue.replace(/\/api\/?$/, "");
+      if (apiOrigin && apiOrigin === browserOrigin && isRootPath && fromApi.includes("/Config")) {
+        return browserOrigin;
+      }
+      return fromApi;
+    })()
+  : "";
+const authBase = authOverrideValue
+  ? (() => {
+      if (isAbsoluteUrl(authOverrideValue)) {
+        if (browserOrigin && isRootPath) {
+          const authOrigin = new URL(authOverrideValue).origin;
+          if (authOrigin === browserOrigin && authOverrideValue.includes("/Config")) {
+            return browserOrigin;
+          }
+        }
+        return authOverrideValue;
+      }
+      return browserOrigin;
+    })()
+  : isLovableHost
+    ? lovableBackend
+    : authFromApi || browserOrigin;
 
 export const API_BASE = apiBase;
 export const AUTH_BASE = authBase;

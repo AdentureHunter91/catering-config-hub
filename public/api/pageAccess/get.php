@@ -1,5 +1,5 @@
 <?php
-// /Config/api/pageAccess/get.php
+// /api/pageAccess/get.php
 require_once __DIR__ . "/../bootstrap.php";
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

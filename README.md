@@ -69,12 +69,13 @@ environment variables before building or running:
 
 ```sh
 # Base URL for the frontend router and assets
-VITE_BASE=/Config
+VITE_BASE=/
 
 # Optional absolute or relative API base (overrides VITE_BASE)
-VITE_API_BASE=https://your-domain.example.com/Config/api
+VITE_API_BASE=https://your-domain.example.com/api
 
 # Optional auth/login base (overrides auto-detection from API base)
+# Use an absolute URL if auth lives on a different origin.
 VITE_AUTH_BASE=https://your-domain.example.com
 ```
 
@@ -87,6 +88,10 @@ VITE_AUTH_BASE=https://your-domain.example.com
 > - `Access-Control-Allow-Headers: Content-Type`
 > - `Access-Control-Allow-Methods: GET, POST, OPTIONS`
 > Also ensure cookies are set with `SameSite=None; Secure` if you rely on them.
+
+When serving the built SPA from an Apache host, ensure the server rewrites
+unknown routes to `index.html` (see `public/.htaccess`) so deep links like
+`/kontrakty/3` work on refresh.
 
 ## How can I deploy this project?
 
