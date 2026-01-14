@@ -11,6 +11,8 @@ import {
   BookOpen,
   UtensilsCrossed,
   FileText,
+  Package,
+  ChevronRight,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -23,13 +25,18 @@ interface LayoutProps {
   pageKey?: string;
 }
 
+type SubMenuItem = {
+  label: string;
+  path: string;
+  pageKey: string;
+};
+
 type MenuItem = {
   label: string;
   path: string;
   pageKey: string;
   icon: React.ElementType;
-  // opcjonalnie: np. edit-only, ale na razie nie używamy
-  // requiresEdit?: boolean;
+  submenu?: SubMenuItem[];
 };
 
 const Layout = ({ children, pageKey }: LayoutProps) => {
@@ -103,6 +110,16 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
       pageKey: "config.meal_types",
       icon: UtensilsCrossed,
     },
+    {
+      label: "Produkty",
+      path: "",
+      pageKey: "config.products",
+      icon: Package,
+      submenu: [
+        { label: "Kategorie", path: "/settings/productCategories", pageKey: "config.products" },
+        { label: "Konfiguracja produktów", path: "/settings/products", pageKey: "config.products" },
+      ],
+    },
     { label: "Użytkownicy", path: "/uzytkownicy", pageKey: "config.users", icon: Users },
     {
       label: "Role i uprawnienia",
@@ -130,22 +147,56 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
               : "text-muted-foreground hover:bg-secondary hover:text-foreground"
       );
 
+  const [expandedSubmenu, setExpandedSubmenu] = useState<string | null>(null);
+
   const renderDropdownItems = (items: MenuItem[]) => {
     const visible = items.filter((i) => access[i.pageKey]?.view);
     if (visible.length === 0) {
       return <div className="p-2 text-muted-foreground text-xs">Brak dostępu</div>;
     }
 
-    return visible.map((item) => (
+    return visible.map((item) => {
+      if (item.submenu && item.submenu.length > 0) {
+        const isExpanded = expandedSubmenu === item.label;
+        return (
+          <div key={item.label}>
+            <button
+              className="flex items-center justify-between w-full gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
+              onClick={() => setExpandedSubmenu(isExpanded ? null : item.label)}
+            >
+              <div className="flex items-center gap-2">
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </div>
+              <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+            </button>
+            {isExpanded && (
+              <div className="ml-6 border-l pl-2">
+                {item.submenu.map((sub) => (
+                  <Link
+                    key={sub.path}
+                    to={sub.path}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
+                  >
+                    {sub.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
+      return (
         <Link
-            key={item.path}
-            to={item.path}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
+          key={item.path}
+          to={item.path}
+          className="flex items-center gap-2 px-3 py-2 hover:bg-secondary rounded text-sm"
         >
           <item.icon className="h-4 w-4" />
           {item.label}
         </Link>
-    ));
+      );
+    });
   };
 
   return (
