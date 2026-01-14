@@ -943,7 +943,7 @@ const ProductsConfig = () => {
 
         {/* RIGHT: Management Panel */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-4">
+          <Card>
             <div className="border-b p-4">
               <h2 className="text-lg font-semibold">Panel zarządzania</h2>
             </div>
@@ -1522,108 +1522,106 @@ const SubProductManagementPanel = ({
   const linkedEntry = nutritionDatabase.find(e => e.id === subProduct.nutritionDatabaseId);
   
   return (
-    <ScrollArea className="h-[500px]">
-      <div className="p-4 space-y-4">
-        <div>
-          <Label className="text-xs text-muted-foreground">Subprodukt z: {parentProduct.name}</Label>
-          <h3 className="text-lg font-semibold">{subProduct.name}</h3>
-        </div>
+    <div className="p-4 space-y-4">
+      <div>
+        <Label className="text-xs text-muted-foreground">Subprodukt z: {parentProduct.name}</Label>
+        <h3 className="text-lg font-semibold">{subProduct.name}</h3>
+      </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge
-            variant={subProduct.status === "active" ? "default" : "secondary"}
-            className={subProduct.status === "active" ? "bg-green-600" : "bg-gray-400"}
-          >
-            {subProduct.status === "active" ? "Aktywny" : "Archiwum"}
-          </Badge>
-          <span className="text-sm text-muted-foreground">
-            {subProduct.variants.length} wariantów
-          </span>
-        </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge
+          variant={subProduct.status === "active" ? "default" : "secondary"}
+          className={subProduct.status === "active" ? "bg-green-600" : "bg-gray-400"}
+        >
+          {subProduct.status === "active" ? "Aktywny" : "Archiwum"}
+        </Badge>
+        <span className="text-sm text-muted-foreground">
+          {subProduct.variants.length} wariantów
+        </span>
+      </div>
 
-        {/* Nutrition database link status */}
-        <div className="p-3 rounded-lg bg-muted/50">
-          <Label className="text-xs text-muted-foreground mb-2 block">Baza Instytutu Żywienia</Label>
-          {linkedEntry ? (
-            <div className="flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-green-500" />
-              <span className="text-sm font-medium text-green-700">{linkedEntry.name}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link2Off className="h-4 w-4 text-red-500" />
-              <span className="text-sm text-red-600">Brak powiązania</span>
-            </div>
-          )}
-        </div>
+      {/* Nutrition database link status */}
+      <div className="p-3 rounded-lg bg-muted/50">
+        <Label className="text-xs text-muted-foreground mb-2 block">Baza Instytutu Żywienia</Label>
+        {linkedEntry ? (
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-green-500" />
+            <span className="text-sm font-medium text-green-700">{linkedEntry.name}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link2Off className="h-4 w-4 text-red-500" />
+            <span className="text-sm text-red-600">Brak powiązania</span>
+          </div>
+        )}
+      </div>
 
-        <Separator />
+      <Separator />
 
-        {/* Allergens */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-2 block">Alergeny</Label>
-          {subProduct.allergens.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {subProduct.allergens.map((a) => renderAllergenBadge(a))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Brak alergenów</p>
-          )}
-        </div>
+      {/* Allergens */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-2 block">Alergeny</Label>
+        {subProduct.allergens.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {subProduct.allergens.map((a) => renderAllergenBadge(a))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Brak alergenów</p>
+        )}
+      </div>
 
-        <Separator />
+      <Separator />
 
-        {/* Nutritional Values */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-2 block">
-            Wartości odżywcze (na 100g)
-          </Label>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Kalorie</span>
-              <span className="font-medium">{subProduct.nutritionalValues.calories} kcal</span>
-            </div>
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Białko</span>
-              <span className="font-medium">{subProduct.nutritionalValues.protein} g</span>
-            </div>
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Węglowodany</span>
-              <span className="font-medium">{subProduct.nutritionalValues.carbs} g</span>
-            </div>
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Tłuszcze</span>
-              <span className="font-medium">{subProduct.nutritionalValues.fat} g</span>
-            </div>
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Błonnik</span>
-              <span className="font-medium">{subProduct.nutritionalValues.fiber} g</span>
-            </div>
-            <div className="flex justify-between p-2 bg-muted/50 rounded">
-              <span>Sód</span>
-              <span className="font-medium">{subProduct.nutritionalValues.sodium} mg</span>
-            </div>
+      {/* Nutritional Values */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-2 block">
+          Wartości odżywcze (na 100g)
+        </Label>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Kalorie</span>
+            <span className="font-medium">{subProduct.nutritionalValues.calories} kcal</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Białko</span>
+            <span className="font-medium">{subProduct.nutritionalValues.protein} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Węglowodany</span>
+            <span className="font-medium">{subProduct.nutritionalValues.carbs} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Tłuszcze</span>
+            <span className="font-medium">{subProduct.nutritionalValues.fat} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Błonnik</span>
+            <span className="font-medium">{subProduct.nutritionalValues.fiber} g</span>
+          </div>
+          <div className="flex justify-between p-2 bg-muted/50 rounded">
+            <span>Sód</span>
+            <span className="font-medium">{subProduct.nutritionalValues.sodium} mg</span>
           </div>
         </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <Button className="w-full gap-2" onClick={onAddVariant}>
-            <Plus className="h-4 w-4" />
-            Dodaj wariant EAN
-          </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={onEditSubProduct}>
-            <Pencil className="h-4 w-4" />
-            Edytuj subprodukt
-          </Button>
-          <Button variant="outline" className="w-full gap-2 text-orange-600 hover:text-orange-700">
-            <Archive className="h-4 w-4" />
-            {subProduct.status === "active" ? "Archiwizuj" : "Przywróć"}
-          </Button>
-        </div>
       </div>
-    </ScrollArea>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Button className="w-full gap-2" onClick={onAddVariant}>
+          <Plus className="h-4 w-4" />
+          Dodaj wariant EAN
+        </Button>
+        <Button variant="outline" className="w-full gap-2" onClick={onEditSubProduct}>
+          <Pencil className="h-4 w-4" />
+          Edytuj subprodukt
+        </Button>
+        <Button variant="outline" className="w-full gap-2 text-orange-600 hover:text-orange-700">
+          <Archive className="h-4 w-4" />
+          {subProduct.status === "active" ? "Archiwizuj" : "Przywróć"}
+        </Button>
+      </div>
+    </div>
   );
 };
 
