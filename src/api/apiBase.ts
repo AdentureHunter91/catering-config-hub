@@ -10,14 +10,22 @@ const isLovableHost = lovableHostSuffixes.some((suffix) =>
 );
 const lovableBackend = "https://srv83804.seohost.com.pl";
 const appBase = base || "";
-const apiBase = apiOverride
-  ? apiOverride.replace(/\/$/, "")
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
+const apiOverrideValue = apiOverride ? apiOverride.replace(/\/$/, "") : "";
+const authOverrideValue = authOverride ? authOverride.replace(/\/$/, "") : "";
+const isAbsoluteApi = apiOverrideValue ? isAbsoluteUrl(apiOverrideValue) : false;
+const apiBase = apiOverrideValue
+  ? apiOverrideValue
   : isLovableHost
     ? `${lovableBackend}/api`
     : `${appBase}/api`;
-const authFromApi = apiOverride ? apiOverride.replace(/\/api\/?$/, "") : "";
-const authBase = authOverride
-  ? authOverride.replace(/\/$/, "")
+const authFromApi = isAbsoluteApi
+  ? apiOverrideValue.replace(/\/api\/?$/, "")
+  : "";
+const authBase = authOverrideValue
+  ? isAbsoluteUrl(authOverrideValue)
+    ? authOverrideValue
+    : browserOrigin
   : isLovableHost
     ? lovableBackend
     : authFromApi || browserOrigin;

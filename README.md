@@ -75,6 +75,7 @@ VITE_BASE=/
 VITE_API_BASE=https://your-domain.example.com/api
 
 # Optional auth/login base (overrides auto-detection from API base)
+# Use an absolute URL if auth lives on a different origin.
 VITE_AUTH_BASE=https://your-domain.example.com
 ```
 
