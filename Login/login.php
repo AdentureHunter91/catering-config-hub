@@ -1,5 +1,5 @@
 <?php
-require_once "../Config/api/bootstrap.php";
+require_once "../api/bootstrap.php";
 session_start();
 
 $email = $_POST["email"] ?? "";

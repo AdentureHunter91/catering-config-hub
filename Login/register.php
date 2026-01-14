@@ -3,7 +3,7 @@ session_start();
 
 // jeśli zalogowany — przekieruj
 if (isset($_SESSION["user_id"])) {
-    header("Location: /Config");
+    header("Location: /");
     exit;
 }
 ?>
