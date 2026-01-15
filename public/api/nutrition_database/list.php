@@ -7,10 +7,10 @@ try {
     $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
     
     $sql = "SELECT id, code, name_pl, name_en, energy_kj, energy_kcal, energy_kj_1169, energy_kcal_1169, 
-            water, protein_total, protein_animal, protein_plant, fat, saturated_fat, 
-            carbohydrates, sugars, fiber, sodium, salt, potassium, calcium, phosphorus, 
-            magnesium, iron, zinc, vitamin_a, vitamin_d, vitamin_e, vitamin_c, 
-            vitamin_b1, vitamin_b2, vitamin_b6, vitamin_b12, folate, niacin, cholesterol
+            water, protein_total, protein_animal, protein_plant, protein_1169, fat, saturated_fat, 
+            carbohydrates_total, carbohydrates_available, sugars, fiber, sodium, salt, potassium, calcium, phosphorus, 
+            magnesium, iron, zinc, copper, manganese, iodine, vitamin_a, retinol, beta_carotene, 
+            vitamin_d, vitamin_e, vitamin_c, vitamin_b1, vitamin_b2, vitamin_b6, vitamin_b12, folate, niacin, cholesterol, ash, waste_percent
             FROM nutrition_database";
     
     $params = [];
