@@ -64,7 +64,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 // API imports
 import { fetchCategories, fetchSubcategories, ProductCategory, ProductSubcategory } from "@/api/productCategories";
 import { getProducts, createProduct, updateProduct, archiveProduct, Product as ApiProduct } from "@/api/products";
-import { getProductVariants, createProductVariant, updateProductVariant, archiveProductVariant, ProductVariant as ApiVariant } from "@/api/productVariants";
+import { getProductVariants, createProductVariant, updateProductVariant, archiveProductVariant, checkEan, ProductVariant as ApiVariant, EanCheckResult } from "@/api/productVariants";
 
 // Allergen type with icon
 interface AllergenItem {
@@ -199,9 +199,11 @@ const ProductsConfig = () => {
   const [newProductDescription, setNewProductDescription] = useState("");
   const [isSavingProduct, setIsSavingProduct] = useState(false);
 
-  // Load all data from database
-  const loadData = useCallback(async () => {
+  // Load all data from database - preserves expansion state
+  const loadData = useCallback(async (preserveExpansion = false) => {
     setIsLoading(true);
+    const prevExpanded = preserveExpansion ? { ...expanded, categories: new Set(expanded.categories), subcategories: new Set(expanded.subcategories), products: new Set(expanded.products) } : null;
+    
     try {
       // Fetch categories
       const dbCategories = await fetchCategories("all");
@@ -276,8 +278,10 @@ const ProductsConfig = () => {
 
       setCategories(displayCategories);
       
-      // Expand first category if exists
-      if (displayCategories.length > 0 && expanded.categories.size === 0) {
+      // Preserve expansion state or expand first category
+      if (prevExpanded) {
+        setExpanded(prevExpanded);
+      } else if (displayCategories.length > 0 && expanded.categories.size === 0) {
         setExpanded(prev => ({
           ...prev,
           categories: new Set([displayCategories[0].id])
@@ -456,7 +460,7 @@ const ProductsConfig = () => {
       setNewProductSubcategoryId("");
       setNewProductName("");
       setNewProductDescription("");
-      loadData();
+      loadData(true);
     } catch (error: any) {
       toast.error("Błąd: " + error.message);
     } finally {
@@ -479,7 +483,7 @@ const ProductsConfig = () => {
       });
       toast.success("Produkt został zaktualizowany");
       setEditProductDialogOpen(false);
-      loadData();
+      loadData(true);
     } catch (error: any) {
       toast.error("Błąd: " + error.message);
     }
@@ -491,7 +495,7 @@ const ProductsConfig = () => {
       await archiveProductVariant(subProductId);
       toast.success("Subprodukt został zarchiwizowany");
       setSelectedItem({ type: null, data: null });
-      loadData();
+      loadData(true);
     } catch (error: any) {
       toast.error("Błąd: " + error.message);
     }
@@ -516,7 +520,7 @@ const ProductsConfig = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadData} disabled={isLoading}>
+          <Button variant="outline" onClick={() => loadData(false)} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Odśwież
           </Button>
@@ -804,14 +808,14 @@ const ProductsConfig = () => {
                 onEditProduct={() => setEditProductDialogOpen(true)}
                 onArchive={async () => {
                   const product = selectedItem.data as DisplayProduct;
-                  try {
-                    await archiveProduct(product.id);
-                    toast.success("Produkt został zarchiwizowany");
-                    setSelectedItem({ type: null, data: null });
-                    loadData();
-                  } catch (error: any) {
-                    toast.error("Błąd: " + error.message);
-                  }
+                      try {
+                        await archiveProduct(product.id);
+                        toast.success("Produkt został zarchiwizowany");
+                        setSelectedItem({ type: null, data: null });
+                        loadData(true);
+                      } catch (error: any) {
+                        toast.error("Błąd: " + error.message);
+                      }
                 }}
               />
             ) : selectedItem.type === "subProduct" ? (
@@ -915,7 +919,7 @@ const ProductsConfig = () => {
         open={addSubProductDialogOpen} 
         onOpenChange={setAddSubProductDialogOpen}
         parentProduct={selectedItem.type === "product" ? selectedItem.data as DisplayProduct : null}
-        onSave={() => loadData()}
+        onSave={() => loadData(true)}
       />
 
       {/* Edit SubProduct Dialog */}
@@ -923,7 +927,8 @@ const ProductsConfig = () => {
         open={editSubProductDialogOpen}
         onOpenChange={setEditSubProductDialogOpen}
         subProduct={selectedItem.type === "subProduct" ? selectedItem.data as DisplaySubProduct : null}
-        onSave={() => loadData()}
+        categories={categories}
+        onSave={() => loadData(true)}
       />
     </Layout>
   );
@@ -1013,7 +1018,7 @@ const EditProductDialog = ({
   );
 };
 
-// Product Management Panel Component
+// Product Management Panel Component - with nutritional info from subproducts
 const ProductManagementPanel = ({
   product,
   onAddSubProduct,
@@ -1024,54 +1029,146 @@ const ProductManagementPanel = ({
   onAddSubProduct: () => void;
   onEditProduct: () => void;
   onArchive: () => void;
-}) => (
-  <div className="p-4 space-y-4">
-    <div>
-      <Label className="text-xs text-muted-foreground">Produkt</Label>
-      <h3 className="text-lg font-semibold">{product.name}</h3>
-      {product.description && (
-        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
-      )}
-    </div>
+}) => {
+  // Get nutritional values from first active subproduct (representative)
+  const activeSubProducts = product.subProducts.filter(sp => sp.status === "active");
+  const representativeSubProduct = activeSubProducts[0];
+  
+  return (
+    <ScrollArea className="h-[600px]">
+      <div className="p-4 space-y-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Produkt</Label>
+          <h3 className="text-lg font-semibold">{product.name}</h3>
+          {product.description && (
+            <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
+          )}
+        </div>
 
-    <div className="space-y-2">
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">Status</span>
-        <Badge
-          variant={product.status === "active" ? "default" : "secondary"}
-          className={product.status === "active" ? "bg-green-600" : "bg-gray-400"}
-        >
-          {product.status === "active" ? "Aktywny" : "Archiwum"}
-        </Badge>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Status</span>
+            <Badge
+              variant={product.status === "active" ? "default" : "secondary"}
+              className={product.status === "active" ? "bg-green-600" : "bg-gray-400"}
+            >
+              {product.status === "active" ? "Aktywny" : "Archiwum"}
+            </Badge>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Subprodukty</span>
+            <span className="font-medium">{product.subProducts.length}</span>
+          </div>
+        </div>
+
+        {/* Nutritional info from subproducts */}
+        {representativeSubProduct && (representativeSubProduct.energy_kcal || representativeSubProduct.fat || representativeSubProduct.carbohydrates) && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Wartości odżywcze (na 100g) - z subproduktu: {representativeSubProduct.name}</Label>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {representativeSubProduct.energy_kcal && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Energia</span>
+                    <span className="font-medium">{representativeSubProduct.energy_kcal} kcal</span>
+                  </div>
+                )}
+                {representativeSubProduct.energy_kj && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Energia</span>
+                    <span className="font-medium">{representativeSubProduct.energy_kj} kJ</span>
+                  </div>
+                )}
+                {(representativeSubProduct.protein_animal || representativeSubProduct.protein_plant) && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Białko</span>
+                    <span className="font-medium">
+                      {((representativeSubProduct.protein_animal || 0) + (representativeSubProduct.protein_plant || 0)).toFixed(1)} g
+                    </span>
+                  </div>
+                )}
+                {representativeSubProduct.fat && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Tłuszcz</span>
+                    <span className="font-medium">{representativeSubProduct.fat} g</span>
+                  </div>
+                )}
+                {representativeSubProduct.carbohydrates && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Węglowodany</span>
+                    <span className="font-medium">{representativeSubProduct.carbohydrates} g</span>
+                  </div>
+                )}
+                {representativeSubProduct.fiber && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Błonnik</span>
+                    <span className="font-medium">{representativeSubProduct.fiber} g</span>
+                  </div>
+                )}
+                {representativeSubProduct.salt && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Sól</span>
+                    <span className="font-medium">{representativeSubProduct.salt} g</span>
+                  </div>
+                )}
+                {representativeSubProduct.water && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Woda</span>
+                    <span className="font-medium">{representativeSubProduct.water} g</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Allergens from all subproducts */}
+        {activeSubProducts.some(sp => sp.allergens && sp.allergens.length > 0) && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Alergeny (ze wszystkich subproduktów)</Label>
+              <div className="flex flex-wrap gap-1">
+                {[...new Set(activeSubProducts.flatMap(sp => sp.allergens || []))].map(allergenId => {
+                  const allergen = allergensList.find(a => a.id === allergenId);
+                  if (!allergen) return null;
+                  return (
+                    <Badge key={allergenId} variant="outline" className="gap-1 text-orange-600 border-orange-300">
+                      {allergen.icon}
+                      <span className="text-xs">{allergen.name}</span>
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Button variant="outline" className="w-full gap-2" onClick={onAddSubProduct}>
+            <Plus className="h-4 w-4" />
+            Dodaj subprodukt
+          </Button>
+          <Button variant="outline" className="w-full gap-2" onClick={onEditProduct}>
+            <Pencil className="h-4 w-4" />
+            Edytuj produkt
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full gap-2 text-orange-600 hover:text-orange-700"
+            onClick={onArchive}
+          >
+            <Archive className="h-4 w-4" />
+            {product.status === "active" ? "Archiwizuj" : "Przywróć"}
+          </Button>
+        </div>
       </div>
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">Subprodukty</span>
-        <span className="font-medium">{product.subProducts.length}</span>
-      </div>
-    </div>
-
-    <Separator />
-
-    <div className="space-y-2">
-      <Button variant="outline" className="w-full gap-2" onClick={onAddSubProduct}>
-        <Plus className="h-4 w-4" />
-        Dodaj subprodukt
-      </Button>
-      <Button variant="outline" className="w-full gap-2" onClick={onEditProduct}>
-        <Pencil className="h-4 w-4" />
-        Edytuj produkt
-      </Button>
-      <Button 
-        variant="outline" 
-        className="w-full gap-2 text-orange-600 hover:text-orange-700"
-        onClick={onArchive}
-      >
-        <Archive className="h-4 w-4" />
-        {product.status === "active" ? "Archiwizuj" : "Przywróć"}
-      </Button>
-    </div>
-  </div>
-);
+    </ScrollArea>
+  );
+};
 
 // SubProduct Management Panel Component
 const SubProductManagementPanel = ({
@@ -1282,8 +1379,7 @@ const AddSubProductDialog = ({
   const [dataFetched, setDataFetched] = useState(false);
   const [html5QrCode, setHtml5QrCode] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Track missing fields
+  const [eanDuplicate, setEanDuplicate] = useState<EanCheckResult | null>(null);
   const getMissingFields = useCallback(() => {
     const missing: string[] = [];
     if (!ean) missing.push("ean");
@@ -1314,6 +1410,7 @@ const AddSubProductDialog = ({
       setProductFound(false);
       setDataFetched(false);
       setIsScannerOpen(false);
+      setEanDuplicate(null);
     }
   }, [open]);
 
@@ -1397,10 +1494,21 @@ const AddSubProductDialog = ({
     }
   };
 
-  const handleEanChange = (value: string) => {
+  const handleEanChange = async (value: string) => {
     const numericValue = value.replace(/\D/g, "");
     setEan(numericValue);
-    if (numericValue.length === 13) fetchProductData(numericValue);
+    setEanDuplicate(null);
+    if (numericValue.length === 13) {
+      try {
+        const eanCheck = await checkEan(numericValue);
+        if (eanCheck.exists) {
+          setEanDuplicate(eanCheck);
+          toast.error(`Ten kod EAN już istnieje: ${eanCheck.path}`);
+          return;
+        }
+      } catch (error) { /* ignore */ }
+      fetchProductData(numericValue);
+    }
   };
 
   const handleEanKeyDown = (e: React.KeyboardEvent) => {
@@ -1585,6 +1693,17 @@ const AddSubProductDialog = ({
             </div>
           )}
 
+          {/* EAN duplicate warning */}
+          {eanDuplicate?.exists && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Ten kod EAN już istnieje w bazie!</p>
+                <p className="text-xs mt-1">Ścieżka: {eanDuplicate.path}</p>
+              </div>
+            </div>
+          )}
+
           <Separator />
 
           {productFound && imageUrl && (
@@ -1660,7 +1779,7 @@ const AddSubProductDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Anuluj</Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || (eanDuplicate?.exists ?? false)}>
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Zapisz
           </Button>
@@ -1670,16 +1789,18 @@ const AddSubProductDialog = ({
   );
 };
 
-// Edit SubProduct Dialog Component
+// Edit SubProduct Dialog Component - simplified like AddSubProductDialog with parent product change
 const EditSubProductDialog = ({
   open,
   onOpenChange,
   subProduct,
+  categories,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subProduct: DisplaySubProduct | null;
+  categories: DisplayCategory[];
   onSave?: () => void;
 }) => {
   const eanInputRef = useRef<HTMLInputElement>(null);
@@ -1690,38 +1811,51 @@ const EditSubProductDialog = ({
   const [unit, setUnit] = useState("g");
   const [sku, setSku] = useState("");
   const [status, setStatus] = useState<"active" | "archived">("active");
+  const [calories, setCalories] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [brands, setBrands] = useState("");
   const [productCategories, setProductCategories] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [nutritionDbId, setNutritionDbId] = useState<number | null>(null);
   
-  // Nutritional values
-  const [energyKj, setEnergyKj] = useState("");
-  const [energyKcal, setEnergyKcal] = useState("");
-  const [energyKj1169, setEnergyKj1169] = useState("");
-  const [energyKcal1169, setEnergyKcal1169] = useState("");
-  const [water, setWater] = useState("");
-  const [proteinAnimal, setProteinAnimal] = useState("");
-  const [proteinPlant, setProteinPlant] = useState("");
-  const [fat, setFat] = useState("");
-  const [carbohydrates, setCarbohydrates] = useState("");
-  const [fiber, setFiber] = useState("");
-  const [sodium, setSodium] = useState("");
-  const [salt, setSalt] = useState("");
-  const [potassium, setPotassium] = useState("");
-  const [calcium, setCalcium] = useState("");
-  const [phosphorus, setPhosphorus] = useState("");
-  const [magnesium, setMagnesium] = useState("");
-  const [iron, setIron] = useState("");
-  const [vitaminD, setVitaminD] = useState("");
-  const [vitaminC, setVitaminC] = useState("");
-  const [cholesterol, setCholesterol] = useState("");
+  // Parent product selection
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>("");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
   
   const [isLoading, setIsLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [productFound, setProductFound] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false);
   const [html5QrCode, setHtml5QrCode] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [eanDuplicate, setEanDuplicate] = useState<EanCheckResult | null>(null);
+
+  // Get subcategories for selected category
+  const getSubcategoriesForCategory = (categoryId: string) => {
+    const cat = categories.find(c => c.id === parseInt(categoryId));
+    return cat?.subcategories || [];
+  };
+
+  // Get products for selected subcategory
+  const getProductsForSubcategory = (subcategoryId: string) => {
+    for (const cat of categories) {
+      const sub = cat.subcategories.find(s => s.id === parseInt(subcategoryId));
+      if (sub) return sub.products;
+    }
+    return [];
+  };
+
+  // Track missing fields
+  const getMissingFields = useCallback(() => {
+    const missing: string[] = [];
+    if (!ean) missing.push("ean");
+    if (!variantName) missing.push("variantName");
+    if (!content) missing.push("content");
+    if (!unit) missing.push("unit");
+    if (!sku) missing.push("sku");
+    return missing;
+  }, [ean, variantName, content, unit, sku]);
+
+  const missingFields = dataFetched ? getMissingFields() : [];
 
   // Load data when dialog opens
   useEffect(() => {
@@ -1732,34 +1866,29 @@ const EditSubProductDialog = ({
       setUnit(subProduct.unit || "g");
       setSku(subProduct.sku || "");
       setStatus(subProduct.status || "active");
+      setCalories(subProduct.energy_kcal?.toString() || "");
       setBrands(subProduct.brands || "");
       setProductCategories(subProduct.categories || "");
       setImageUrl(subProduct.image_url || "");
-      setSelectedAllergens(subProduct.allergens || []);
-      setNutritionDbId(subProduct.nutrition_database_id);
+      setDataFetched(true);
+      setEanDuplicate(null);
       
-      setEnergyKj(subProduct.energy_kj?.toString() || "");
-      setEnergyKcal(subProduct.energy_kcal?.toString() || "");
-      setEnergyKj1169(subProduct.energy_kj_1169?.toString() || "");
-      setEnergyKcal1169(subProduct.energy_kcal_1169?.toString() || "");
-      setWater(subProduct.water?.toString() || "");
-      setProteinAnimal(subProduct.protein_animal?.toString() || "");
-      setProteinPlant(subProduct.protein_plant?.toString() || "");
-      setFat(subProduct.fat?.toString() || "");
-      setCarbohydrates(subProduct.carbohydrates?.toString() || "");
-      setFiber(subProduct.fiber?.toString() || "");
-      setSodium(subProduct.sodium?.toString() || "");
-      setSalt(subProduct.salt?.toString() || "");
-      setPotassium(subProduct.potassium?.toString() || "");
-      setCalcium(subProduct.calcium?.toString() || "");
-      setPhosphorus(subProduct.phosphorus?.toString() || "");
-      setMagnesium(subProduct.magnesium?.toString() || "");
-      setIron(subProduct.iron?.toString() || "");
-      setVitaminD(subProduct.vitamin_d?.toString() || "");
-      setVitaminC(subProduct.vitamin_c?.toString() || "");
-      setCholesterol(subProduct.cholesterol?.toString() || "");
+      // Find parent product and set selection
+      if (subProduct.product_id) {
+        for (const cat of categories) {
+          for (const sub of cat.subcategories) {
+            const prod = sub.products.find(p => p.id === subProduct.product_id);
+            if (prod) {
+              setSelectedCategoryId(cat.id.toString());
+              setSelectedSubcategoryId(sub.id.toString());
+              setSelectedProductId(prod.id.toString());
+              break;
+            }
+          }
+        }
+      }
     }
-  }, [open, subProduct]);
+  }, [open, subProduct, categories]);
 
   // Cleanup scanner
   useEffect(() => {
@@ -1768,17 +1897,161 @@ const EditSubProductDialog = ({
     };
   }, [html5QrCode]);
 
-  const toggleAllergen = (id: string) => {
-    setSelectedAllergens(prev => 
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    );
+  // Generate SKU
+  const generateSku = useCallback((name: string, contentVal: string, unitVal: string) => {
+    if (!name) return "";
+    const cleanName = name
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .substring(0, 15);
+    return `${cleanName}-${contentVal}${unitVal}`.toUpperCase();
+  }, []);
+
+  // Fetch from OpenFoodFacts
+  const fetchProductData = async (eanCode: string) => {
+    if (!eanCode || eanCode.length < 8) {
+      toast.error("Wprowadź prawidłowy kod EAN (min. 8 znaków)");
+      return;
+    }
+
+    setIsLoading(true);
+    setProductFound(false);
+    setEanDuplicate(null);
+
+    try {
+      // First check if EAN exists in database
+      const eanCheck = await checkEan(eanCode, subProduct?.id);
+      if (eanCheck.exists) {
+        setEanDuplicate(eanCheck);
+        toast.error(`Ten kod EAN już istnieje: ${eanCheck.path}`);
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${eanCode}.json`);
+      const data = await response.json();
+
+      if (data.status === 1 && data.product) {
+        const product = data.product;
+        const productName = product.product_name_pl || product.product_name_en || product.product_name || "";
+        setVariantName(productName);
+
+        if (product.quantity) {
+          const quantityMatch = product.quantity.match(/(\d+(?:[.,]\d+)?)\s*(\w+)/);
+          if (quantityMatch) {
+            setContent(quantityMatch[1].replace(",", "."));
+            const parsedUnit = quantityMatch[2].toLowerCase();
+            if (["g", "kg", "ml", "l", "szt"].includes(parsedUnit)) {
+              setUnit(parsedUnit);
+            }
+          }
+        }
+
+        if (product.nutriments?.["energy-kcal_100g"]) {
+          setCalories(product.nutriments["energy-kcal_100g"].toString());
+        }
+
+        if (product.image_front_small_url) setImageUrl(product.image_front_small_url);
+        if (product.brands) setBrands(product.brands);
+        if (product.categories) setProductCategories(product.categories);
+
+        setProductFound(true);
+        setDataFetched(true);
+        toast.success("Dane produktu pobrane z OpenFoodFacts!");
+      } else {
+        toast.info("Produkt nie został znaleziony w OpenFoodFacts");
+        setDataFetched(true);
+      }
+    } catch (error) {
+      toast.error("Błąd podczas pobierania danych");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEanChange = async (value: string) => {
+    const numericValue = value.replace(/\D/g, "");
+    setEan(numericValue);
+    setEanDuplicate(null);
+    
+    if (numericValue.length === 13) {
+      // Check for duplicate EAN
+      try {
+        const eanCheck = await checkEan(numericValue, subProduct?.id);
+        if (eanCheck.exists) {
+          setEanDuplicate(eanCheck);
+        }
+      } catch (error) {
+        // Ignore error for EAN check
+      }
+    }
+  };
+
+  const handleEanKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && ean.length >= 8) {
+      e.preventDefault();
+      fetchProductData(ean);
+    }
+  };
+
+  const toggleScanner = async () => {
+    if (isScannerOpen) {
+      if (html5QrCode) await html5QrCode.stop().catch(() => {});
+      setIsScannerOpen(false);
+    } else {
+      setIsScannerOpen(true);
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        setTimeout(async () => {
+          if (!scannerRef.current) return;
+          const scannerId = "edit-ean-scanner-" + Date.now();
+          scannerRef.current.id = scannerId;
+          const scanner = new Html5Qrcode(scannerId);
+          setHtml5QrCode(scanner);
+          try {
+            await scanner.start(
+              { facingMode: "environment" },
+              { fps: 10, qrbox: { width: 250, height: 100 } },
+              async (decodedText) => {
+                const numericValue = decodedText.replace(/\D/g, "");
+                setEan(numericValue);
+                setIsScannerOpen(false);
+                scanner.stop().catch(() => {});
+                toast.success("Kod zeskanowany!");
+                if (numericValue.length >= 8) setTimeout(() => fetchProductData(numericValue), 100);
+              },
+              () => {}
+            );
+          } catch (err) {
+            toast.error("Nie można uruchomić kamery");
+            setIsScannerOpen(false);
+          }
+        }, 100);
+      } catch (err) {
+        toast.error("Błąd ładowania skanera");
+        setIsScannerOpen(false);
+      }
+    }
   };
 
   const handleSave = async () => {
     if (!subProduct) return;
     
-    if (!ean || !variantName || !content || !unit || !sku) {
-      toast.error("Wypełnij wszystkie wymagane pola");
+    const missing = getMissingFields();
+    if (missing.length > 0) {
+      const fieldNames: Record<string, string> = {
+        ean: "Kod EAN", variantName: "Nazwa subproduktu", content: "Zawartość", unit: "Jednostka", sku: "SKU",
+      };
+      toast.error(`Uzupełnij wymagane pola: ${missing.map(f => fieldNames[f]).join(", ")}`);
+      setDataFetched(true);
+      return;
+    }
+
+    if (eanDuplicate?.exists) {
+      toast.error(`Ten kod EAN już istnieje: ${eanDuplicate.path}`);
       return;
     }
 
@@ -1786,7 +2059,7 @@ const EditSubProductDialog = ({
     try {
       await updateProductVariant({
         id: subProduct.id,
-        product_id: subProduct.product_id,
+        product_id: selectedProductId ? parseInt(selectedProductId) : subProduct.product_id,
         ean,
         name: variantName,
         content,
@@ -1796,28 +2069,28 @@ const EditSubProductDialog = ({
         brands,
         categories: productCategories,
         image_url: imageUrl,
-        allergens: selectedAllergens,
-        nutrition_database_id: nutritionDbId,
-        energy_kj: energyKj ? parseFloat(energyKj) : null,
-        energy_kcal: energyKcal ? parseFloat(energyKcal) : null,
-        energy_kj_1169: energyKj1169 ? parseFloat(energyKj1169) : null,
-        energy_kcal_1169: energyKcal1169 ? parseFloat(energyKcal1169) : null,
-        water: water ? parseFloat(water) : null,
-        protein_animal: proteinAnimal ? parseFloat(proteinAnimal) : null,
-        protein_plant: proteinPlant ? parseFloat(proteinPlant) : null,
-        fat: fat ? parseFloat(fat) : null,
-        carbohydrates: carbohydrates ? parseFloat(carbohydrates) : null,
-        fiber: fiber ? parseFloat(fiber) : null,
-        sodium: sodium ? parseFloat(sodium) : null,
-        salt: salt ? parseFloat(salt) : null,
-        potassium: potassium ? parseFloat(potassium) : null,
-        calcium: calcium ? parseFloat(calcium) : null,
-        phosphorus: phosphorus ? parseFloat(phosphorus) : null,
-        magnesium: magnesium ? parseFloat(magnesium) : null,
-        iron: iron ? parseFloat(iron) : null,
-        vitamin_d: vitaminD ? parseFloat(vitaminD) : null,
-        vitamin_c: vitaminC ? parseFloat(vitaminC) : null,
-        cholesterol: cholesterol ? parseFloat(cholesterol) : null,
+        allergens: subProduct.allergens || [],
+        nutrition_database_id: subProduct.nutrition_database_id,
+        energy_kj: subProduct.energy_kj,
+        energy_kcal: calories ? parseFloat(calories) : subProduct.energy_kcal,
+        energy_kj_1169: subProduct.energy_kj_1169,
+        energy_kcal_1169: subProduct.energy_kcal_1169,
+        water: subProduct.water,
+        protein_animal: subProduct.protein_animal,
+        protein_plant: subProduct.protein_plant,
+        fat: subProduct.fat,
+        carbohydrates: subProduct.carbohydrates,
+        fiber: subProduct.fiber,
+        sodium: subProduct.sodium,
+        salt: subProduct.salt,
+        potassium: subProduct.potassium,
+        calcium: subProduct.calcium,
+        phosphorus: subProduct.phosphorus,
+        magnesium: subProduct.magnesium,
+        iron: subProduct.iron,
+        vitamin_d: subProduct.vitamin_d,
+        vitamin_c: subProduct.vitamin_c,
+        cholesterol: subProduct.cholesterol,
       });
       toast.success("Subprodukt został zaktualizowany!");
       onSave?.();
@@ -1833,206 +2106,220 @@ const EditSubProductDialog = ({
     }
   };
 
+  const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
+    <Label className="flex items-center gap-1">
+      {children}
+      <span className="text-red-500">*</span>
+    </Label>
+  );
+
+  const getFieldClass = (fieldName: string) => {
+    if (dataFetched && missingFields.includes(fieldName)) {
+      return "border-red-500 ring-1 ring-red-500";
+    }
+    return "";
+  };
+
   return (
     <Dialog open={open} onOpenChange={(value) => {
       if (!value && html5QrCode) html5QrCode.stop().catch(() => {});
       onOpenChange(value);
     }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edytuj subprodukt</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Pola oznaczone <span className="text-red-500">*</span> są wymagane
+          </p>
         </DialogHeader>
-        
-        <div className="space-y-6 py-4">
-          {/* Basic info */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground">Dane podstawowe</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nazwa *</Label>
-                <Input value={variantName} onChange={(e) => setVariantName(e.target.value)} />
+        <div className="space-y-4 py-4">
+          {/* EAN input with scanner */}
+          <div className="space-y-2">
+            <RequiredLabel>
+              <Barcode className="h-4 w-4" />
+              Kod EAN / GTIN
+            </RequiredLabel>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  ref={eanInputRef}
+                  placeholder="Zeskanuj lub wpisz kod EAN..."
+                  value={ean}
+                  onChange={(e) => handleEanChange(e.target.value)}
+                  onKeyDown={handleEanKeyDown}
+                  className={`pr-10 font-mono text-lg ${getFieldClass("ean")} ${eanDuplicate?.exists ? "border-red-500" : ""}`}
+                />
+                {isLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as "active" | "archived")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Aktywny</SelectItem>
-                    <SelectItem value="archived">Zarchiwizowany</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>EAN *</Label>
-                <Input value={ean} onChange={(e) => setEan(e.target.value)} className="font-mono" />
-              </div>
-              <div className="space-y-2">
-                <Label>SKU *</Label>
-                <Input value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" />
-              </div>
-              <div className="space-y-2">
-                <Label>Marka</Label>
-                <Input value={brands} onChange={(e) => setBrands(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Zawartość *</Label>
-                <Input type="number" value={content} onChange={(e) => setContent(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Jednostka *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="g">g</SelectItem>
-                    <SelectItem value="kg">kg</SelectItem>
-                    <SelectItem value="ml">ml</SelectItem>
-                    <SelectItem value="l">l</SelectItem>
-                    <SelectItem value="szt">szt</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Button type="button" variant={isScannerOpen ? "default" : "outline"} size="icon" onClick={toggleScanner}>
+                <Camera className="h-5 w-5" />
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => fetchProductData(ean)} disabled={isLoading || ean.length < 8} className="gap-2">
+                <Download className="h-4 w-4" />
+                Pobierz dane
+              </Button>
             </div>
           </div>
 
+          {/* EAN duplicate warning */}
+          {eanDuplicate?.exists && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Ten kod EAN już istnieje w bazie!</p>
+                <p className="text-xs mt-1">Ścieżka: {eanDuplicate.path}</p>
+              </div>
+            </div>
+          )}
+
+          {isScannerOpen && (
+            <div className="relative rounded-lg overflow-hidden bg-black">
+              <div ref={scannerRef} className="w-full aspect-video" />
+              <Button variant="secondary" size="sm" className="absolute top-2 right-2 gap-1" onClick={() => {
+                if (html5QrCode) html5QrCode.stop().catch(() => {});
+                setIsScannerOpen(false);
+              }}>
+                <X className="h-4 w-4" /> Zamknij
+              </Button>
+            </div>
+          )}
+
           <Separator />
 
-          {/* Allergens */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground">Alergeny</h3>
-            <div className="grid grid-cols-4 gap-2">
-              {allergensList.map((allergen) => (
-                <div
-                  key={allergen.id}
-                  className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
-                    selectedAllergens.includes(allergen.id)
-                      ? "bg-orange-50 border-orange-300"
-                      : "hover:bg-muted/50"
-                  }`}
-                  onClick={() => toggleAllergen(allergen.id)}
-                >
-                  <Checkbox checked={selectedAllergens.includes(allergen.id)} />
-                  {allergen.icon}
-                  <span className="text-sm">{allergen.name}</span>
-                </div>
-              ))}
+          {productFound && imageUrl && (
+            <div className="flex gap-4 p-4 bg-muted/50 rounded-lg">
+              <img src={imageUrl} alt={variantName} className="w-20 h-20 object-contain rounded bg-white p-1" />
+              <div className="flex-1">
+                <p className="font-medium">{variantName}</p>
+                <p className="text-sm text-muted-foreground">{content} {unit} • {calories ? `${calories} kcal/100g` : "Brak kcal"}</p>
+                {brands && <p className="text-xs text-muted-foreground mt-1">Marka: {brands}</p>}
+                <Badge variant="outline" className="mt-2 text-green-600 border-green-300">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  OpenFoodFacts
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {dataFetched && missingFields.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Uzupełnij podświetlone pola przed zapisaniem</p>
+              </div>
+            </div>
+          )}
+
+          {/* Parent product selection */}
+          <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+            <Label className="text-sm font-medium">Powiązanie z produktem</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={selectedCategoryId} onValueChange={(v) => {
+                setSelectedCategoryId(v);
+                setSelectedSubcategoryId("");
+                setSelectedProductId("");
+              }}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Kategoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedSubcategoryId} onValueChange={(v) => {
+                setSelectedSubcategoryId(v);
+                setSelectedProductId("");
+              }} disabled={!selectedCategoryId}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Subkategoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSubcategoriesForCategory(selectedCategoryId).map((sub) => (
+                    <SelectItem key={sub.id} value={sub.id.toString()}>{sub.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedProductId} onValueChange={setSelectedProductId} disabled={!selectedSubcategoryId}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Produkt" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getProductsForSubcategory(selectedSubcategoryId).map((prod) => (
+                    <SelectItem key={prod.id} value={prod.id.toString()}>{prod.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <Separator />
-
-          {/* Nutritional values */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground">Wartości odżywcze (na 100g)</h3>
-            
-            <div className="grid grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Energia (kJ)</Label>
-                <Input type="number" value={energyKj} onChange={(e) => setEnergyKj(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Energia (kcal)</Label>
-                <Input type="number" value={energyKcal} onChange={(e) => setEnergyKcal(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Energia 1169 (kJ)</Label>
-                <Input type="number" value={energyKj1169} onChange={(e) => setEnergyKj1169(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Energia 1169 (kcal)</Label>
-                <Input type="number" value={energyKcal1169} onChange={(e) => setEnergyKcal1169(e.target.value)} />
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <RequiredLabel>Nazwa subproduktu</RequiredLabel>
+              <Input placeholder="np. Ser Gouda Łowicz 200g" value={variantName} onChange={(e) => setVariantName(e.target.value)} className={getFieldClass("variantName")} />
             </div>
-
-            <div className="grid grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Woda (g)</Label>
-                <Input type="number" value={water} onChange={(e) => setWater(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Białko zwierzęce (g)</Label>
-                <Input type="number" value={proteinAnimal} onChange={(e) => setProteinAnimal(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Białko roślinne (g)</Label>
-                <Input type="number" value={proteinPlant} onChange={(e) => setProteinPlant(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Tłuszcz (g)</Label>
-                <Input type="number" value={fat} onChange={(e) => setFat(e.target.value)} />
-              </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as "active" | "archived")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktywny</SelectItem>
+                  <SelectItem value="archived">Zarchiwizowany</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Węglowodany (g)</Label>
-                <Input type="number" value={carbohydrates} onChange={(e) => setCarbohydrates(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Błonnik (g)</Label>
-                <Input type="number" value={fiber} onChange={(e) => setFiber(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Sód (mg)</Label>
-                <Input type="number" value={sodium} onChange={(e) => setSodium(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Sól (g)</Label>
-                <Input type="number" value={salt} onChange={(e) => setSalt(e.target.value)} />
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <RequiredLabel>Zawartość</RequiredLabel>
+              <Input type="number" placeholder="500" value={content} onChange={(e) => setContent(e.target.value)} className={getFieldClass("content")} />
             </div>
+            <div className="space-y-2">
+              <RequiredLabel>Jednostka</RequiredLabel>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger className={getFieldClass("unit")}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="g">g</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="l">l</SelectItem>
+                  <SelectItem value="szt">szt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Potas (mg)</Label>
-                <Input type="number" value={potassium} onChange={(e) => setPotassium(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Wapń (mg)</Label>
-                <Input type="number" value={calcium} onChange={(e) => setCalcium(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Fosfor (mg)</Label>
-                <Input type="number" value={phosphorus} onChange={(e) => setPhosphorus(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Magnez (mg)</Label>
-                <Input type="number" value={magnesium} onChange={(e) => setMagnesium(e.target.value)} />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>Kalorie (kcal/100g)</Label>
+            <Input type="number" placeholder="0" value={calories} onChange={(e) => setCalories(e.target.value)} />
+          </div>
 
-            <div className="grid grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Żelazo (mg)</Label>
-                <Input type="number" value={iron} onChange={(e) => setIron(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Witamina D (µg)</Label>
-                <Input type="number" value={vitaminD} onChange={(e) => setVitaminD(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Witamina C (mg)</Label>
-                <Input type="number" value={vitaminC} onChange={(e) => setVitaminC(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Cholesterol (mg)</Label>
-                <Input type="number" value={cholesterol} onChange={(e) => setCholesterol(e.target.value)} />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>Marka (opcjonalne)</Label>
+            <Input placeholder="np. Łowicz" value={brands} onChange={(e) => setBrands(e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <RequiredLabel>SKU</RequiredLabel>
+            <Input placeholder="SKU" value={sku} onChange={(e) => setSku(e.target.value)} className={`font-mono ${getFieldClass("sku")}`} />
           </div>
         </div>
 
+        {productCategories && (
+          <div className="pt-2 pb-4 border-t">
+            <p className="text-xs text-muted-foreground"><span className="font-medium">Kategorie:</span> {productCategories}</p>
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Anuluj
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Anuluj</Button>
+          <Button onClick={handleSave} disabled={isSaving || (eanDuplicate?.exists ?? false)}>
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Zapisz zmiany
           </Button>
