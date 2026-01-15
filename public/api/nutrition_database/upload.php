@@ -1,31 +1,34 @@
 <?php
-header("Content-Type: application/json");
-require_once __DIR__ . '/../db.php';
+declare(strict_types=1);
+error_reporting(E_ALL);
+ini_set("display_errors", "0");
+
+require_once __DIR__ . "/../bootstrap.php";
+header('Cache-Control: no-store');
 
 // This endpoint receives parsed XLSX data from frontend and inserts into database
 // Frontend parses XLSX using 'xlsx' library and sends JSON array of records
 
 try {
-    $input = json_decode(file_get_contents("php://input"), true);
-    
+    $inputRaw = file_get_contents('php://input');
+    $input = json_decode($inputRaw, true);
+
     if (!$input || !isset($input['records']) || !is_array($input['records'])) {
-        echo json_encode(["success" => false, "error" => "No records provided"]);
-        exit;
+        jsonResponse(null, false, 'No records provided', 400);
     }
-    
+
     $records = $input['records'];
-    $uploadedBy = isset($input['uploaded_by']) ? $input['uploaded_by'] : 'System';
-    
+    $uploadedBy = isset($input['uploaded_by']) ? (string)$input['uploaded_by'] : 'System';
+
     if (count($records) === 0) {
-        echo json_encode(["success" => false, "error" => "Empty records array"]);
-        exit;
+        jsonResponse(null, false, 'Empty records array', 400);
     }
-    
+
     $pdo->beginTransaction();
-    
+
     // Clear existing data (full replacement strategy)
-    $pdo->exec("DELETE FROM nutrition_database");
-    
+    $pdo->exec('DELETE FROM nutrition_database');
+
     // Insert new records
     $stmt = $pdo->prepare("INSERT INTO nutrition_database (
         code, name_pl, name_en, waste_percent, energy_kj, energy_kcal, energy_kj_1169, energy_kcal_1169,
@@ -40,15 +43,24 @@ try {
         :vitamin_a, :retinol, :beta_carotene, :vitamin_d, :vitamin_e, :vitamin_b1, :vitamin_b2, :niacin, :vitamin_b6, :folate, :vitamin_b12, :vitamin_c,
         :saturated_fat, :cholesterol, :sugars, :fiber
     )");
-    
+
+    $parseNum = static function ($val): ?float {
+        if ($val === null) return null;
+        if (is_string($val)) {
+            $v = trim($val);
+            if ($v === '' || $v === 'b.d.' || $v === '-') return null;
+            $v = str_replace(',', '.', $v);
+            return is_numeric($v) ? (float)$v : null;
+        }
+        if (is_int($val) || is_float($val)) return (float)$val;
+        return null;
+    };
+
     $insertedCount = 0;
-    
+
     foreach ($records as $record) {
-        $parseNum = function($val) {
-            if ($val === null || $val === '' || $val === 'b.d.' || $val === '-') return null;
-            return floatval(str_replace(',', '.', $val));
-        };
-        
+        if (!is_array($record)) continue;
+
         $stmt->execute([
             'code' => $record['code'] ?? null,
             'name_pl' => $record['name_pl'] ?? null,
@@ -95,34 +107,39 @@ try {
             'sugars' => $parseNum($record['sugars'] ?? null),
             'fiber' => $parseNum($record['fiber'] ?? null),
         ]);
+
         $insertedCount++;
     }
-    
-    // Log the upload
-    $logStmt = $pdo->prepare("INSERT INTO nutrition_database_uploads (file_name, uploaded_by, records_count, status) VALUES (?, ?, ?, 'success')");
-    $logStmt->execute([$input['file_name'] ?? 'unknown.xlsx', $uploadedBy, $insertedCount]);
-    
+
+    // Log the upload (best-effort)
+    try {
+        $logStmt = $pdo->prepare("INSERT INTO nutrition_database_uploads (file_name, uploaded_by, records_count, status) VALUES (?, ?, ?, 'success')");
+        $logStmt->execute([$input['file_name'] ?? 'unknown.xlsx', $uploadedBy, $insertedCount]);
+    } catch (Throwable $e) {
+        // ignore
+    }
+
     $pdo->commit();
-    
-    echo json_encode([
-        "success" => true, 
-        "data" => [
-            "inserted" => $insertedCount,
-            "message" => "Database updated successfully"
-        ]
+
+    jsonResponse([
+        'inserted' => $insertedCount,
+        'message' => 'Database updated successfully',
     ]);
-} catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
+} catch (Throwable $e) {
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    
-    // Log the error
+
+    // Log the error (best-effort)
     try {
+        $fileName = is_array($input ?? null) ? ($input['file_name'] ?? 'unknown.xlsx') : 'unknown.xlsx';
+        $who = is_array($input ?? null) ? ((string)($input['uploaded_by'] ?? 'System')) : 'System';
+
         $logStmt = $pdo->prepare("INSERT INTO nutrition_database_uploads (file_name, uploaded_by, records_count, status, error_message) VALUES (?, ?, 0, 'error', ?)");
-        $logStmt->execute([$input['file_name'] ?? 'unknown.xlsx', $input['uploaded_by'] ?? 'System', $e->getMessage()]);
-    } catch (Exception $ex) {
-        // Ignore logging errors
+        $logStmt->execute([$fileName, $who, $e->getMessage()]);
+    } catch (Throwable $ex) {
+        // ignore
     }
-    
-    echo json_encode(["success" => false, "error" => $e->getMessage()]);
+
+    jsonResponse(null, false, $e->getMessage(), 500);
 }
