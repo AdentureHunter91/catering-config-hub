@@ -1645,7 +1645,7 @@ const ProductManagementPanel = ({
                   <div className="flex justify-between p-1.5 bg-muted/30 rounded">
                     <span>Białko</span>
                     <span className="font-medium">
-                      {((product.protein_animal || 0) + (product.protein_plant || 0)).toFixed(1)} g
+                      {(Number(product.protein_animal || 0) + Number(product.protein_plant || 0)).toFixed(1)} g
                     </span>
                   </div>
                 )}
