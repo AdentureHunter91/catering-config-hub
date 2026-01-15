@@ -70,6 +70,7 @@ import { fetchCategories, fetchSubcategories, ProductCategory, ProductSubcategor
 import { getProducts, createProduct, updateProduct, archiveProduct, Product as ApiProduct } from "@/api/products";
 import { getProductVariants, createProductVariant, updateProductVariant, archiveProductVariant, checkEan, ProductVariant as ApiVariant, EanCheckResult } from "@/api/productVariants";
 import { getNutritionDatabaseEntries, getNutritionDatabaseEntry, NutritionDatabaseEntry } from "@/api/nutritionDatabase";
+import { NutritionDbCombobox } from "@/components/NutritionDbCombobox";
 
 // Allergen type with icon
 interface AllergenItem {
@@ -243,11 +244,11 @@ const ProductsConfig = () => {
   // Nutrition database entries
   const [nutritionDatabase, setNutritionDatabase] = useState<NutritionDbItem[]>([]);
 
-  // Load nutrition database
+  // Load nutrition database (all entries for combobox search)
   useEffect(() => {
     const loadNutritionDb = async () => {
       try {
-        const entries = await getNutritionDatabaseEntries("", 500);
+        const entries = await getNutritionDatabaseEntries("", 2000);
         setNutritionDatabase(entries.map(e => ({ id: e.id, name: e.name_pl })));
       } catch (error) {
         console.log("Nutrition database not available yet");
@@ -1066,34 +1067,57 @@ const AddProductDialog = ({
                 <Label className="font-medium">Powiązanie z bazą IŻŻ</Label>
               </div>
               <div className="flex gap-3">
-                <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">-- Brak powiązania --</SelectItem>
-                    {nutritionDatabase.map((item) => (
-                      <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <NutritionDbCombobox
+                  items={nutritionDatabase}
+                  value={nutritionDbId}
+                  onValueChange={setNutritionDbId}
+                  className="flex-1"
+                />
                 {nutritionDbId !== "none" && (
                   <Button 
                     type="button" 
                     variant="outline" 
                     className="gap-2 text-green-600 border-green-300 hover:bg-green-50"
-                    onClick={() => {
-                      // TODO: W przyszłości pobierz dane z prawdziwej bazy IŻŻ
-                      // Symulacja skopiowania danych
-                      setNutrition({
-                        energy_kj: "1500", energy_kcal: "360", energy_kj_1169: "1500", energy_kcal_1169: "360",
-                        water: "35", protein_animal: "25", protein_plant: "0", fat: "28", saturated_fat: "18",
-                        carbohydrates: "2", sugars: "0.5", fiber: "0", sodium: "620", salt: "1.55", potassium: "100",
-                        calcium: "700", phosphorus: "500", magnesium: "30", iron: "0.3", zinc: "3.5",
-                        vitamin_a: "280", vitamin_d: "0.6", vitamin_e: "0.5", vitamin_c: "0",
-                        vitamin_b1: "0.03", vitamin_b2: "0.35", vitamin_b6: "0.08", vitamin_b12: "1.5",
-                        folate: "20", niacin: "0.1", cholesterol: "100",
-                      });
-                      setSelectedAllergens(["lactose"]);
-                      toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                    onClick={async () => {
+                      try {
+                        const entry = await getNutritionDatabaseEntry(parseInt(nutritionDbId));
+                        setNutrition({
+                          energy_kj: entry.energy_kj?.toString() ?? "",
+                          energy_kcal: entry.energy_kcal?.toString() ?? "",
+                          energy_kj_1169: entry.energy_kj_1169?.toString() ?? "",
+                          energy_kcal_1169: entry.energy_kcal_1169?.toString() ?? "",
+                          water: entry.water?.toString() ?? "",
+                          protein_animal: entry.protein_animal?.toString() ?? "",
+                          protein_plant: entry.protein_plant?.toString() ?? "",
+                          fat: entry.fat?.toString() ?? "",
+                          saturated_fat: entry.saturated_fat?.toString() ?? "",
+                          carbohydrates: entry.carbohydrates_available?.toString() ?? "",
+                          sugars: entry.sugars?.toString() ?? "",
+                          fiber: entry.fiber?.toString() ?? "",
+                          sodium: entry.sodium?.toString() ?? "",
+                          salt: entry.salt?.toString() ?? "",
+                          potassium: entry.potassium?.toString() ?? "",
+                          calcium: entry.calcium?.toString() ?? "",
+                          phosphorus: entry.phosphorus?.toString() ?? "",
+                          magnesium: entry.magnesium?.toString() ?? "",
+                          iron: entry.iron?.toString() ?? "",
+                          zinc: entry.zinc?.toString() ?? "",
+                          vitamin_a: entry.vitamin_a?.toString() ?? "",
+                          vitamin_d: entry.vitamin_d?.toString() ?? "",
+                          vitamin_e: entry.vitamin_e?.toString() ?? "",
+                          vitamin_c: entry.vitamin_c?.toString() ?? "",
+                          vitamin_b1: entry.vitamin_b1?.toString() ?? "",
+                          vitamin_b2: entry.vitamin_b2?.toString() ?? "",
+                          vitamin_b6: entry.vitamin_b6?.toString() ?? "",
+                          vitamin_b12: entry.vitamin_b12?.toString() ?? "",
+                          folate: entry.folate?.toString() ?? "",
+                          niacin: entry.niacin?.toString() ?? "",
+                          cholesterol: entry.cholesterol?.toString() ?? "",
+                        });
+                        toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                      } catch (error) {
+                        toast.error("Nie udało się pobrać danych z bazy IŻŻ");
+                      }
                     }}
                   >
                     <Copy className="h-4 w-4" />
@@ -1103,7 +1127,7 @@ const AddProductDialog = ({
               </div>
               {nutritionDbId !== "none" && (
                 <p className="text-xs text-muted-foreground">
-                  Po kliknięciu "Powiąż dane" wartości odżywcze i alergeny zostaną skopiowane z bazy IŻŻ
+                  Po kliknięciu "Powiąż dane" wartości odżywcze zostaną skopiowane z bazy IŻŻ
                 </p>
               )}
             </div>
@@ -1417,34 +1441,57 @@ const EditProductDialog = ({
                 <Label className="font-medium">Powiązanie z bazą IŻŻ</Label>
               </div>
               <div className="flex gap-3">
-                <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">-- Brak powiązania --</SelectItem>
-                    {nutritionDatabase.map((item) => (
-                      <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <NutritionDbCombobox
+                  items={nutritionDatabase}
+                  value={nutritionDbId}
+                  onValueChange={setNutritionDbId}
+                  className="flex-1"
+                />
                 {nutritionDbId !== "none" && (
                   <Button 
                     type="button" 
                     variant="outline" 
                     className="gap-2 text-green-600 border-green-300 hover:bg-green-50"
-                    onClick={() => {
-                      // TODO: W przyszłości pobierz dane z prawdziwej bazy IŻŻ
-                      // Symulacja skopiowania danych
-                      setNutrition({
-                        energy_kj: "1500", energy_kcal: "360", energy_kj_1169: "1500", energy_kcal_1169: "360",
-                        water: "35", protein_animal: "25", protein_plant: "0", fat: "28", saturated_fat: "18",
-                        carbohydrates: "2", sugars: "0.5", fiber: "0", sodium: "620", salt: "1.55", potassium: "100",
-                        calcium: "700", phosphorus: "500", magnesium: "30", iron: "0.3", zinc: "3.5",
-                        vitamin_a: "280", vitamin_d: "0.6", vitamin_e: "0.5", vitamin_c: "0",
-                        vitamin_b1: "0.03", vitamin_b2: "0.35", vitamin_b6: "0.08", vitamin_b12: "1.5",
-                        folate: "20", niacin: "0.1", cholesterol: "100",
-                      });
-                      setSelectedAllergens(["lactose"]);
-                      toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                    onClick={async () => {
+                      try {
+                        const entry = await getNutritionDatabaseEntry(parseInt(nutritionDbId));
+                        setNutrition({
+                          energy_kj: entry.energy_kj?.toString() ?? "",
+                          energy_kcal: entry.energy_kcal?.toString() ?? "",
+                          energy_kj_1169: entry.energy_kj_1169?.toString() ?? "",
+                          energy_kcal_1169: entry.energy_kcal_1169?.toString() ?? "",
+                          water: entry.water?.toString() ?? "",
+                          protein_animal: entry.protein_animal?.toString() ?? "",
+                          protein_plant: entry.protein_plant?.toString() ?? "",
+                          fat: entry.fat?.toString() ?? "",
+                          saturated_fat: entry.saturated_fat?.toString() ?? "",
+                          carbohydrates: entry.carbohydrates_available?.toString() ?? "",
+                          sugars: entry.sugars?.toString() ?? "",
+                          fiber: entry.fiber?.toString() ?? "",
+                          sodium: entry.sodium?.toString() ?? "",
+                          salt: entry.salt?.toString() ?? "",
+                          potassium: entry.potassium?.toString() ?? "",
+                          calcium: entry.calcium?.toString() ?? "",
+                          phosphorus: entry.phosphorus?.toString() ?? "",
+                          magnesium: entry.magnesium?.toString() ?? "",
+                          iron: entry.iron?.toString() ?? "",
+                          zinc: entry.zinc?.toString() ?? "",
+                          vitamin_a: entry.vitamin_a?.toString() ?? "",
+                          vitamin_d: entry.vitamin_d?.toString() ?? "",
+                          vitamin_e: entry.vitamin_e?.toString() ?? "",
+                          vitamin_c: entry.vitamin_c?.toString() ?? "",
+                          vitamin_b1: entry.vitamin_b1?.toString() ?? "",
+                          vitamin_b2: entry.vitamin_b2?.toString() ?? "",
+                          vitamin_b6: entry.vitamin_b6?.toString() ?? "",
+                          vitamin_b12: entry.vitamin_b12?.toString() ?? "",
+                          folate: entry.folate?.toString() ?? "",
+                          niacin: entry.niacin?.toString() ?? "",
+                          cholesterol: entry.cholesterol?.toString() ?? "",
+                        });
+                        toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                      } catch (error) {
+                        toast.error("Nie udało się pobrać danych z bazy IŻŻ");
+                      }
                     }}
                   >
                     <Copy className="h-4 w-4" />
@@ -1454,7 +1501,7 @@ const EditProductDialog = ({
               </div>
               {nutritionDbId !== "none" && (
                 <p className="text-xs text-muted-foreground">
-                  Po kliknięciu "Powiąż dane" wartości odżywcze i alergeny zostaną skopiowane z bazy IŻŻ
+                  Po kliknięciu "Powiąż dane" wartości odżywcze zostaną skopiowane z bazy IŻŻ
                 </p>
               )}
             </div>
