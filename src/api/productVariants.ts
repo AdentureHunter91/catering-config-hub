@@ -16,7 +16,6 @@ export type ProductVariant = {
     categories: string;
     image_url: string;
     allergens: string[];
-    // Nutritional values
     nutrition_database_id: number | null;
     energy_kj: number | null;
     energy_kcal: number | null;
@@ -42,20 +41,47 @@ export type ProductVariant = {
 
 export type ProductVariantPayload = Omit<ProductVariant, 'id'> & { id?: number };
 
-export async function getProductVariants(productId?: number, status?: string): Promise<ProductVariant[]> {
-    const params = new URLSearchParams();
-    if (productId) params.append('product_id', productId.toString());
-    if (status) params.append('status', status);
-    
-    const url = params.toString() 
-        ? `${API}/list.php?${params.toString()}` 
-        : `${API}/list.php`;
+export type EanCheckResult = {
+    exists: boolean;
+    variant_id?: number;
+    variant_name?: string;
+    product_id?: number;
+    product_name?: string;
+    subcategory_id?: number;
+    subcategory_name?: string;
+    category_id?: number;
+    category_name?: string;
+    path?: string;
+};
+
+export async function checkEan(ean: string, excludeId?: number): Promise<EanCheckResult> {
+    let url = `${API}/check_ean.php?ean=${encodeURIComponent(ean)}`;
+    if (excludeId) url += `&exclude_id=${excludeId}`;
     
     const r = await fetch(url);
     const j = await r.json();
 
     if (!j.success) {
-        throw new Error(j.error || "Failed to load product variants");
+        throw new Error(j.error || "Failed to check EAN");
+    }
+
+    return j.data;
+}
+
+export async function getProductVariants(productId?: number, status?: string): Promise<ProductVariant[]> {
+    let url = `${API}/list.php`;
+    const params = new URLSearchParams();
+    
+    if (productId) params.append("product_id", productId.toString());
+    if (status) params.append("status", status);
+    
+    if (params.toString()) url += `?${params.toString()}`;
+    
+    const r = await fetch(url);
+    const j = await r.json();
+
+    if (!j.success) {
+        throw new Error(j.error || "Failed to load variants");
     }
 
     return j.data || [];
@@ -66,7 +92,7 @@ export async function getProductVariant(id: number): Promise<ProductVariant> {
     const j = await r.json();
 
     if (!j.success) {
-        throw new Error(j.error || "Failed to load product variant");
+        throw new Error(j.error || "Failed to load variant");
     }
 
     return j.data;
@@ -82,7 +108,7 @@ export async function createProductVariant(payload: ProductVariantPayload): Prom
     const j = await r.json();
     
     if (!j.success) {
-        throw new Error(j.error || "Failed to create product variant");
+        throw new Error(j.error || "Failed to create variant");
     }
     
     return j.data;
@@ -98,7 +124,7 @@ export async function updateProductVariant(payload: ProductVariant): Promise<{ i
     const j = await r.json();
     
     if (!j.success) {
-        throw new Error(j.error || "Failed to update product variant");
+        throw new Error(j.error || "Failed to update variant");
     }
     
     return j.data;
@@ -114,7 +140,7 @@ export async function archiveProductVariant(id: number): Promise<{ id: number; a
     const j = await r.json();
     
     if (!j.success) {
-        throw new Error(j.error || "Failed to archive product variant");
+        throw new Error(j.error || "Failed to archive variant");
     }
     
     return j.data;
