@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   Clock,
   User,
   Database,
+  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -23,48 +24,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// Mock upload history
-const mockUploadHistory = [
-  {
-    id: 1,
-    fileName: "baza_zywnosci_2024_v3.xlsx",
-    uploadedBy: "Anna Kowalska",
-    uploadedAt: "2024-01-15 14:32",
-    recordsCount: 2847,
-    status: "success" as const,
-  },
-  {
-    id: 2,
-    fileName: "baza_zywnosci_2024_v2.xlsx",
-    uploadedBy: "Jan Nowak",
-    uploadedAt: "2024-01-10 09:15",
-    recordsCount: 2821,
-    status: "success" as const,
-  },
-  {
-    id: 3,
-    fileName: "baza_zywnosci_2024_v1.xlsx",
-    uploadedBy: "Anna Kowalska",
-    uploadedAt: "2024-01-05 11:45",
-    recordsCount: 2800,
-    status: "success" as const,
-  },
-  {
-    id: 4,
-    fileName: "baza_test.xlsx",
-    uploadedBy: "Jan Nowak",
-    uploadedAt: "2024-01-03 16:20",
-    recordsCount: 0,
-    status: "error" as const,
-    error: "Nieprawidłowy format pliku",
-  },
-];
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import {
+  getNutritionDatabaseStats,
+  getNutritionDatabaseHistory,
+  uploadNutritionDatabase,
+  NutritionDatabaseStats,
+  NutritionDatabaseUploadHistory,
+} from "@/api/nutritionDatabase";
 
 const NutritionDatabaseUpload = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [stats, setStats] = useState<NutritionDatabaseStats | null>(null);
+  const [history, setHistory] = useState<NutritionDatabaseUploadHistory[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Load stats and history on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoadingStats(true);
+      const [statsData, historyData] = await Promise.all([
+        getNutritionDatabaseStats(),
+        getNutritionDatabaseHistory(10),
+      ]);
+      setStats(statsData);
+      setHistory(historyData);
+    } catch (error: any) {
+      console.error("Error loading data:", error);
+      // If tables don't exist yet, show empty state
+      setStats({ records_count: 0, last_upload: null });
+      setHistory([]);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,18 +74,157 @@ const NutritionDatabaseUpload = () => {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
+    
     setIsUploading(true);
-    // Mock upload
-    setTimeout(() => {
-      setIsUploading(false);
+    
+    try {
+      // Read the XLSX file
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      
+      // Find the "BAZA DANYCH" sheet
+      const sheetName = workbook.SheetNames.find(
+        (name) => name.toUpperCase().includes("BAZA DANYCH") || name.toUpperCase().includes("BAZA_DANYCH")
+      ) || workbook.SheetNames[0];
+      
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert to array of arrays
+      const rawData: (string | number | null)[][] = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: null,
+      });
+      
+      // Skip header rows (first few rows are headers based on the parsed structure)
+      // Row 1: Main headers
+      // Row 2: Subheaders 
+      // Row 3: More subheaders
+      // Row 4: Units
+      // Actual data starts from row 5 (index 4 or later)
+      
+      // Find the first row with actual data (starts with a number in column 0)
+      let startRow = 0;
+      for (let i = 0; i < Math.min(10, rawData.length); i++) {
+        const firstCell = rawData[i][0];
+        if (typeof firstCell === "number" && firstCell > 0) {
+          startRow = i;
+          break;
+        }
+      }
+      
+      // Parse records
+      const records: Record<string, string | number | null>[] = [];
+      
+      for (let i = startRow; i < rawData.length; i++) {
+        const row = rawData[i];
+        
+        // Skip empty rows or rows without a code
+        if (!row || !row[1] || row[1] === "") continue;
+        
+        // Skip if first column is not a valid number (header row)
+        const firstCell = row[0];
+        if (typeof firstCell !== "number") continue;
+        
+        // Parse the row
+        const record: Record<string, string | number | null> = {
+          code: row[1]?.toString() || null,
+          name_pl: row[2]?.toString() || null,
+          name_en: row[3]?.toString() || null,
+          waste_percent: row[5],
+          energy_kj: row[6],
+          energy_kcal: row[7],
+          energy_kj_1169: row[8],
+          energy_kcal_1169: row[9],
+          water: row[10],
+          protein_total: row[11],
+          protein_animal: row[12],
+          protein_plant: row[13],
+          protein_1169: row[14],
+          fat: row[15],
+          carbohydrates_total: row[16],
+          carbohydrates_available: row[17],
+          ash: row[18],
+          sodium: row[19],
+          salt: row[20],
+          potassium: row[21],
+          calcium: row[22],
+          phosphorus: row[23],
+          magnesium: row[24],
+          iron: row[25],
+          zinc: row[26],
+          copper: row[27],
+          manganese: row[28],
+          iodine: row[29],
+          vitamin_a: row[30],
+          retinol: row[31],
+          beta_carotene: row[32],
+          vitamin_d: row[33],
+          vitamin_e: row[34],
+          vitamin_b1: row[35],
+          vitamin_b2: row[36],
+          niacin: row[37],
+          vitamin_b6: row[38],
+          folate: row[39],
+          vitamin_b12: row[40],
+          vitamin_c: row[41],
+          // Saturated fat - sum is around index 53 in the "ogółem" column for saturated acids
+          saturated_fat: row[53],
+          // Cholesterol is at index 66
+          cholesterol: row[66],
+          // Sugars - not directly available in this format, leaving null
+          sugars: null,
+          // Fiber is at index 89 (Błonnik pokarmowy)
+          fiber: row[89],
+        };
+        
+        // Only add if we have at least a name
+        if (record.name_pl) {
+          records.push(record);
+        }
+      }
+      
+      if (records.length === 0) {
+        toast.error("Nie znaleziono danych w pliku. Upewnij się, że plik zawiera arkusz 'BAZA DANYCH'.");
+        setIsUploading(false);
+        return;
+      }
+      
+      // Upload to server
+      const result = await uploadNutritionDatabase({
+        file_name: selectedFile.name,
+        uploaded_by: "Admin", // TODO: Get from auth context
+        records,
+      });
+      
+      toast.success(`Zaimportowano ${result.inserted} produktów do bazy IŻŻ`);
       setUploadSuccess(true);
       setSelectedFile(null);
-    }, 2000);
+      
+      // Reset file input
+      const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
+      
+      // Reload data
+      loadData();
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error("Błąd podczas importu: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const currentDbInfo = mockUploadHistory[0];
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString("pl-PL", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <Layout pageKey="config.products">
@@ -114,8 +253,14 @@ const NutritionDatabaseUpload = () => {
               <Database className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{currentDbInfo.recordsCount}</p>
-              <p className="text-sm text-muted-foreground">Produktów w bazie</p>
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <>
+                  <p className="text-2xl font-bold">{stats?.records_count || 0}</p>
+                  <p className="text-sm text-muted-foreground">Produktów w bazie</p>
+                </>
+              )}
             </div>
           </div>
         </Card>
@@ -125,8 +270,19 @@ const NutritionDatabaseUpload = () => {
               <Clock className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-lg font-bold">{currentDbInfo.uploadedAt}</p>
-              <p className="text-sm text-muted-foreground">Ostatnia aktualizacja</p>
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : stats?.last_upload ? (
+                <>
+                  <p className="text-lg font-bold">{formatDate(stats.last_upload.uploaded_at)}</p>
+                  <p className="text-sm text-muted-foreground">Ostatnia aktualizacja</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-muted-foreground">Brak</p>
+                  <p className="text-sm text-muted-foreground">Ostatnia aktualizacja</p>
+                </>
+              )}
             </div>
           </div>
         </Card>
@@ -136,8 +292,19 @@ const NutritionDatabaseUpload = () => {
               <User className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-lg font-bold">{currentDbInfo.uploadedBy}</p>
-              <p className="text-sm text-muted-foreground">Ostatnio wgrał/a</p>
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : stats?.last_upload ? (
+                <>
+                  <p className="text-lg font-bold">{stats.last_upload.uploaded_by}</p>
+                  <p className="text-sm text-muted-foreground">Ostatnio wgrał/a</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-muted-foreground">-</p>
+                  <p className="text-sm text-muted-foreground">Ostatnio wgrał/a</p>
+                </>
+              )}
             </div>
           </div>
         </Card>
@@ -207,7 +374,7 @@ const NutritionDatabaseUpload = () => {
             >
               {isUploading ? (
                 <>
-                  <span className="animate-spin">⏳</span>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Przetwarzanie...
                 </>
               ) : (
@@ -222,9 +389,19 @@ const NutritionDatabaseUpload = () => {
               <p className="font-medium">Wymagania:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Format pliku: XLSX lub XLS</li>
-                <li>Kolumny: Nazwa produktu, Kalorie, Białko, Węglowodany, Tłuszcze, Błonnik, Sód</li>
+                <li>Arkusz o nazwie "BAZA DANYCH"</li>
+                <li>Struktura zgodna z formatem IŻŻ</li>
                 <li>Maksymalny rozmiar: 50 MB</li>
               </ul>
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+              <p className="font-medium text-blue-700 mb-1">Mapowanie kolumn:</p>
+              <p className="text-blue-600 text-xs">
+                Nazwy polskie → angielskie: Woda → water, Białko zwierzęce → protein_animal, 
+                Tłuszcz → fat, Węglowodany → carbohydrates, Błonnik → fiber, Sód → sodium, 
+                Wapń → calcium, Żelazo → iron, Witamina A → vitamin_a, itd.
+              </p>
             </div>
           </div>
         </Card>
@@ -238,45 +415,58 @@ const NutritionDatabaseUpload = () => {
             </h2>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plik</TableHead>
-                <TableHead>Użytkownik</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockUploadHistory.map((upload) => (
-                <TableRow key={upload.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                      <span className="font-medium text-sm">{upload.fileName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">{upload.uploadedBy}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {upload.uploadedAt}
-                  </TableCell>
-                  <TableCell>
-                    {upload.status === "success" ? (
-                      <Badge className="bg-green-600 gap-1">
-                        <CheckCircle className="h-3 w-3" />
-                        {upload.recordsCount} rekordów
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Błąd
-                      </Badge>
-                    )}
-                  </TableCell>
+          {isLoadingStats ? (
+            <div className="p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <FileSpreadsheet className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p>Brak historii wgrań</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plik</TableHead>
+                  <TableHead>Użytkownik</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {history.map((upload) => (
+                  <TableRow key={upload.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                        <span className="font-medium text-sm truncate max-w-[150px]">
+                          {upload.file_name}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{upload.uploaded_by}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(upload.uploaded_at)}
+                    </TableCell>
+                    <TableCell>
+                      {upload.status === "success" ? (
+                        <Badge className="bg-green-600 gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          {upload.records_count} rek.
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Błąd
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
       </div>
     </Layout>

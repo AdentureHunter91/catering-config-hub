@@ -69,6 +69,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchCategories, fetchSubcategories, ProductCategory, ProductSubcategory } from "@/api/productCategories";
 import { getProducts, createProduct, updateProduct, archiveProduct, Product as ApiProduct } from "@/api/products";
 import { getProductVariants, createProductVariant, updateProductVariant, archiveProductVariant, checkEan, ProductVariant as ApiVariant, EanCheckResult } from "@/api/productVariants";
+import { getNutritionDatabaseEntries, getNutritionDatabaseEntry, NutritionDatabaseEntry } from "@/api/nutritionDatabase";
 
 // Allergen type with icon
 interface AllergenItem {
@@ -165,16 +166,11 @@ interface DisplayCategory {
   subcategories: DisplaySubcategory[];
 }
 
-// Mock nutrition database entries
-const mockNutritionDatabase = [
-  { id: 1, name: "Ser gouda" },
-  { id: 2, name: "Ser edamski" },
-  { id: 3, name: "Twaróg półtłusty" },
-  { id: 4, name: "Szynka wieprzowa gotowana" },
-  { id: 5, name: "Kiełbasa podwawelska" },
-  { id: 6, name: "Marchew surowa" },
-  { id: 7, name: "Pietruszka korzeń" },
-];
+// Nutrition database entry type for UI
+interface NutritionDbItem {
+  id: number;
+  name: string;
+}
 
 // Expanded state types
 type ExpandedState = {
@@ -243,8 +239,23 @@ const ProductsConfig = () => {
   const [editProductDialogOpen, setEditProductDialogOpen] = useState(false);
   const [addSubProductDialogOpen, setAddSubProductDialogOpen] = useState(false);
   const [editSubProductDialogOpen, setEditSubProductDialogOpen] = useState(false);
+  
+  // Nutrition database entries
+  const [nutritionDatabase, setNutritionDatabase] = useState<NutritionDbItem[]>([]);
 
-  // Load all data from database
+  // Load nutrition database
+  useEffect(() => {
+    const loadNutritionDb = async () => {
+      try {
+        const entries = await getNutritionDatabaseEntries("", 500);
+        setNutritionDatabase(entries.map(e => ({ id: e.id, name: e.name_pl })));
+      } catch (error) {
+        console.log("Nutrition database not available yet");
+        setNutritionDatabase([]);
+      }
+    };
+    loadNutritionDb();
+  }, []);
   const loadData = useCallback(async (preserveExpansion = false) => {
     setIsLoading(true);
     const prevExpanded = preserveExpansion ? { 
@@ -774,7 +785,7 @@ const ProductsConfig = () => {
               <ProductManagementPanel
                 product={selectedItem.data as DisplayProduct}
                 allergensList={allergensList}
-                nutritionDatabase={mockNutritionDatabase}
+        nutritionDatabase={nutritionDatabase}
                 onAddSubProduct={() => setAddSubProductDialogOpen(true)}
                 onEditProduct={() => setEditProductDialogOpen(true)}
                 onArchive={() => handleArchiveProduct(selectedItem.data as DisplayProduct)}
@@ -800,7 +811,7 @@ const ProductsConfig = () => {
         onOpenChange={setAddProductDialogOpen}
         categories={categories}
         allergensList={allergensList}
-        nutritionDatabase={mockNutritionDatabase}
+        nutritionDatabase={nutritionDatabase}
         onSave={() => loadData(true)}
       />
 
@@ -810,7 +821,7 @@ const ProductsConfig = () => {
         onOpenChange={setEditProductDialogOpen}
         product={selectedItem.type === "product" ? selectedItem.data as DisplayProduct : null}
         allergensList={allergensList}
-        nutritionDatabase={mockNutritionDatabase}
+        nutritionDatabase={nutritionDatabase}
         onSave={() => {
           loadData(true);
           setSelectedItem({ type: null, data: null });
@@ -885,7 +896,8 @@ const AddProductDialog = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [nutritionDbId, setNutritionDbId] = useState<string>("none");
+  const [nutritionDbId, setNutritionDbId] = useState<string>("none"); // Just for UI selection
+  const [linkedNutritionDbId, setLinkedNutritionDbId] = useState<string>("none"); // Actually linked ID
   const [isSaving, setIsSaving] = useState(false);
 
   // Nutritional values state
@@ -912,6 +924,7 @@ const AddProductDialog = ({
       setDescription("");
       setSelectedAllergens([]);
       setNutritionDbId("none");
+      setLinkedNutritionDbId("none");
       setNutrition({
         energy_kj: "", energy_kcal: "", energy_kj_1169: "", energy_kcal_1169: "",
         water: "", protein_animal: "", protein_plant: "", fat: "", saturated_fat: "",
