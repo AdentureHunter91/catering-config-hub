@@ -60,6 +60,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { createProductVariant } from "@/api/productVariants";
 
 // Types
 interface Allergen {
@@ -1908,7 +1909,9 @@ const AddVariantDialog = ({
     }
   };
 
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
     const missing = getMissingFields();
     if (missing.length > 0) {
       const fieldNames: Record<string, string> = {
@@ -1922,9 +1925,32 @@ const AddVariantDialog = ({
       setDataFetched(true); // Show highlighting
       return;
     }
-    // Here you would save the variant
-    toast.success("Wariant został dodany!");
-    onOpenChange(false);
+
+    setIsSaving(true);
+    try {
+      await createProductVariant({
+        subproduct_id: parentSubProduct?.id || null,
+        ean,
+        name: variantName,
+        content,
+        unit,
+        sku,
+        kcal: calories ? parseFloat(calories) : null,
+        brands,
+        categories,
+        image_url: imageUrl,
+      });
+      toast.success("Wariant został zapisany w bazie danych!");
+      onOpenChange(false);
+    } catch (error: any) {
+      if (error.message === "EAN_ALREADY_EXISTS") {
+        toast.error("Wariant z tym kodem EAN już istnieje w bazie");
+      } else {
+        toast.error("Błąd podczas zapisywania wariantu: " + error.message);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Helper for required field label
@@ -2149,12 +2175,16 @@ const AddVariantDialog = ({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Anuluj
           </Button>
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Zapisz
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {isSaving ? "Zapisywanie..." : "Zapisz"}
           </Button>
         </DialogFooter>
       </DialogContent>
