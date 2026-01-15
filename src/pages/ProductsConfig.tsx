@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Layout from "@/components/Layout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
@@ -35,7 +35,12 @@ import {
   Link2Off,
   Eye,
   EyeOff,
+  Camera,
+  Loader2,
+  ExternalLink,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -1321,57 +1326,11 @@ const ProductsConfig = () => {
       </Dialog>
 
       {/* Add Variant Dialog */}
-      <Dialog open={addVariantDialogOpen} onOpenChange={setAddVariantDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Dodaj wariant EAN</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Nazwa wariantu</Label>
-              <Input placeholder="np. Gouda 500g" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Zawartość</Label>
-                <Input type="number" placeholder="500" />
-              </div>
-              <div className="space-y-2">
-                <Label>Jednostka</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wybierz" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="g">g</SelectItem>
-                    <SelectItem value="kg">kg</SelectItem>
-                    <SelectItem value="ml">ml</SelectItem>
-                    <SelectItem value="l">l</SelectItem>
-                    <SelectItem value="szt">szt</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Kod EAN / GTIN</Label>
-              <Input placeholder="5901234567890" />
-            </div>
-            <div className="space-y-2">
-              <Label>SKU</Label>
-              <Input placeholder="SER-GOUDA-500G" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddVariantDialogOpen(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={() => setAddVariantDialogOpen(false)}>
-              <Save className="h-4 w-4 mr-2" />
-              Zapisz
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddVariantDialog 
+        open={addVariantDialogOpen} 
+        onOpenChange={setAddVariantDialogOpen}
+        parentSubProduct={selectedItem.type === "subProduct" ? selectedItem.data as SubProduct : null}
+      />
 
       {/* Edit Variant Dialog */}
       <Dialog open={editVariantDialogOpen} onOpenChange={setEditVariantDialogOpen}>
@@ -1610,7 +1569,7 @@ const SubProductManagementPanel = ({
       <div className="space-y-2">
         <Button className="w-full gap-2" onClick={onAddVariant}>
           <Plus className="h-4 w-4" />
-          Dodaj wariant EAN
+          Dodaj wariant
         </Button>
         <Button variant="outline" className="w-full gap-2" onClick={onEditSubProduct}>
           <Pencil className="h-4 w-4" />
@@ -1681,5 +1640,361 @@ const VariantManagementPanel = ({
     </div>
   </div>
 );
+
+// OpenFoodFacts API response type
+interface OpenFoodFactsProduct {
+  product_name?: string;
+  product_name_pl?: string;
+  product_name_en?: string;
+  image_front_small_url?: string;
+  quantity?: string;
+  nutriments?: {
+    "energy-kcal_100g"?: number;
+    proteins_100g?: number;
+    carbohydrates_100g?: number;
+    fat_100g?: number;
+    fiber_100g?: number;
+    sodium_100g?: number;
+  };
+}
+
+// Add Variant Dialog Component with EAN scanning and OpenFoodFacts API
+const AddVariantDialog = ({
+  open,
+  onOpenChange,
+  parentSubProduct,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  parentSubProduct: SubProduct | null;
+}) => {
+  const eanInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [ean, setEan] = useState("");
+  const [variantName, setVariantName] = useState("");
+  const [content, setContent] = useState("");
+  const [unit, setUnit] = useState("g");
+  const [sku, setSku] = useState("");
+  const [calories, setCalories] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [productFound, setProductFound] = useState(false);
+
+  // Auto-focus EAN input when dialog opens
+  useEffect(() => {
+    if (open && eanInputRef.current) {
+      setTimeout(() => {
+        eanInputRef.current?.focus();
+      }, 100);
+    }
+    // Reset form when dialog opens
+    if (open) {
+      setEan("");
+      setVariantName("");
+      setContent("");
+      setUnit("g");
+      setSku("");
+      setCalories("");
+      setImageUrl("");
+      setProductFound(false);
+      setIsScannerOpen(false);
+    }
+  }, [open]);
+
+  // Generate SKU from product name and content
+  const generateSku = useCallback((name: string, contentVal: string, unitVal: string) => {
+    if (!name) return "";
+    const cleanName = name
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .substring(0, 15);
+    return `${cleanName}-${contentVal}${unitVal}`.toUpperCase();
+  }, []);
+
+  // Update SKU when name or content changes
+  useEffect(() => {
+    if (variantName && content) {
+      setSku(generateSku(variantName, content, unit));
+    }
+  }, [variantName, content, unit, generateSku]);
+
+  // Fetch product data from OpenFoodFacts API
+  const fetchProductData = async (eanCode: string) => {
+    if (!eanCode || eanCode.length < 8) {
+      toast.error("Wprowadź prawidłowy kod EAN (min. 8 znaków)");
+      return;
+    }
+
+    setIsLoading(true);
+    setProductFound(false);
+
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${eanCode}.json`);
+      const data = await response.json();
+
+      if (data.status === 1 && data.product) {
+        const product: OpenFoodFactsProduct = data.product;
+        
+        // Set product name (prefer Polish, then English, then generic)
+        const productName = product.product_name_pl || product.product_name_en || product.product_name || "";
+        setVariantName(productName);
+
+        // Parse quantity
+        if (product.quantity) {
+          const quantityMatch = product.quantity.match(/(\d+(?:[.,]\d+)?)\s*(\w+)/);
+          if (quantityMatch) {
+            setContent(quantityMatch[1].replace(",", "."));
+            const parsedUnit = quantityMatch[2].toLowerCase();
+            if (["g", "kg", "ml", "l", "szt"].includes(parsedUnit)) {
+              setUnit(parsedUnit);
+            }
+          }
+        }
+
+        // Set calories
+        if (product.nutriments?.["energy-kcal_100g"]) {
+          setCalories(product.nutriments["energy-kcal_100g"].toString());
+        }
+
+        // Set image
+        if (product.image_front_small_url) {
+          setImageUrl(product.image_front_small_url);
+        }
+
+        setProductFound(true);
+        toast.success("Dane produktu pobrane z OpenFoodFacts!");
+      } else {
+        toast.error("Produkt nie został znaleziony w bazie OpenFoodFacts");
+        setProductFound(false);
+      }
+    } catch (error) {
+      console.error("Error fetching product data:", error);
+      toast.error("Błąd podczas pobierania danych produktu");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle EAN input - fetch on Enter or when 13 chars
+  const handleEanChange = (value: string) => {
+    // Only allow numbers
+    const numericValue = value.replace(/\D/g, "");
+    setEan(numericValue);
+
+    // Auto-fetch when EAN is complete (typically 13 digits for EAN-13)
+    if (numericValue.length === 13) {
+      fetchProductData(numericValue);
+    }
+  };
+
+  const handleEanKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && ean.length >= 8) {
+      e.preventDefault();
+      fetchProductData(ean);
+    }
+  };
+
+  // Camera scanner toggle
+  const toggleScanner = async () => {
+    if (isScannerOpen) {
+      // Stop camera
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+      setIsScannerOpen(false);
+    } else {
+      setIsScannerOpen(true);
+      toast.info("Funkcja skanowania kamerą wymaga dodatkowej biblioteki. Użyj zewnętrznego skanera lub wprowadź kod ręcznie.", {
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleSave = () => {
+    if (!ean) {
+      toast.error("Wprowadź kod EAN");
+      return;
+    }
+    if (!variantName) {
+      toast.error("Wprowadź nazwę wariantu");
+      return;
+    }
+    // Here you would save the variant
+    toast.success("Wariant został dodany!");
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Dodaj wariant</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          {/* EAN Input Section */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Barcode className="h-4 w-4" />
+              Kod EAN / GTIN
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  ref={eanInputRef}
+                  placeholder="Zeskanuj lub wpisz kod EAN..."
+                  value={ean}
+                  onChange={(e) => handleEanChange(e.target.value)}
+                  onKeyDown={handleEanKeyDown}
+                  className="pr-10 font-mono text-lg"
+                  autoFocus
+                />
+                {isLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  </div>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={toggleScanner}
+                title="Skanuj kamerą telefonu"
+              >
+                <Camera className="h-5 w-5" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => fetchProductData(ean)}
+                disabled={isLoading || ean.length < 8}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Pobierz dane
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Użyj zewnętrznego skanera kodów kreskowych - kod zostanie automatycznie wpisany w pole powyżej
+            </p>
+          </div>
+
+          {/* Scanner placeholder */}
+          {isScannerOpen && (
+            <div className="relative rounded-lg overflow-hidden bg-muted aspect-video flex items-center justify-center">
+              <div className="text-center p-4">
+                <Camera className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Skanowanie kamerą wymaga dodatkowej konfiguracji.<br />
+                  Użyj zewnętrznego skanera USB/Bluetooth.
+                </p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsScannerOpen(false)}>
+                  Zamknij
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Product Info Preview */}
+          {productFound && imageUrl && (
+            <div className="flex gap-4 p-4 bg-muted/50 rounded-lg">
+              <img 
+                src={imageUrl} 
+                alt={variantName} 
+                className="w-20 h-20 object-contain rounded bg-white p-1"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <div className="flex-1">
+                <p className="font-medium">{variantName || "Nazwa produktu"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {content} {unit} • {calories ? `${calories} kcal/100g` : "Brak danych o kaloriach"}
+                </p>
+                <Badge variant="outline" className="mt-2 text-green-600 border-green-300">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  OpenFoodFacts
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div className="space-y-2">
+            <Label>Nazwa wariantu</Label>
+            <Input
+              placeholder="np. Nutella 400g"
+              value={variantName}
+              onChange={(e) => setVariantName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Zawartość</Label>
+              <Input
+                type="number"
+                placeholder="500"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Jednostka</Label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="g">g</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="l">l</SelectItem>
+                  <SelectItem value="szt">szt</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Kalorie (kcal/100g)</Label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>SKU (generowany automatycznie)</Label>
+            <Input
+              placeholder="SKU zostanie wygenerowany"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Anuluj
+          </Button>
+          <Button onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            Zapisz
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default ProductsConfig;
