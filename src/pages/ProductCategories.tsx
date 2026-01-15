@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Layout from "@/components/Layout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import {
   FolderInput,
   Check,
   X,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,8 +49,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
+  fetchCategories,
+  fetchSubcategories,
+  createCategory,
+  createSubcategory,
+  updateCategory,
+  updateSubcategory,
+  archiveCategory,
+  archiveSubcategory,
+  reorderSubcategory,
+  moveSubcategory,
+  type ProductCategory,
+  type ProductSubcategory,
+} from "@/api/productCategories";
 
-// Mock data
+type FilterStatus = "active" | "all" | "archived";
+
 interface Category {
   id: number;
   name: string;
@@ -66,27 +83,11 @@ interface Subcategory {
   sortOrder: number;
 }
 
-const initialCategories: Category[] = [
-  { id: 1, name: "Produkty spożywcze", status: "active", subcategoryCount: 3 },
-  { id: 2, name: "Chemia", status: "active", subcategoryCount: 2 },
-  { id: 3, name: "Opakowania", status: "active", subcategoryCount: 0 },
-  { id: 4, name: "Stara kategoria", status: "archived", subcategoryCount: 1 },
-];
-
-const initialSubcategories: Subcategory[] = [
-  { id: 1, categoryId: 1, name: "Sery", status: "active", productCount: 24, sortOrder: 1 },
-  { id: 2, categoryId: 1, name: "Wędliny", status: "active", productCount: 18, sortOrder: 2 },
-  { id: 3, categoryId: 1, name: "Warzywa", status: "active", productCount: 45, sortOrder: 3 },
-  { id: 4, categoryId: 2, name: "Środki czystości", status: "active", productCount: 12, sortOrder: 1 },
-  { id: 5, categoryId: 2, name: "Rękawiczki", status: "active", productCount: 8, sortOrder: 2 },
-  { id: 6, categoryId: 4, name: "Archiwalna sub", status: "archived", productCount: 0, sortOrder: 1 },
-];
-
-type FilterStatus = "active" | "all" | "archived";
-
 const ProductCategories = () => {
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>(initialSubcategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [categorySearch, setCategorySearch] = useState("");
@@ -110,58 +111,97 @@ const ProductCategories = () => {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [itemToArchive, setItemToArchive] = useState<{ type: "category" | "subcategory"; id: number } | null>(null);
 
+  // Load categories from API
+  const loadCategories = useCallback(async () => {
+    try {
+      const data = await fetchCategories(categoryFilter);
+      setCategories(data.map(c => ({
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        subcategoryCount: c.subcategory_count,
+      })));
+    } catch (error) {
+      console.error("Error loading categories:", error);
+      toast.error("Błąd podczas wczytywania kategorii");
+    }
+  }, [categoryFilter]);
+
+  // Load subcategories from API
+  const loadSubcategories = useCallback(async () => {
+    if (!selectedCategoryId) {
+      setSubcategories([]);
+      return;
+    }
+    try {
+      const data = await fetchSubcategories(selectedCategoryId);
+      setSubcategories(data.map(s => ({
+        id: s.id,
+        categoryId: s.category_id,
+        name: s.name,
+        status: s.status,
+        productCount: s.product_count,
+        sortOrder: s.sort_order,
+      })));
+    } catch (error) {
+      console.error("Error loading subcategories:", error);
+      toast.error("Błąd podczas wczytywania subkategorii");
+    }
+  }, [selectedCategoryId]);
+
+  // Initial load
+  useEffect(() => {
+    setLoading(true);
+    loadCategories().finally(() => setLoading(false));
+  }, [loadCategories]);
+
+  // Load subcategories when category changes
+  useEffect(() => {
+    loadSubcategories();
+  }, [loadSubcategories]);
+
   // Filter categories
   const filteredCategories = categories
-    .filter((c) => {
-      if (categoryFilter === "active") return c.status === "active";
-      if (categoryFilter === "archived") return c.status === "archived";
-      return true;
-    })
     .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
 
   // Get subcategories for selected category
   const currentSubcategories = subcategories
-    .filter((s) => s.categoryId === selectedCategoryId)
     .filter((s) => s.name.toLowerCase().includes(subcategorySearch.toLowerCase()))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
 
   // Handlers
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-    const newId = Math.max(...categories.map((c) => c.id), 0) + 1;
-    setCategories([
-      ...categories,
-      { id: newId, name: newCategoryName.trim(), status: "active", subcategoryCount: 0 },
-    ]);
-    setNewCategoryName("");
-    setAddCategoryDialogOpen(false);
+    setSaving(true);
+    try {
+      await createCategory(newCategoryName.trim());
+      toast.success("Kategoria została dodana");
+      setNewCategoryName("");
+      setAddCategoryDialogOpen(false);
+      await loadCategories();
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas dodawania kategorii");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddSubcategory = () => {
+  const handleAddSubcategory = async () => {
     if (!newSubcategoryName.trim() || !selectedCategoryId) return;
-    const newId = Math.max(...subcategories.map((s) => s.id), 0) + 1;
-    const maxOrder = Math.max(...currentSubcategories.map((s) => s.sortOrder), 0);
-    setSubcategories([
-      ...subcategories,
-      {
-        id: newId,
-        categoryId: selectedCategoryId,
-        name: newSubcategoryName.trim(),
-        status: "active",
-        productCount: 0,
-        sortOrder: maxOrder + 1,
-      },
-    ]);
-    // Update category count
-    setCategories(
-      categories.map((c) =>
-        c.id === selectedCategoryId ? { ...c, subcategoryCount: c.subcategoryCount + 1 } : c
-      )
-    );
-    setNewSubcategoryName("");
-    setAddSubcategoryDialogOpen(false);
+    setSaving(true);
+    try {
+      await createSubcategory(selectedCategoryId, newSubcategoryName.trim());
+      toast.success("Subkategoria została dodana");
+      setNewSubcategoryName("");
+      setAddSubcategoryDialogOpen(false);
+      await Promise.all([loadCategories(), loadSubcategories()]);
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas dodawania subkategorii");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const startEditCategory = (cat: Category) => {
@@ -169,15 +209,20 @@ const ProductCategories = () => {
     setEditingCategoryName(cat.name);
   };
 
-  const saveEditCategory = () => {
-    if (!editingCategoryName.trim()) return;
-    setCategories(
-      categories.map((c) =>
-        c.id === editingCategoryId ? { ...c, name: editingCategoryName.trim() } : c
-      )
-    );
-    setEditingCategoryId(null);
-    setEditingCategoryName("");
+  const saveEditCategory = async () => {
+    if (!editingCategoryName.trim() || !editingCategoryId) return;
+    setSaving(true);
+    try {
+      await updateCategory(editingCategoryId, { name: editingCategoryName.trim() });
+      toast.success("Nazwa kategorii została zaktualizowana");
+      setEditingCategoryId(null);
+      setEditingCategoryName("");
+      await loadCategories();
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas aktualizacji kategorii");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancelEditCategory = () => {
@@ -190,15 +235,20 @@ const ProductCategories = () => {
     setEditingSubcategoryName(sub.name);
   };
 
-  const saveEditSubcategory = () => {
-    if (!editingSubcategoryName.trim()) return;
-    setSubcategories(
-      subcategories.map((s) =>
-        s.id === editingSubcategoryId ? { ...s, name: editingSubcategoryName.trim() } : s
-      )
-    );
-    setEditingSubcategoryId(null);
-    setEditingSubcategoryName("");
+  const saveEditSubcategory = async () => {
+    if (!editingSubcategoryName.trim() || !editingSubcategoryId) return;
+    setSaving(true);
+    try {
+      await updateSubcategory(editingSubcategoryId, { name: editingSubcategoryName.trim() });
+      toast.success("Nazwa subkategorii została zaktualizowana");
+      setEditingSubcategoryId(null);
+      setEditingSubcategoryName("");
+      await loadSubcategories();
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas aktualizacji subkategorii");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancelEditSubcategory = () => {
@@ -206,64 +256,80 @@ const ProductCategories = () => {
     setEditingSubcategoryName("");
   };
 
-  const confirmArchive = () => {
+  const confirmArchive = async () => {
     if (!itemToArchive) return;
-    if (itemToArchive.type === "category") {
-      setCategories(
-        categories.map((c) =>
-          c.id === itemToArchive.id ? { ...c, status: "archived" } : c
-        )
-      );
-      if (selectedCategoryId === itemToArchive.id) {
-        setSelectedCategoryId(null);
+    setSaving(true);
+    try {
+      if (itemToArchive.type === "category") {
+        await archiveCategory(itemToArchive.id);
+        toast.success("Kategoria została zarchiwizowana");
+        if (selectedCategoryId === itemToArchive.id) {
+          setSelectedCategoryId(null);
+        }
+        await loadCategories();
+      } else {
+        await archiveSubcategory(itemToArchive.id);
+        toast.success("Subkategoria została zarchiwizowana");
+        await Promise.all([loadCategories(), loadSubcategories()]);
       }
-    } else {
-      setSubcategories(
-        subcategories.map((s) =>
-          s.id === itemToArchive.id ? { ...s, status: "archived" } : s
-        )
-      );
-    }
-    setArchiveConfirmOpen(false);
-    setItemToArchive(null);
-  };
-
-  const restoreItem = (type: "category" | "subcategory", id: number) => {
-    if (type === "category") {
-      setCategories(
-        categories.map((c) => (c.id === id ? { ...c, status: "active" } : c))
-      );
-    } else {
-      setSubcategories(
-        subcategories.map((s) => (s.id === id ? { ...s, status: "active" } : s))
-      );
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas archiwizacji");
+    } finally {
+      setSaving(false);
+      setArchiveConfirmOpen(false);
+      setItemToArchive(null);
     }
   };
 
-  const moveSubcategoryUp = (sub: Subcategory) => {
+  const restoreItem = async (type: "category" | "subcategory", id: number) => {
+    setSaving(true);
+    try {
+      if (type === "category") {
+        await updateCategory(id, { status: "active" });
+        toast.success("Kategoria została przywrócona");
+        await loadCategories();
+      } else {
+        await updateSubcategory(id, { status: "active" });
+        toast.success("Subkategoria została przywrócona");
+        await Promise.all([loadCategories(), loadSubcategories()]);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas przywracania");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveSubcategoryUp = async (sub: Subcategory) => {
     const idx = currentSubcategories.findIndex((s) => s.id === sub.id);
     if (idx <= 0) return;
     const prev = currentSubcategories[idx - 1];
-    setSubcategories(
-      subcategories.map((s) => {
-        if (s.id === sub.id) return { ...s, sortOrder: prev.sortOrder };
-        if (s.id === prev.id) return { ...s, sortOrder: sub.sortOrder };
-        return s;
-      })
-    );
+    
+    setSaving(true);
+    try {
+      await reorderSubcategory(sub.id, prev.sortOrder);
+      await loadSubcategories();
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas zmiany kolejności");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const moveSubcategoryDown = (sub: Subcategory) => {
+  const moveSubcategoryDown = async (sub: Subcategory) => {
     const idx = currentSubcategories.findIndex((s) => s.id === sub.id);
     if (idx >= currentSubcategories.length - 1) return;
     const next = currentSubcategories[idx + 1];
-    setSubcategories(
-      subcategories.map((s) => {
-        if (s.id === sub.id) return { ...s, sortOrder: next.sortOrder };
-        if (s.id === next.id) return { ...s, sortOrder: sub.sortOrder };
-        return s;
-      })
-    );
+    
+    setSaving(true);
+    try {
+      await reorderSubcategory(sub.id, next.sortOrder);
+      await loadSubcategories();
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas zmiany kolejności");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openMoveDialog = (sub: Subcategory) => {
@@ -272,30 +338,39 @@ const ProductCategories = () => {
     setMoveDialogOpen(true);
   };
 
-  const handleMoveSubcategory = () => {
+  const handleMoveSubcategory = async () => {
     if (!subcategoryToMove || !targetCategoryId) return;
     const targetId = parseInt(targetCategoryId);
-    // Update subcategory
-    setSubcategories(
-      subcategories.map((s) =>
-        s.id === subcategoryToMove.id ? { ...s, categoryId: targetId } : s
-      )
-    );
-    // Update counts
-    setCategories(
-      categories.map((c) => {
-        if (c.id === subcategoryToMove.categoryId) {
-          return { ...c, subcategoryCount: c.subcategoryCount - 1 };
-        }
-        if (c.id === targetId) {
-          return { ...c, subcategoryCount: c.subcategoryCount + 1 };
-        }
-        return c;
-      })
-    );
-    setMoveDialogOpen(false);
-    setSubcategoryToMove(null);
+    
+    setSaving(true);
+    try {
+      await moveSubcategory(subcategoryToMove.id, targetId);
+      toast.success("Subkategoria została przeniesiona");
+      setMoveDialogOpen(false);
+      setSubcategoryToMove(null);
+      await Promise.all([loadCategories(), loadSubcategories()]);
+    } catch (error: any) {
+      toast.error(error.message || "Błąd podczas przenoszenia subkategorii");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <Layout pageKey="config.products">
+        <Breadcrumb
+          items={[
+            { label: "Konfiguracja systemu" },
+            { label: "Kategorie produktów" },
+          ]}
+        />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout pageKey="config.products">
@@ -319,7 +394,7 @@ const ProductCategories = () => {
           <div className="border-b p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Kategorie główne</h2>
-              <Button className="gap-2" onClick={() => setAddCategoryDialogOpen(true)}>
+              <Button className="gap-2" onClick={() => setAddCategoryDialogOpen(true)} disabled={saving}>
                 <Plus className="h-4 w-4" />
                 Dodaj kategorię
               </Button>
@@ -379,6 +454,7 @@ const ProductCategories = () => {
                             if (e.key === "Escape") cancelEditCategory();
                           }}
                           onClick={(e) => e.stopPropagation()}
+                          disabled={saving}
                         />
                         <Button
                           size="sm"
@@ -387,8 +463,13 @@ const ProductCategories = () => {
                             e.stopPropagation();
                             saveEditCategory();
                           }}
+                          disabled={saving}
                         >
-                          <Check className="h-4 w-4 text-green-600" />
+                          {saving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4 text-green-600" />
+                          )}
                         </Button>
                         <Button
                           size="sm"
@@ -397,6 +478,7 @@ const ProductCategories = () => {
                             e.stopPropagation();
                             cancelEditCategory();
                           }}
+                          disabled={saving}
                         >
                           <X className="h-4 w-4 text-red-600" />
                         </Button>
@@ -420,7 +502,7 @@ const ProductCategories = () => {
                   {editingCategoryId !== cat.id && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" disabled={saving}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -481,7 +563,7 @@ const ProductCategories = () => {
               <Button
                 className="gap-2"
                 onClick={() => setAddSubcategoryDialogOpen(true)}
-                disabled={!selectedCategoryId}
+                disabled={!selectedCategoryId || saving}
               >
                 <Plus className="h-4 w-4" />
                 Dodaj subkategorię
@@ -535,11 +617,16 @@ const ProductCategories = () => {
                                   if (e.key === "Enter") saveEditSubcategory();
                                   if (e.key === "Escape") cancelEditSubcategory();
                                 }}
+                                disabled={saving}
                               />
-                              <Button size="sm" variant="ghost" onClick={saveEditSubcategory}>
-                                <Check className="h-4 w-4 text-green-600" />
+                              <Button size="sm" variant="ghost" onClick={saveEditSubcategory} disabled={saving}>
+                                {saving ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4 text-green-600" />
+                                )}
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={cancelEditSubcategory}>
+                              <Button size="sm" variant="ghost" onClick={cancelEditSubcategory} disabled={saving}>
                                 <X className="h-4 w-4 text-red-600" />
                               </Button>
                             </div>
@@ -563,7 +650,7 @@ const ProductCategories = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              disabled={idx === 0}
+                              disabled={idx === 0 || saving}
                               onClick={() => moveSubcategoryUp(sub)}
                             >
                               <ChevronUp className="h-4 w-4" />
@@ -571,7 +658,7 @@ const ProductCategories = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              disabled={idx === currentSubcategories.length - 1}
+                              disabled={idx === currentSubcategories.length - 1 || saving}
                               onClick={() => moveSubcategoryDown(sub)}
                             >
                               <ChevronDown className="h-4 w-4" />
@@ -582,7 +669,7 @@ const ProductCategories = () => {
                           {editingSubcategoryId !== sub.id && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
+                                <Button variant="ghost" size="sm" disabled={saving}>
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -639,13 +726,17 @@ const ProductCategories = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAddCategory();
               }}
+              disabled={saving}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddCategoryDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setAddCategoryDialogOpen(false)} disabled={saving}>
               Anuluj
             </Button>
-            <Button onClick={handleAddCategory}>Dodaj</Button>
+            <Button onClick={handleAddCategory} disabled={saving || !newCategoryName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Dodaj
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -667,13 +758,17 @@ const ProductCategories = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAddSubcategory();
               }}
+              disabled={saving}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddSubcategoryDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setAddSubcategoryDialogOpen(false)} disabled={saving}>
               Anuluj
             </Button>
-            <Button onClick={handleAddSubcategory}>Dodaj</Button>
+            <Button onClick={handleAddSubcategory} disabled={saving || !newSubcategoryName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Dodaj
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -707,10 +802,11 @@ const ProductCategories = () => {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setMoveDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setMoveDialogOpen(false)} disabled={saving}>
               Anuluj
             </Button>
-            <Button onClick={handleMoveSubcategory} disabled={!targetCategoryId}>
+            <Button onClick={handleMoveSubcategory} disabled={!targetCategoryId || saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Przenieś
             </Button>
           </DialogFooter>
@@ -729,8 +825,11 @@ const ProductCategories = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmArchive}>Archiwizuj</AlertDialogAction>
+            <AlertDialogCancel disabled={saving}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Archiwizuj
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
