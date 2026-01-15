@@ -64,12 +64,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 // API imports
 import { fetchCategories, fetchSubcategories, ProductCategory, ProductSubcategory } from "@/api/productCategories";
 import { getProducts, createProduct, updateProduct, archiveProduct, Product as ApiProduct } from "@/api/products";
-import { getSubProducts, createSubProduct, updateSubProduct, archiveSubProduct, SubProduct as ApiSubProduct } from "@/api/subproducts";
-import { getProductVariants, createProductVariant, updateProductVariant, deleteProductVariant, ProductVariant as ApiVariant } from "@/api/productVariants";
-
-// Dialog components
-import EditSubProductDialog, { SubProductData } from "@/components/EditSubProductDialog";
-import EditVariantDialog from "@/components/EditVariantDialog";
+import { getProductVariants, createProductVariant, updateProductVariant, archiveProductVariant, ProductVariant as ApiVariant } from "@/api/productVariants";
 
 // Allergen type with icon
 interface AllergenItem {
@@ -96,31 +91,21 @@ const allergensList: AllergenItem[] = [
   { id: "peanuts", name: "Orzeszki ziemne", icon: <Nut className="h-4 w-4" /> },
 ];
 
-// Frontend types for hierarchical display
-interface DisplayVariant {
+// Frontend types for hierarchical display - Simplified: Category > Subcategory > Product > Subproduct (variant)
+interface DisplaySubProduct {
   id: number;
-  subproduct_id: number | null;
-  name: string;
+  product_id: number | null;
   ean: string;
-  sku: string;
+  name: string;
   content: string;
   unit: string;
-  kcal: number | null;
+  sku: string;
+  status: "active" | "archived";
   brands: string;
   categories: string;
   image_url: string;
-  status: "active" | "archived";
-}
-
-interface DisplaySubProduct {
-  id: number;
-  product_id: number;
-  name: string;
-  status: "active" | "archived";
-  nutrition_database_id: number | null;
   allergens: string[];
-  variants: DisplayVariant[];
-  // Nutritional values
+  nutrition_database_id: number | null;
   energy_kj: number | null;
   energy_kcal: number | null;
   energy_kj_1169: number | null;
@@ -181,7 +166,6 @@ type ExpandedState = {
   categories: Set<number>;
   subcategories: Set<number>;
   products: Set<number>;
-  subProducts: Set<number>;
 };
 
 const ProductsConfig = () => {
@@ -193,15 +177,13 @@ const ProductsConfig = () => {
     categories: new Set(),
     subcategories: new Set(),
     products: new Set(),
-    subProducts: new Set(),
   });
 
   // Selected item for management panel
   const [selectedItem, setSelectedItem] = useState<{
-    type: "product" | "subProduct" | "variant" | null;
-    data: DisplayProduct | DisplaySubProduct | DisplayVariant | null;
+    type: "product" | "subProduct" | null;
+    data: DisplayProduct | DisplaySubProduct | null;
     parentProduct?: DisplayProduct;
-    parentSubProduct?: DisplaySubProduct;
   }>({ type: null, data: null });
 
   // Dialogs
@@ -209,8 +191,6 @@ const ProductsConfig = () => {
   const [editProductDialogOpen, setEditProductDialogOpen] = useState(false);
   const [addSubProductDialogOpen, setAddSubProductDialogOpen] = useState(false);
   const [editSubProductDialogOpen, setEditSubProductDialogOpen] = useState(false);
-  const [addVariantDialogOpen, setAddVariantDialogOpen] = useState(false);
-  const [editVariantDialogOpen, setEditVariantDialogOpen] = useState(false);
 
   // Form states for Add Product dialog
   const [newProductCategoryId, setNewProductCategoryId] = useState<string>("");
@@ -218,10 +198,6 @@ const ProductsConfig = () => {
   const [newProductName, setNewProductName] = useState("");
   const [newProductDescription, setNewProductDescription] = useState("");
   const [isSavingProduct, setIsSavingProduct] = useState(false);
-
-  // Form states for Add SubProduct dialog
-  const [newSubProductName, setNewSubProductName] = useState("");
-  const [isSavingSubProduct, setIsSavingSubProduct] = useState(false);
 
   // Load all data from database
   const loadData = useCallback(async () => {
@@ -236,13 +212,10 @@ const ProductsConfig = () => {
       // Fetch all products
       const dbProducts = await getProducts();
       
-      // Fetch all subproducts
-      const dbSubProducts = await getSubProducts();
-      
-      // Fetch all variants
-      const dbVariants = await getProductVariants();
+      // Fetch all subproducts (variants)
+      const dbSubProducts = await getProductVariants();
 
-      // Build hierarchical structure
+      // Build hierarchical structure: Category > Subcategory > Product > Subproduct
       const displayCategories: DisplayCategory[] = dbCategories.map(cat => ({
         id: cat.id,
         name: cat.name,
@@ -265,16 +238,17 @@ const ProductsConfig = () => {
                   .map(sp => ({
                     id: sp.id,
                     product_id: sp.product_id,
+                    ean: sp.ean,
                     name: sp.name,
+                    content: sp.content,
+                    unit: sp.unit,
+                    sku: sp.sku,
                     status: sp.status,
-                    nutrition_database_id: sp.nutrition_database_id,
+                    brands: sp.brands,
+                    categories: sp.categories,
+                    image_url: sp.image_url,
                     allergens: sp.allergens || [],
-                    variants: dbVariants
-                      .filter(v => v.subproduct_id === sp.id)
-                      .map(v => ({
-                        ...v,
-                        status: "active" as const, // Variants don't have status yet
-                      })),
+                    nutrition_database_id: sp.nutrition_database_id,
                     energy_kj: sp.energy_kj,
                     energy_kcal: sp.energy_kcal,
                     energy_kj_1169: sp.energy_kj_1169,
@@ -359,18 +333,6 @@ const ProductsConfig = () => {
     });
   };
 
-  const toggleSubProduct = (id: number) => {
-    setExpanded((prev) => {
-      const newSubProducts = new Set(prev.subProducts);
-      if (newSubProducts.has(id)) {
-        newSubProducts.delete(id);
-      } else {
-        newSubProducts.add(id);
-      }
-      return { ...prev, subProducts: newSubProducts };
-    });
-  };
-
   // Filter logic for search and archived
   const filterCategories = (cats: DisplayCategory[]): DisplayCategory[] => {
     return cats
@@ -395,12 +357,8 @@ const ProductsConfig = () => {
                   prod.subProducts.some(
                     (sp) =>
                       sp.name.toLowerCase().includes(s) ||
-                      sp.variants.some(
-                        (v) =>
-                          v.name.toLowerCase().includes(s) ||
-                          v.ean.includes(s) ||
-                          v.sku.toLowerCase().includes(s)
-                      )
+                      sp.ean.includes(s) ||
+                      sp.sku.toLowerCase().includes(s)
                   )
                 );
               }),
@@ -428,21 +386,6 @@ const ProductsConfig = () => {
       cat.subcategories.reduce(
         (a, sub) =>
           a + sub.products.reduce((b, prod) => b + prod.subProducts.filter(sp => sp.status === "active").length, 0),
-        0
-      ),
-    0
-  );
-  const totalVariants = categories.reduce(
-    (acc, cat) =>
-      acc +
-      cat.subcategories.reduce(
-        (a, sub) =>
-          a +
-          sub.products.reduce(
-            (b, prod) =>
-              b + prod.subProducts.reduce((c, sp) => c + sp.variants.length, 0),
-            0
-          ),
         0
       ),
     0
@@ -484,12 +427,6 @@ const ProductsConfig = () => {
         <span className="text-xs">{allergen.name}</span>
       </Badge>
     );
-  };
-
-  // Get nutrition database entry name
-  const getNutritionEntryName = (id?: number | null) => {
-    if (!id) return null;
-    return mockNutritionDatabase.find(e => e.id === id)?.name;
   };
 
   // Get subcategories for selected category
@@ -548,93 +485,11 @@ const ProductsConfig = () => {
     }
   };
 
-  // Handle adding new subproduct
-  const handleAddSubProduct = async () => {
-    if (selectedItem.type !== "product" || !selectedItem.data) return;
-    if (!newSubProductName.trim()) {
-      toast.error("Podaj nazwę subproduktu");
-      return;
-    }
-
-    const product = selectedItem.data as DisplayProduct;
-    setIsSavingSubProduct(true);
+  // Handle archiving subproduct
+  const handleArchiveSubProduct = async (subProductId: number) => {
     try {
-      await createSubProduct({
-        product_id: product.id,
-        name: newSubProductName.trim(),
-        status: "active",
-        nutrition_database_id: null,
-        allergens: [],
-        energy_kj: null,
-        energy_kcal: null,
-        energy_kj_1169: null,
-        energy_kcal_1169: null,
-        water: null,
-        protein_animal: null,
-        protein_plant: null,
-        fat: null,
-        carbohydrates: null,
-        fiber: null,
-        sodium: null,
-        salt: null,
-        potassium: null,
-        calcium: null,
-        phosphorus: null,
-        magnesium: null,
-        iron: null,
-        vitamin_d: null,
-        vitamin_c: null,
-        cholesterol: null,
-      });
-      toast.success("Subprodukt został dodany");
-      setAddSubProductDialogOpen(false);
-      setNewSubProductName("");
-      loadData();
-    } catch (error: any) {
-      toast.error("Błąd: " + error.message);
-    } finally {
-      setIsSavingSubProduct(false);
-    }
-  };
-
-  // Handle saving subproduct from edit dialog
-  const handleSaveSubProduct = async (data: SubProductData) => {
-    await updateSubProduct({
-      id: data.id,
-      product_id: data.product_id,
-      name: data.name,
-      status: data.status,
-      nutrition_database_id: data.nutrition_database_id,
-      allergens: data.allergens,
-      energy_kj: data.energy_kj,
-      energy_kcal: data.energy_kcal,
-      energy_kj_1169: data.energy_kj_1169,
-      energy_kcal_1169: data.energy_kcal_1169,
-      water: data.water,
-      protein_animal: data.protein_animal,
-      protein_plant: data.protein_plant,
-      fat: data.fat,
-      carbohydrates: data.carbohydrates,
-      fiber: data.fiber,
-      sodium: data.sodium,
-      salt: data.salt,
-      potassium: data.potassium,
-      calcium: data.calcium,
-      phosphorus: data.phosphorus,
-      magnesium: data.magnesium,
-      iron: data.iron,
-      vitamin_d: data.vitamin_d,
-      vitamin_c: data.vitamin_c,
-      cholesterol: data.cholesterol,
-    });
-    loadData();
-  };
-
-  // Handle deleting variant
-  const handleDeleteVariant = async (variantId: number) => {
-    try {
-      await deleteProductVariant(variantId);
-      toast.success("Wariant został usunięty");
+      await archiveProductVariant(subProductId);
+      toast.success("Subprodukt został zarchiwizowany");
       setSelectedItem({ type: null, data: null });
       loadData();
     } catch (error: any) {
@@ -657,7 +512,7 @@ const ProductsConfig = () => {
             Konfiguracja produktów
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Zarządzaj hierarchią produktów: Kategoria → Subkategoria → Produkt → Subprodukt → Wariant EAN
+            Zarządzaj hierarchią produktów: Kategoria → Subkategoria → Produkt → Subprodukt
           </p>
         </div>
         <div className="flex gap-2">
@@ -673,7 +528,7 @@ const ProductsConfig = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 mb-6 grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 mb-6 grid-cols-2 lg:grid-cols-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-100">
@@ -699,22 +554,11 @@ const ProductsConfig = () => {
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-green-100">
-              <Layers className="h-5 w-5 text-green-600" />
+              <Barcode className="h-5 w-5 text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{totalSubProducts}</p>
               <p className="text-sm text-muted-foreground">Subprodukty</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-orange-100">
-              <Barcode className="h-5 w-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{totalVariants}</p>
-              <p className="text-sm text-muted-foreground">Warianty EAN</p>
             </div>
           </div>
         </Card>
@@ -795,7 +639,7 @@ const ProductsConfig = () => {
                           )}
                           <span className="font-semibold">{category.name}</span>
                           <Badge variant="secondary" className="ml-auto">
-                            {category.subcategories.length} sub.
+                            {category.subcategories.length} subkat.
                           </Badge>
                         </div>
 
@@ -875,118 +719,51 @@ const ProductsConfig = () => {
                                           </Badge>
                                         </div>
 
-                                        {/* SubProducts */}
+                                        {/* SubProducts (variants) */}
                                         {expanded.products.has(product.id) && (
                                           <div className="ml-6 space-y-1">
                                             {product.subProducts.map((subProduct) => (
-                                              <div key={subProduct.id}>
-                                                {/* SubProduct row */}
-                                                <div
-                                                  className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
-                                                    selectedItem.type === "subProduct" &&
-                                                    (selectedItem.data as DisplaySubProduct)?.id === subProduct.id
-                                                      ? "bg-primary/10 border border-primary"
-                                                      : ""
-                                                  }`}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedItem({
-                                                      type: "subProduct",
-                                                      data: subProduct,
-                                                      parentProduct: product,
-                                                    });
-                                                  }}
-                                                >
-                                                  {subProduct.variants.length > 0 ? (
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleSubProduct(subProduct.id);
-                                                      }}
-                                                    >
-                                                      {expanded.subProducts.has(subProduct.id) ? (
-                                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                                      ) : (
-                                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                                      )}
-                                                    </button>
-                                                  ) : (
-                                                    <div className="w-4" />
-                                                  )}
-                                                  <Layers className="h-4 w-4 text-orange-500" />
-                                                  <span>{subProduct.name}</span>
-                                                  
-                                                  {/* Nutrition database link indicator */}
-                                                  {subProduct.nutrition_database_id ? (
-                                                    <Tooltip>
-                                                      <TooltipTrigger>
-                                                        <Link2 className="h-4 w-4 text-green-500" />
-                                                      </TooltipTrigger>
-                                                      <TooltipContent>
-                                                        <p>Połączono z bazą IŻŻ: {getNutritionEntryName(subProduct.nutrition_database_id)}</p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  ) : (
-                                                    <Tooltip>
-                                                      <TooltipTrigger>
-                                                        <Link2Off className="h-4 w-4 text-red-500" />
-                                                      </TooltipTrigger>
-                                                      <TooltipContent>
-                                                        <p>Brak powiązania z bazą Instytutu Żywienia</p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  )}
-
-                                                  {subProduct.allergens.length > 0 && (
-                                                    <AlertTriangle className="h-4 w-4 text-orange-500 ml-1" />
-                                                  )}
-                                                  
-                                                  {subProduct.status === "archived" && (
-                                                    <Badge variant="secondary" className="bg-gray-400 ml-1">
-                                                      Archiwum
-                                                    </Badge>
-                                                  )}
-                                                  
-                                                  <Badge variant="outline" className="ml-auto">
-                                                    {subProduct.variants.length} EAN
-                                                  </Badge>
-                                                </div>
-
-                                                {/* Variants */}
-                                                {expanded.subProducts.has(subProduct.id) && (
-                                                  <div className="ml-6 space-y-1">
-                                                    {subProduct.variants.map((variant) => (
-                                                      <div
-                                                        key={variant.id}
-                                                        className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
-                                                          selectedItem.type === "variant" &&
-                                                          (selectedItem.data as DisplayVariant)?.id === variant.id
-                                                            ? "bg-primary/10 border border-primary"
-                                                            : ""
-                                                        }`}
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setSelectedItem({
-                                                            type: "variant",
-                                                            data: variant,
-                                                            parentProduct: product,
-                                                            parentSubProduct: subProduct,
-                                                          });
-                                                        }}
-                                                      >
-                                                        <div className="w-4" />
-                                                        <Barcode className="h-4 w-4 text-gray-500" />
-                                                        <span className="text-sm">{variant.name}</span>
-                                                        <span className="text-xs text-muted-foreground ml-2">
-                                                          {variant.content} {variant.unit}
-                                                        </span>
-                                                        <code className="text-xs bg-muted px-2 py-0.5 rounded ml-auto">
-                                                          {variant.ean}
-                                                        </code>
-                                                      </div>
-                                                    ))}
-                                                  </div>
+                                              <div
+                                                key={subProduct.id}
+                                                className={`flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer ${
+                                                  selectedItem.type === "subProduct" &&
+                                                  (selectedItem.data as DisplaySubProduct)?.id === subProduct.id
+                                                    ? "bg-primary/10 border border-primary"
+                                                    : ""
+                                                }`}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedItem({
+                                                    type: "subProduct",
+                                                    data: subProduct,
+                                                    parentProduct: product,
+                                                  });
+                                                }}
+                                              >
+                                                <div className="w-4" />
+                                                <Barcode className="h-4 w-4 text-orange-500" />
+                                                <span className="text-sm">{subProduct.name}</span>
+                                                {subProduct.nutrition_database_id ? (
+                                                  <Tooltip>
+                                                    <TooltipTrigger>
+                                                      <Link2 className="h-3 w-3 text-green-600" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Powiązany z bazą IŻŻ</TooltipContent>
+                                                  </Tooltip>
+                                                ) : (
+                                                  <Tooltip>
+                                                    <TooltipTrigger>
+                                                      <Link2Off className="h-3 w-3 text-red-500" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Brak powiązania z bazą IŻŻ</TooltipContent>
+                                                  </Tooltip>
                                                 )}
+                                                <Badge
+                                                  variant={subProduct.status === "active" ? "default" : "secondary"}
+                                                  className={`ml-auto text-xs ${subProduct.status === "active" ? "bg-green-600" : "bg-gray-400"}`}
+                                                >
+                                                  {subProduct.status === "active" ? "Aktywny" : "Archiwum"}
+                                                </Badge>
                                               </div>
                                             ))}
                                           </div>
@@ -1043,27 +820,9 @@ const ProductsConfig = () => {
                 parentProduct={selectedItem.parentProduct!}
                 allergensList={allergensList}
                 renderAllergenBadge={renderAllergenBadge}
-                onAddVariant={() => setAddVariantDialogOpen(true)}
                 onEditSubProduct={() => setEditSubProductDialogOpen(true)}
                 nutritionDatabase={mockNutritionDatabase}
-                onArchive={async () => {
-                  const subProduct = selectedItem.data as DisplaySubProduct;
-                  try {
-                    await archiveSubProduct(subProduct.id);
-                    toast.success("Subprodukt został zarchiwizowany");
-                    setSelectedItem({ type: null, data: null });
-                    loadData();
-                  } catch (error: any) {
-                    toast.error("Błąd: " + error.message);
-                  }
-                }}
-              />
-            ) : selectedItem.type === "variant" ? (
-              <VariantManagementPanel
-                variant={selectedItem.data as DisplayVariant}
-                parentSubProduct={selectedItem.parentSubProduct!}
-                onEditVariant={() => setEditVariantDialogOpen(true)}
-                onDeleteVariant={() => handleDeleteVariant((selectedItem.data as DisplayVariant).id)}
+                onArchive={() => handleArchiveSubProduct((selectedItem.data as DisplaySubProduct).id)}
               />
             ) : null}
           </Card>
@@ -1152,71 +911,18 @@ const ProductsConfig = () => {
       />
 
       {/* Add SubProduct Dialog */}
-      <Dialog open={addSubProductDialogOpen} onOpenChange={setAddSubProductDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Dodaj subprodukt</DialogTitle>
-            {selectedItem.type === "product" && (
-              <p className="text-sm text-muted-foreground">
-                Do produktu: {(selectedItem.data as DisplayProduct)?.name}
-              </p>
-            )}
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Nazwa subproduktu *</Label>
-              <Input 
-                placeholder="np. Ser Gouda" 
-                value={newSubProductName}
-                onChange={(e) => setNewSubProductName(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddSubProductDialogOpen(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handleAddSubProduct} disabled={isSavingSubProduct}>
-              {isSavingSubProduct ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Zapisz
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddSubProductDialog 
+        open={addSubProductDialogOpen} 
+        onOpenChange={setAddSubProductDialogOpen}
+        parentProduct={selectedItem.type === "product" ? selectedItem.data as DisplayProduct : null}
+        onSave={() => loadData()}
+      />
 
       {/* Edit SubProduct Dialog */}
       <EditSubProductDialog
         open={editSubProductDialogOpen}
         onOpenChange={setEditSubProductDialogOpen}
-        subProduct={selectedItem.type === "subProduct" ? selectedItem.data as SubProductData : null}
-        onSave={handleSaveSubProduct}
-      />
-
-      {/* Add Variant Dialog */}
-      <AddVariantDialog 
-        open={addVariantDialogOpen} 
-        onOpenChange={setAddVariantDialogOpen}
-        parentSubProduct={selectedItem.type === "subProduct" ? selectedItem.data as DisplaySubProduct : null}
-        onSave={() => loadData()}
-      />
-
-      {/* Edit Variant Dialog */}
-      <EditVariantDialog
-        open={editVariantDialogOpen}
-        onOpenChange={setEditVariantDialogOpen}
-        variant={selectedItem.type === "variant" ? {
-          id: (selectedItem.data as DisplayVariant).id,
-          subproduct_id: (selectedItem.data as DisplayVariant).subproduct_id,
-          ean: (selectedItem.data as DisplayVariant).ean,
-          name: (selectedItem.data as DisplayVariant).name,
-          content: (selectedItem.data as DisplayVariant).content,
-          unit: (selectedItem.data as DisplayVariant).unit,
-          sku: (selectedItem.data as DisplayVariant).sku,
-          kcal: (selectedItem.data as DisplayVariant).kcal,
-          brands: (selectedItem.data as DisplayVariant).brands,
-          categories: (selectedItem.data as DisplayVariant).categories,
-          image_url: (selectedItem.data as DisplayVariant).image_url,
-        } : null}
+        subProduct={selectedItem.type === "subProduct" ? selectedItem.data as DisplaySubProduct : null}
         onSave={() => loadData()}
       />
     </Layout>
@@ -1342,12 +1048,6 @@ const ProductManagementPanel = ({
         <span className="text-sm">Subprodukty</span>
         <span className="font-medium">{product.subProducts.length}</span>
       </div>
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">Warianty EAN</span>
-        <span className="font-medium">
-          {product.subProducts.reduce((acc, sp) => acc + sp.variants.length, 0)}
-        </span>
-      </div>
     </div>
 
     <Separator />
@@ -1379,7 +1079,6 @@ const SubProductManagementPanel = ({
   parentProduct,
   allergensList,
   renderAllergenBadge,
-  onAddVariant,
   onEditSubProduct,
   nutritionDatabase,
   onArchive,
@@ -1388,7 +1087,6 @@ const SubProductManagementPanel = ({
   parentProduct: DisplayProduct;
   allergensList: AllergenItem[];
   renderAllergenBadge: (id: string) => React.ReactNode;
-  onAddVariant: () => void;
   onEditSubProduct: () => void;
   nutritionDatabase: { id: number; name: string }[];
   onArchive: () => void;
@@ -1396,192 +1094,150 @@ const SubProductManagementPanel = ({
   const linkedEntry = nutritionDatabase.find(e => e.id === subProduct.nutrition_database_id);
   
   return (
-    <div className="p-4 space-y-4">
-      <div>
-        <Label className="text-xs text-muted-foreground">Subprodukt z: {parentProduct.name}</Label>
-        <h3 className="text-lg font-semibold">{subProduct.name}</h3>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-          <span className="text-sm">Status</span>
-          <Badge
-            variant={subProduct.status === "active" ? "default" : "secondary"}
-            className={subProduct.status === "active" ? "bg-green-600" : "bg-gray-400"}
-          >
-            {subProduct.status === "active" ? "Aktywny" : "Archiwum"}
-          </Badge>
+    <ScrollArea className="h-[600px]">
+      <div className="p-4 space-y-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Subprodukt z: {parentProduct.name}</Label>
+          <h3 className="text-lg font-semibold">{subProduct.name}</h3>
         </div>
-        <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-          <span className="text-sm">Baza IŻŻ</span>
-          {linkedEntry ? (
-            <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
-              <Link2 className="h-3 w-3" />
-              {linkedEntry.name}
+
+        {subProduct.image_url && (
+          <div className="flex justify-center">
+            <img 
+              src={subProduct.image_url} 
+              alt={subProduct.name}
+              className="w-24 h-24 object-contain rounded bg-white p-1 border"
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Status</span>
+            <Badge
+              variant={subProduct.status === "active" ? "default" : "secondary"}
+              className={subProduct.status === "active" ? "bg-green-600" : "bg-gray-400"}
+            >
+              {subProduct.status === "active" ? "Aktywny" : "Archiwum"}
             </Badge>
-          ) : (
-            <Badge variant="outline" className="text-red-600 border-red-300 gap-1">
-              <Link2Off className="h-3 w-3" />
-              Brak powiązania
-            </Badge>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">EAN</span>
+            <code className="text-sm bg-background px-2 py-0.5 rounded">{subProduct.ean}</code>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">SKU</span>
+            <code className="text-sm bg-background px-2 py-0.5 rounded">{subProduct.sku}</code>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Zawartość</span>
+            <span className="font-medium">{subProduct.content} {subProduct.unit}</span>
+          </div>
+          {subProduct.brands && (
+            <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+              <span className="text-sm">Marka</span>
+              <span className="font-medium">{subProduct.brands}</span>
+            </div>
           )}
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Baza IŻŻ</span>
+            {linkedEntry ? (
+              <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
+                <Link2 className="h-3 w-3" />
+                {linkedEntry.name}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-red-600 border-red-300 gap-1">
+                <Link2Off className="h-3 w-3" />
+                Brak powiązania
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-          <span className="text-sm">Warianty EAN</span>
-          <span className="font-medium">{subProduct.variants.length}</span>
+
+        {/* Allergens */}
+        {subProduct.allergens && subProduct.allergens.length > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Alergeny</Label>
+              <div className="flex flex-wrap gap-1">
+                {subProduct.allergens.map(renderAllergenBadge)}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Nutritional info */}
+        {(subProduct.energy_kcal || subProduct.fat || subProduct.carbohydrates) && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Wartości odżywcze (na 100g)</Label>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {subProduct.energy_kcal && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Energia</span>
+                    <span className="font-medium">{subProduct.energy_kcal} kcal</span>
+                  </div>
+                )}
+                {(subProduct.protein_animal || subProduct.protein_plant) && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Białko</span>
+                    <span className="font-medium">
+                      {((subProduct.protein_animal || 0) + (subProduct.protein_plant || 0)).toFixed(1)} g
+                    </span>
+                  </div>
+                )}
+                {subProduct.fat && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Tłuszcz</span>
+                    <span className="font-medium">{subProduct.fat} g</span>
+                  </div>
+                )}
+                {subProduct.carbohydrates && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Węglowodany</span>
+                    <span className="font-medium">{subProduct.carbohydrates} g</span>
+                  </div>
+                )}
+                {subProduct.fiber && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Błonnik</span>
+                    <span className="font-medium">{subProduct.fiber} g</span>
+                  </div>
+                )}
+                {subProduct.salt && (
+                  <div className="flex justify-between p-1.5 bg-muted/30 rounded">
+                    <span>Sól</span>
+                    <span className="font-medium">{subProduct.salt} g</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Button variant="outline" className="w-full gap-2" onClick={onEditSubProduct}>
+            <Pencil className="h-4 w-4" />
+            Edytuj subprodukt
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full gap-2 text-orange-600 hover:text-orange-700"
+            onClick={onArchive}
+          >
+            <Archive className="h-4 w-4" />
+            {subProduct.status === "active" ? "Archiwizuj" : "Przywróć"}
+          </Button>
         </div>
       </div>
-
-      {/* Nutritional info */}
-      {(subProduct.energy_kcal || subProduct.fat || subProduct.carbohydrates) && (
-        <>
-          <Separator />
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Wartości odżywcze (na 100g)</Label>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {subProduct.energy_kcal && (
-                <div className="flex justify-between p-1.5 bg-muted/30 rounded">
-                  <span>Energia</span>
-                  <span className="font-medium">{subProduct.energy_kcal} kcal</span>
-                </div>
-              )}
-              {(subProduct.protein_animal || subProduct.protein_plant) && (
-                <div className="flex justify-between p-1.5 bg-muted/30 rounded">
-                  <span>Białko</span>
-                  <span className="font-medium">
-                    {((subProduct.protein_animal || 0) + (subProduct.protein_plant || 0)).toFixed(1)} g
-                  </span>
-                </div>
-              )}
-              {subProduct.fat && (
-                <div className="flex justify-between p-1.5 bg-muted/30 rounded">
-                  <span>Tłuszcz</span>
-                  <span className="font-medium">{subProduct.fat} g</span>
-                </div>
-              )}
-              {subProduct.carbohydrates && (
-                <div className="flex justify-between p-1.5 bg-muted/30 rounded">
-                  <span>Węglowodany</span>
-                  <span className="font-medium">{subProduct.carbohydrates} g</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Allergens */}
-      {subProduct.allergens.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Alergeny</Label>
-            <div className="flex flex-wrap gap-1">
-              {subProduct.allergens.map(renderAllergenBadge)}
-            </div>
-          </div>
-        </>
-      )}
-
-      <Separator />
-
-      <div className="space-y-2">
-        <Button variant="outline" className="w-full gap-2" onClick={onAddVariant}>
-          <Plus className="h-4 w-4" />
-          Dodaj wariant
-        </Button>
-        <Button variant="outline" className="w-full gap-2" onClick={onEditSubProduct}>
-          <Pencil className="h-4 w-4" />
-          Edytuj subprodukt
-        </Button>
-        <Button 
-          variant="outline" 
-          className="w-full gap-2 text-orange-600 hover:text-orange-700"
-          onClick={onArchive}
-        >
-          <Archive className="h-4 w-4" />
-          {subProduct.status === "active" ? "Archiwizuj" : "Przywróć"}
-        </Button>
-      </div>
-    </div>
+    </ScrollArea>
   );
 };
-
-// Variant Management Panel Component
-const VariantManagementPanel = ({
-  variant,
-  parentSubProduct,
-  onEditVariant,
-  onDeleteVariant,
-}: {
-  variant: DisplayVariant;
-  parentSubProduct: DisplaySubProduct;
-  onEditVariant: () => void;
-  onDeleteVariant: () => void;
-}) => (
-  <div className="p-4 space-y-4">
-    <div>
-      <Label className="text-xs text-muted-foreground">Wariant z: {parentSubProduct.name}</Label>
-      <h3 className="text-lg font-semibold">{variant.name}</h3>
-    </div>
-
-    {variant.image_url && (
-      <div className="flex justify-center">
-        <img 
-          src={variant.image_url} 
-          alt={variant.name}
-          className="w-24 h-24 object-contain rounded bg-white p-1 border"
-        />
-      </div>
-    )}
-
-    <div className="space-y-2">
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">Zawartość</span>
-        <span className="font-medium">
-          {variant.content} {variant.unit}
-        </span>
-      </div>
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">SKU</span>
-        <code className="text-sm bg-background px-2 py-0.5 rounded">{variant.sku}</code>
-      </div>
-      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-        <span className="text-sm">EAN / GTIN</span>
-        <code className="text-sm bg-background px-2 py-0.5 rounded">{variant.ean}</code>
-      </div>
-      {variant.kcal && (
-        <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-          <span className="text-sm">Kalorie</span>
-          <span className="font-medium">{variant.kcal} kcal/100g</span>
-        </div>
-      )}
-      {variant.brands && (
-        <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-          <span className="text-sm">Marka</span>
-          <span className="font-medium">{variant.brands}</span>
-        </div>
-      )}
-    </div>
-
-    <Separator />
-
-    <div className="space-y-2">
-      <Button variant="outline" className="w-full gap-2" onClick={onEditVariant}>
-        <Pencil className="h-4 w-4" />
-        Edytuj wariant
-      </Button>
-      <Button 
-        variant="outline" 
-        className="w-full gap-2 text-red-600 hover:text-red-700"
-        onClick={onDeleteVariant}
-      >
-        <Trash2 className="h-4 w-4" />
-        Usuń wariant
-      </Button>
-    </div>
-  </div>
-);
 
 // OpenFoodFacts API response type
 interface OpenFoodFactsProduct {
@@ -1597,16 +1253,16 @@ interface OpenFoodFactsProduct {
   };
 }
 
-// Add Variant Dialog Component
-const AddVariantDialog = ({
+// Add SubProduct Dialog Component - with EAN scanning
+const AddSubProductDialog = ({
   open,
   onOpenChange,
-  parentSubProduct,
+  parentProduct,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  parentSubProduct: DisplaySubProduct | null;
+  parentProduct: DisplayProduct | null;
   onSave?: () => void;
 }) => {
   const eanInputRef = useRef<HTMLInputElement>(null);
@@ -1619,7 +1275,7 @@ const AddVariantDialog = ({
   const [calories, setCalories] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [brands, setBrands] = useState("");
-  const [categories, setCategories] = useState("");
+  const [productCategories, setProductCategories] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productFound, setProductFound] = useState(false);
@@ -1654,7 +1310,7 @@ const AddVariantDialog = ({
       setCalories("");
       setImageUrl("");
       setBrands("");
-      setCategories("");
+      setProductCategories("");
       setProductFound(false);
       setDataFetched(false);
       setIsScannerOpen(false);
@@ -1724,7 +1380,7 @@ const AddVariantDialog = ({
 
         if (product.image_front_small_url) setImageUrl(product.image_front_small_url);
         if (product.brands) setBrands(product.brands);
-        if (product.categories) setCategories(product.categories);
+        if (product.categories) setProductCategories(product.categories);
 
         setProductFound(true);
         setDataFetched(true);
@@ -1798,7 +1454,7 @@ const AddVariantDialog = ({
     const missing = getMissingFields();
     if (missing.length > 0) {
       const fieldNames: Record<string, string> = {
-        ean: "Kod EAN", variantName: "Nazwa wariantu", content: "Zawartość", unit: "Jednostka", sku: "SKU",
+        ean: "Kod EAN", variantName: "Nazwa subproduktu", content: "Zawartość", unit: "Jednostka", sku: "SKU",
       };
       toast.error(`Uzupełnij wymagane pola: ${missing.map(f => fieldNames[f]).join(", ")}`);
       setDataFetched(true);
@@ -1808,17 +1464,45 @@ const AddVariantDialog = ({
     setIsSaving(true);
     try {
       await createProductVariant({
-        subproduct_id: parentSubProduct?.id || null,
-        ean, name: variantName, content, unit, sku,
-        kcal: calories ? parseFloat(calories) : null,
-        brands, categories, image_url: imageUrl,
+        product_id: parentProduct?.id || null,
+        ean, 
+        name: variantName, 
+        content, 
+        unit, 
+        sku,
+        status: "active",
+        brands, 
+        categories: productCategories, 
+        image_url: imageUrl,
+        allergens: [],
+        nutrition_database_id: null,
+        energy_kj: null,
+        energy_kcal: calories ? parseFloat(calories) : null,
+        energy_kj_1169: null,
+        energy_kcal_1169: null,
+        water: null,
+        protein_animal: null,
+        protein_plant: null,
+        fat: null,
+        carbohydrates: null,
+        fiber: null,
+        sodium: null,
+        salt: null,
+        potassium: null,
+        calcium: null,
+        phosphorus: null,
+        magnesium: null,
+        iron: null,
+        vitamin_d: null,
+        vitamin_c: null,
+        cholesterol: null,
       });
-      toast.success("Wariant został zapisany!");
+      toast.success("Subprodukt został zapisany!");
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       if (error.message === "EAN_ALREADY_EXISTS") {
-        toast.error("Wariant z tym kodem EAN już istnieje");
+        toast.error("Subprodukt z tym kodem EAN już istnieje");
       } else {
         toast.error("Błąd: " + error.message);
       }
@@ -1848,7 +1532,10 @@ const AddVariantDialog = ({
     }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Dodaj wariant</DialogTitle>
+          <DialogTitle>Dodaj subprodukt</DialogTitle>
+          {parentProduct && (
+            <p className="text-sm text-muted-foreground">Do produktu: {parentProduct.name}</p>
+          )}
           <p className="text-xs text-muted-foreground">
             Pola oznaczone <span className="text-red-500">*</span> są wymagane
           </p>
@@ -1925,8 +1612,8 @@ const AddVariantDialog = ({
           )}
 
           <div className="space-y-2">
-            <RequiredLabel>Nazwa wariantu</RequiredLabel>
-            <Input placeholder="np. Nutella 400g" value={variantName} onChange={(e) => setVariantName(e.target.value)} className={getFieldClass("variantName")} />
+            <RequiredLabel>Nazwa subproduktu</RequiredLabel>
+            <Input placeholder="np. Ser Gouda Łowicz 200g" value={variantName} onChange={(e) => setVariantName(e.target.value)} className={getFieldClass("variantName")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1956,7 +1643,7 @@ const AddVariantDialog = ({
 
           <div className="space-y-2">
             <Label>Marka (opcjonalne)</Label>
-            <Input placeholder="np. Ferrero" value={brands} onChange={(e) => setBrands(e.target.value)} />
+            <Input placeholder="np. Łowicz" value={brands} onChange={(e) => setBrands(e.target.value)} />
           </div>
 
           <div className="space-y-2">
@@ -1965,9 +1652,9 @@ const AddVariantDialog = ({
           </div>
         </div>
 
-        {categories && (
+        {productCategories && (
           <div className="pt-2 pb-4 border-t">
-            <p className="text-xs text-muted-foreground"><span className="font-medium">Kategorie:</span> {categories}</p>
+            <p className="text-xs text-muted-foreground"><span className="font-medium">Kategorie:</span> {productCategories}</p>
           </div>
         )}
 
@@ -1975,7 +1662,379 @@ const AddVariantDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Anuluj</Button>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            {isSaving ? "Zapisywanie..." : "Zapisz"}
+            Zapisz
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Edit SubProduct Dialog Component
+const EditSubProductDialog = ({
+  open,
+  onOpenChange,
+  subProduct,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  subProduct: DisplaySubProduct | null;
+  onSave?: () => void;
+}) => {
+  const eanInputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const [ean, setEan] = useState("");
+  const [variantName, setVariantName] = useState("");
+  const [content, setContent] = useState("");
+  const [unit, setUnit] = useState("g");
+  const [sku, setSku] = useState("");
+  const [status, setStatus] = useState<"active" | "archived">("active");
+  const [brands, setBrands] = useState("");
+  const [productCategories, setProductCategories] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
+  const [nutritionDbId, setNutritionDbId] = useState<number | null>(null);
+  
+  // Nutritional values
+  const [energyKj, setEnergyKj] = useState("");
+  const [energyKcal, setEnergyKcal] = useState("");
+  const [energyKj1169, setEnergyKj1169] = useState("");
+  const [energyKcal1169, setEnergyKcal1169] = useState("");
+  const [water, setWater] = useState("");
+  const [proteinAnimal, setProteinAnimal] = useState("");
+  const [proteinPlant, setProteinPlant] = useState("");
+  const [fat, setFat] = useState("");
+  const [carbohydrates, setCarbohydrates] = useState("");
+  const [fiber, setFiber] = useState("");
+  const [sodium, setSodium] = useState("");
+  const [salt, setSalt] = useState("");
+  const [potassium, setPotassium] = useState("");
+  const [calcium, setCalcium] = useState("");
+  const [phosphorus, setPhosphorus] = useState("");
+  const [magnesium, setMagnesium] = useState("");
+  const [iron, setIron] = useState("");
+  const [vitaminD, setVitaminD] = useState("");
+  const [vitaminC, setVitaminC] = useState("");
+  const [cholesterol, setCholesterol] = useState("");
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [html5QrCode, setHtml5QrCode] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load data when dialog opens
+  useEffect(() => {
+    if (open && subProduct) {
+      setEan(subProduct.ean || "");
+      setVariantName(subProduct.name || "");
+      setContent(subProduct.content || "");
+      setUnit(subProduct.unit || "g");
+      setSku(subProduct.sku || "");
+      setStatus(subProduct.status || "active");
+      setBrands(subProduct.brands || "");
+      setProductCategories(subProduct.categories || "");
+      setImageUrl(subProduct.image_url || "");
+      setSelectedAllergens(subProduct.allergens || []);
+      setNutritionDbId(subProduct.nutrition_database_id);
+      
+      setEnergyKj(subProduct.energy_kj?.toString() || "");
+      setEnergyKcal(subProduct.energy_kcal?.toString() || "");
+      setEnergyKj1169(subProduct.energy_kj_1169?.toString() || "");
+      setEnergyKcal1169(subProduct.energy_kcal_1169?.toString() || "");
+      setWater(subProduct.water?.toString() || "");
+      setProteinAnimal(subProduct.protein_animal?.toString() || "");
+      setProteinPlant(subProduct.protein_plant?.toString() || "");
+      setFat(subProduct.fat?.toString() || "");
+      setCarbohydrates(subProduct.carbohydrates?.toString() || "");
+      setFiber(subProduct.fiber?.toString() || "");
+      setSodium(subProduct.sodium?.toString() || "");
+      setSalt(subProduct.salt?.toString() || "");
+      setPotassium(subProduct.potassium?.toString() || "");
+      setCalcium(subProduct.calcium?.toString() || "");
+      setPhosphorus(subProduct.phosphorus?.toString() || "");
+      setMagnesium(subProduct.magnesium?.toString() || "");
+      setIron(subProduct.iron?.toString() || "");
+      setVitaminD(subProduct.vitamin_d?.toString() || "");
+      setVitaminC(subProduct.vitamin_c?.toString() || "");
+      setCholesterol(subProduct.cholesterol?.toString() || "");
+    }
+  }, [open, subProduct]);
+
+  // Cleanup scanner
+  useEffect(() => {
+    return () => {
+      if (html5QrCode) html5QrCode.stop().catch(() => {});
+    };
+  }, [html5QrCode]);
+
+  const toggleAllergen = (id: string) => {
+    setSelectedAllergens(prev => 
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!subProduct) return;
+    
+    if (!ean || !variantName || !content || !unit || !sku) {
+      toast.error("Wypełnij wszystkie wymagane pola");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateProductVariant({
+        id: subProduct.id,
+        product_id: subProduct.product_id,
+        ean,
+        name: variantName,
+        content,
+        unit,
+        sku,
+        status,
+        brands,
+        categories: productCategories,
+        image_url: imageUrl,
+        allergens: selectedAllergens,
+        nutrition_database_id: nutritionDbId,
+        energy_kj: energyKj ? parseFloat(energyKj) : null,
+        energy_kcal: energyKcal ? parseFloat(energyKcal) : null,
+        energy_kj_1169: energyKj1169 ? parseFloat(energyKj1169) : null,
+        energy_kcal_1169: energyKcal1169 ? parseFloat(energyKcal1169) : null,
+        water: water ? parseFloat(water) : null,
+        protein_animal: proteinAnimal ? parseFloat(proteinAnimal) : null,
+        protein_plant: proteinPlant ? parseFloat(proteinPlant) : null,
+        fat: fat ? parseFloat(fat) : null,
+        carbohydrates: carbohydrates ? parseFloat(carbohydrates) : null,
+        fiber: fiber ? parseFloat(fiber) : null,
+        sodium: sodium ? parseFloat(sodium) : null,
+        salt: salt ? parseFloat(salt) : null,
+        potassium: potassium ? parseFloat(potassium) : null,
+        calcium: calcium ? parseFloat(calcium) : null,
+        phosphorus: phosphorus ? parseFloat(phosphorus) : null,
+        magnesium: magnesium ? parseFloat(magnesium) : null,
+        iron: iron ? parseFloat(iron) : null,
+        vitamin_d: vitaminD ? parseFloat(vitaminD) : null,
+        vitamin_c: vitaminC ? parseFloat(vitaminC) : null,
+        cholesterol: cholesterol ? parseFloat(cholesterol) : null,
+      });
+      toast.success("Subprodukt został zaktualizowany!");
+      onSave?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      if (error.message === "EAN_ALREADY_EXISTS") {
+        toast.error("Subprodukt z tym kodem EAN już istnieje");
+      } else {
+        toast.error("Błąd: " + error.message);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => {
+      if (!value && html5QrCode) html5QrCode.stop().catch(() => {});
+      onOpenChange(value);
+    }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edytuj subprodukt</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          {/* Basic info */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-sm text-muted-foreground">Dane podstawowe</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nazwa *</Label>
+                <Input value={variantName} onChange={(e) => setVariantName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={(v) => setStatus(v as "active" | "archived")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktywny</SelectItem>
+                    <SelectItem value="archived">Zarchiwizowany</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>EAN *</Label>
+                <Input value={ean} onChange={(e) => setEan(e.target.value)} className="font-mono" />
+              </div>
+              <div className="space-y-2">
+                <Label>SKU *</Label>
+                <Input value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" />
+              </div>
+              <div className="space-y-2">
+                <Label>Marka</Label>
+                <Input value={brands} onChange={(e) => setBrands(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Zawartość *</Label>
+                <Input type="number" value={content} onChange={(e) => setContent(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Jednostka *</Label>
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="g">g</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="ml">ml</SelectItem>
+                    <SelectItem value="l">l</SelectItem>
+                    <SelectItem value="szt">szt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Allergens */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-sm text-muted-foreground">Alergeny</h3>
+            <div className="grid grid-cols-4 gap-2">
+              {allergensList.map((allergen) => (
+                <div
+                  key={allergen.id}
+                  className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                    selectedAllergens.includes(allergen.id)
+                      ? "bg-orange-50 border-orange-300"
+                      : "hover:bg-muted/50"
+                  }`}
+                  onClick={() => toggleAllergen(allergen.id)}
+                >
+                  <Checkbox checked={selectedAllergens.includes(allergen.id)} />
+                  {allergen.icon}
+                  <span className="text-sm">{allergen.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Nutritional values */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-sm text-muted-foreground">Wartości odżywcze (na 100g)</h3>
+            
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Energia (kJ)</Label>
+                <Input type="number" value={energyKj} onChange={(e) => setEnergyKj(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Energia (kcal)</Label>
+                <Input type="number" value={energyKcal} onChange={(e) => setEnergyKcal(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Energia 1169 (kJ)</Label>
+                <Input type="number" value={energyKj1169} onChange={(e) => setEnergyKj1169(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Energia 1169 (kcal)</Label>
+                <Input type="number" value={energyKcal1169} onChange={(e) => setEnergyKcal1169(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Woda (g)</Label>
+                <Input type="number" value={water} onChange={(e) => setWater(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Białko zwierzęce (g)</Label>
+                <Input type="number" value={proteinAnimal} onChange={(e) => setProteinAnimal(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Białko roślinne (g)</Label>
+                <Input type="number" value={proteinPlant} onChange={(e) => setProteinPlant(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tłuszcz (g)</Label>
+                <Input type="number" value={fat} onChange={(e) => setFat(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Węglowodany (g)</Label>
+                <Input type="number" value={carbohydrates} onChange={(e) => setCarbohydrates(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Błonnik (g)</Label>
+                <Input type="number" value={fiber} onChange={(e) => setFiber(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Sód (mg)</Label>
+                <Input type="number" value={sodium} onChange={(e) => setSodium(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Sól (g)</Label>
+                <Input type="number" value={salt} onChange={(e) => setSalt(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Potas (mg)</Label>
+                <Input type="number" value={potassium} onChange={(e) => setPotassium(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Wapń (mg)</Label>
+                <Input type="number" value={calcium} onChange={(e) => setCalcium(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fosfor (mg)</Label>
+                <Input type="number" value={phosphorus} onChange={(e) => setPhosphorus(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Magnez (mg)</Label>
+                <Input type="number" value={magnesium} onChange={(e) => setMagnesium(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Żelazo (mg)</Label>
+                <Input type="number" value={iron} onChange={(e) => setIron(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Witamina D (µg)</Label>
+                <Input type="number" value={vitaminD} onChange={(e) => setVitaminD(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Witamina C (mg)</Label>
+                <Input type="number" value={vitaminC} onChange={(e) => setVitaminC(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cholesterol (mg)</Label>
+                <Input type="number" value={cholesterol} onChange={(e) => setCholesterol(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            Anuluj
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            Zapisz zmiany
           </Button>
         </DialogFooter>
       </DialogContent>
