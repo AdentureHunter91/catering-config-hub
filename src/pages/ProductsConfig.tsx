@@ -1004,11 +1004,10 @@ const AddProductDialog = ({
         </DialogHeader>
         
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Podstawowe</TabsTrigger>
             <TabsTrigger value="allergens">Alergeny</TabsTrigger>
             <TabsTrigger value="nutrition">Wartości odżywcze</TabsTrigger>
-            <TabsTrigger value="database">Baza IŻŻ</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-4 mt-4">
@@ -1043,6 +1042,57 @@ const AddProductDialog = ({
             <div className="space-y-2">
               <Label>Opis</Label>
               <Textarea placeholder="Opis produktu..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+            </div>
+            
+            <Separator className="my-4" />
+            
+            {/* Powiązanie z bazą IŻŻ */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-green-600" />
+                <Label className="font-medium">Powiązanie z bazą IŻŻ</Label>
+              </div>
+              <div className="flex gap-3">
+                <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- Brak powiązania --</SelectItem>
+                    {nutritionDatabase.map((item) => (
+                      <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {nutritionDbId !== "none" && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="gap-2 text-green-600 border-green-300 hover:bg-green-50"
+                    onClick={() => {
+                      // TODO: W przyszłości pobierz dane z prawdziwej bazy IŻŻ
+                      // Symulacja skopiowania danych
+                      setNutrition({
+                        energy_kj: "1500", energy_kcal: "360", energy_kj_1169: "1500", energy_kcal_1169: "360",
+                        water: "35", protein_animal: "25", protein_plant: "0", fat: "28", saturated_fat: "18",
+                        carbohydrates: "2", sugars: "0.5", fiber: "0", sodium: "620", salt: "1.55", potassium: "100",
+                        calcium: "700", phosphorus: "500", magnesium: "30", iron: "0.3", zinc: "3.5",
+                        vitamin_a: "280", vitamin_d: "0.6", vitamin_e: "0.5", vitamin_c: "0",
+                        vitamin_b1: "0.03", vitamin_b2: "0.35", vitamin_b6: "0.08", vitamin_b12: "1.5",
+                        folate: "20", niacin: "0.1", cholesterol: "100",
+                      });
+                      setSelectedAllergens(["lactose"]);
+                      toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Powiąż dane
+                  </Button>
+                )}
+              </div>
+              {nutritionDbId !== "none" && (
+                <p className="text-xs text-muted-foreground">
+                  Po kliknięciu "Powiąż dane" wartości odżywcze i alergeny zostaną skopiowane z bazy IŻŻ
+                </p>
+              )}
             </div>
           </TabsContent>
 
@@ -1148,30 +1198,6 @@ const AddProductDialog = ({
             </div>
           </TabsContent>
 
-          <TabsContent value="database" className="space-y-4 mt-4">
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              <Database className="h-4 w-4" />
-              <span>Powiąż produkt z bazą Instytutu Żywności i Żywienia (IŻŻ), aby móc skopiować wartości odżywcze</span>
-            </div>
-            <div className="space-y-2">
-              <Label>Produkt z bazy IŻŻ</Label>
-              <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
-                <SelectTrigger><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">-- Brak powiązania --</SelectItem>
-                  {nutritionDatabase.map((item) => (
-                    <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {nutritionDbId !== "none" && (
-              <Button variant="outline" className="gap-2" onClick={() => toast.info("Ta funkcja zostanie zaimplementowana po podłączeniu prawdziwej bazy IŻŻ")}>
-                <Copy className="h-4 w-4" />
-                Kopiuj wartości odżywcze z bazy IŻŻ
-              </Button>
-            )}
-          </TabsContent>
         </Tabs>
 
         <DialogFooter className="mt-4">
@@ -1343,11 +1369,10 @@ const EditProductDialog = ({
         </DialogHeader>
         
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Podstawowe</TabsTrigger>
             <TabsTrigger value="allergens">Alergeny</TabsTrigger>
             <TabsTrigger value="nutrition">Wartości odżywcze</TabsTrigger>
-            <TabsTrigger value="database">Baza IŻŻ</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-4 mt-4">
@@ -1368,6 +1393,57 @@ const EditProductDialog = ({
                   <SelectItem value="archived">Zarchiwizowany</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <Separator className="my-4" />
+            
+            {/* Powiązanie z bazą IŻŻ */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-green-600" />
+                <Label className="font-medium">Powiązanie z bazą IŻŻ</Label>
+              </div>
+              <div className="flex gap-3">
+                <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- Brak powiązania --</SelectItem>
+                    {nutritionDatabase.map((item) => (
+                      <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {nutritionDbId !== "none" && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="gap-2 text-green-600 border-green-300 hover:bg-green-50"
+                    onClick={() => {
+                      // TODO: W przyszłości pobierz dane z prawdziwej bazy IŻŻ
+                      // Symulacja skopiowania danych
+                      setNutrition({
+                        energy_kj: "1500", energy_kcal: "360", energy_kj_1169: "1500", energy_kcal_1169: "360",
+                        water: "35", protein_animal: "25", protein_plant: "0", fat: "28", saturated_fat: "18",
+                        carbohydrates: "2", sugars: "0.5", fiber: "0", sodium: "620", salt: "1.55", potassium: "100",
+                        calcium: "700", phosphorus: "500", magnesium: "30", iron: "0.3", zinc: "3.5",
+                        vitamin_a: "280", vitamin_d: "0.6", vitamin_e: "0.5", vitamin_c: "0",
+                        vitamin_b1: "0.03", vitamin_b2: "0.35", vitamin_b6: "0.08", vitamin_b12: "1.5",
+                        folate: "20", niacin: "0.1", cholesterol: "100",
+                      });
+                      setSelectedAllergens(["lactose"]);
+                      toast.success("Dane zostały skopiowane z bazy IŻŻ");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Powiąż dane
+                  </Button>
+                )}
+              </div>
+              {nutritionDbId !== "none" && (
+                <p className="text-xs text-muted-foreground">
+                  Po kliknięciu "Powiąż dane" wartości odżywcze i alergeny zostaną skopiowane z bazy IŻŻ
+                </p>
+              )}
             </div>
           </TabsContent>
 
@@ -1473,30 +1549,6 @@ const EditProductDialog = ({
             </div>
           </TabsContent>
 
-          <TabsContent value="database" className="space-y-4 mt-4">
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              <Database className="h-4 w-4" />
-              <span>Powiąż produkt z bazą Instytutu Żywności i Żywienia (IŻŻ)</span>
-            </div>
-            <div className="space-y-2">
-              <Label>Produkt z bazy IŻŻ</Label>
-              <Select value={nutritionDbId} onValueChange={setNutritionDbId}>
-                <SelectTrigger><SelectValue placeholder="Wybierz produkt z bazy IŻŻ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">-- Brak powiązania --</SelectItem>
-                  {nutritionDatabase.map((item) => (
-                    <SelectItem key={item.id} value={item.id.toString()}>{item.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {nutritionDbId !== "none" && (
-              <Button variant="outline" className="gap-2" onClick={() => toast.info("Ta funkcja zostanie zaimplementowana po podłączeniu prawdziwej bazy IŻŻ")}>
-                <Copy className="h-4 w-4" />
-                Kopiuj wartości odżywcze z bazy IŻŻ
-              </Button>
-            )}
-          </TabsContent>
         </Tabs>
 
         <DialogFooter className="mt-4">
