@@ -1648,6 +1648,8 @@ interface OpenFoodFactsProduct {
   product_name_en?: string;
   image_front_small_url?: string;
   quantity?: string;
+  categories?: string;
+  brands?: string;
   nutriments?: {
     "energy-kcal_100g"?: number;
     proteins_100g?: number;
@@ -1669,7 +1671,7 @@ const AddVariantDialog = ({
   parentSubProduct: SubProduct | null;
 }) => {
   const eanInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerRef = useRef<HTMLDivElement>(null);
   const [ean, setEan] = useState("");
   const [variantName, setVariantName] = useState("");
   const [content, setContent] = useState("");
@@ -1677,9 +1679,26 @@ const AddVariantDialog = ({
   const [sku, setSku] = useState("");
   const [calories, setCalories] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [brands, setBrands] = useState("");
+  const [categories, setCategories] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productFound, setProductFound] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false);
+  const [html5QrCode, setHtml5QrCode] = useState<any>(null);
+
+  // Track which fields are missing after API fetch
+  const getMissingFields = useCallback(() => {
+    const missing: string[] = [];
+    if (!ean) missing.push("ean");
+    if (!variantName) missing.push("variantName");
+    if (!content) missing.push("content");
+    if (!unit) missing.push("unit");
+    if (!sku) missing.push("sku");
+    return missing;
+  }, [ean, variantName, content, unit, sku]);
+
+  const missingFields = dataFetched ? getMissingFields() : [];
 
   // Auto-focus EAN input when dialog opens
   useEffect(() => {
@@ -1697,10 +1716,22 @@ const AddVariantDialog = ({
       setSku("");
       setCalories("");
       setImageUrl("");
+      setBrands("");
+      setCategories("");
       setProductFound(false);
+      setDataFetched(false);
       setIsScannerOpen(false);
     }
   }, [open]);
+
+  // Cleanup scanner when dialog closes
+  useEffect(() => {
+    return () => {
+      if (html5QrCode) {
+        html5QrCode.stop().catch(() => {});
+      }
+    };
+  }, [html5QrCode]);
 
   // Generate SKU from product name and content
   const generateSku = useCallback((name: string, contentVal: string, unitVal: string) => {
@@ -1731,6 +1762,7 @@ const AddVariantDialog = ({
 
     setIsLoading(true);
     setProductFound(false);
+    setDataFetched(false);
 
     try {
       const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${eanCode}.json`);
@@ -1765,11 +1797,23 @@ const AddVariantDialog = ({
           setImageUrl(product.image_front_small_url);
         }
 
+        // Set brands
+        if (product.brands) {
+          setBrands(product.brands);
+        }
+
+        // Set categories
+        if (product.categories) {
+          setCategories(product.categories);
+        }
+
         setProductFound(true);
+        setDataFetched(true);
         toast.success("Dane produktu pobrane z OpenFoodFacts!");
       } else {
         toast.error("Produkt nie został znaleziony w bazie OpenFoodFacts");
         setProductFound(false);
+        setDataFetched(true);
       }
     } catch (error) {
       console.error("Error fetching product data:", error);
@@ -1798,30 +1842,84 @@ const AddVariantDialog = ({
     }
   };
 
-  // Camera scanner toggle
+  // Camera scanner toggle using html5-qrcode
   const toggleScanner = async () => {
     if (isScannerOpen) {
-      // Stop camera
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      // Stop scanner
+      if (html5QrCode) {
+        try {
+          await html5QrCode.stop();
+        } catch (err) {
+          console.error("Error stopping scanner:", err);
+        }
       }
       setIsScannerOpen(false);
     } else {
       setIsScannerOpen(true);
-      toast.info("Funkcja skanowania kamerą wymaga dodatkowej biblioteki. Użyj zewnętrznego skanera lub wprowadź kod ręcznie.", {
-        duration: 5000,
-      });
+      
+      // Dynamically import html5-qrcode
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        
+        setTimeout(async () => {
+          if (!scannerRef.current) return;
+          
+          const scannerId = "ean-scanner-" + Date.now();
+          scannerRef.current.id = scannerId;
+          
+          const scanner = new Html5Qrcode(scannerId);
+          setHtml5QrCode(scanner);
+          
+          try {
+            await scanner.start(
+              { facingMode: "environment" },
+              {
+                fps: 10,
+                qrbox: { width: 250, height: 100 },
+              },
+              (decodedText) => {
+                // Successfully scanned
+                const numericValue = decodedText.replace(/\D/g, "");
+                setEan(numericValue);
+                setIsScannerOpen(false);
+                scanner.stop().catch(() => {});
+                toast.success("Kod zeskanowany!");
+                
+                // Auto-fetch if valid EAN
+                if (numericValue.length >= 8) {
+                  setTimeout(() => fetchProductData(numericValue), 100);
+                }
+              },
+              () => {
+                // Ignore scan errors (continuous scanning)
+              }
+            );
+          } catch (err) {
+            console.error("Error starting scanner:", err);
+            toast.error("Nie można uruchomić kamery. Sprawdź uprawnienia.");
+            setIsScannerOpen(false);
+          }
+        }, 100);
+      } catch (err) {
+        console.error("Error loading scanner library:", err);
+        toast.error("Błąd ładowania biblioteki skanera");
+        setIsScannerOpen(false);
+      }
     }
   };
 
   const handleSave = () => {
-    if (!ean) {
-      toast.error("Wprowadź kod EAN");
-      return;
-    }
-    if (!variantName) {
-      toast.error("Wprowadź nazwę wariantu");
+    const missing = getMissingFields();
+    if (missing.length > 0) {
+      const fieldNames: Record<string, string> = {
+        ean: "Kod EAN",
+        variantName: "Nazwa wariantu",
+        content: "Zawartość",
+        unit: "Jednostka",
+        sku: "SKU",
+      };
+      toast.error(`Uzupełnij wymagane pola: ${missing.map(f => fieldNames[f]).join(", ")}`);
+      setDataFetched(true); // Show highlighting
       return;
     }
     // Here you would save the variant
@@ -1829,19 +1927,43 @@ const AddVariantDialog = ({
     onOpenChange(false);
   };
 
+  // Helper for required field label
+  const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
+    <Label htmlFor={htmlFor} className="flex items-center gap-1">
+      {children}
+      <span className="text-red-500">*</span>
+    </Label>
+  );
+
+  // Helper for field highlighting
+  const getFieldClass = (fieldName: string) => {
+    if (dataFetched && missingFields.includes(fieldName)) {
+      return "border-red-500 ring-1 ring-red-500";
+    }
+    return "";
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => {
+      if (!value && html5QrCode) {
+        html5QrCode.stop().catch(() => {});
+      }
+      onOpenChange(value);
+    }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Dodaj wariant</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Pola oznaczone <span className="text-red-500">*</span> są wymagane
+          </p>
         </DialogHeader>
         <div className="space-y-4 py-4">
           {/* EAN Input Section */}
           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
+            <RequiredLabel>
               <Barcode className="h-4 w-4" />
               Kod EAN / GTIN
-            </Label>
+            </RequiredLabel>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -1850,7 +1972,7 @@ const AddVariantDialog = ({
                   value={ean}
                   onChange={(e) => handleEanChange(e.target.value)}
                   onKeyDown={handleEanKeyDown}
-                  className="pr-10 font-mono text-lg"
+                  className={`pr-10 font-mono text-lg ${getFieldClass("ean")}`}
                   autoFocus
                 />
                 {isLoading && (
@@ -1861,7 +1983,7 @@ const AddVariantDialog = ({
               </div>
               <Button
                 type="button"
-                variant="outline"
+                variant={isScannerOpen ? "default" : "outline"}
                 size="icon"
                 onClick={toggleScanner}
                 title="Skanuj kamerą telefonu"
@@ -1880,23 +2002,31 @@ const AddVariantDialog = ({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Użyj zewnętrznego skanera kodów kreskowych - kod zostanie automatycznie wpisany w pole powyżej
+              Użyj zewnętrznego skanera kodów kreskowych lub kliknij ikonę kamery aby skanować telefonem
             </p>
           </div>
 
-          {/* Scanner placeholder */}
+          {/* Camera Scanner */}
           {isScannerOpen && (
-            <div className="relative rounded-lg overflow-hidden bg-muted aspect-video flex items-center justify-center">
-              <div className="text-center p-4">
-                <Camera className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Skanowanie kamerą wymaga dodatkowej konfiguracji.<br />
-                  Użyj zewnętrznego skanera USB/Bluetooth.
-                </p>
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsScannerOpen(false)}>
-                  Zamknij
-                </Button>
-              </div>
+            <div className="relative rounded-lg overflow-hidden bg-black">
+              <div 
+                ref={scannerRef}
+                className="w-full aspect-video"
+              />
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="absolute top-2 right-2 gap-1"
+                onClick={() => {
+                  if (html5QrCode) {
+                    html5QrCode.stop().catch(() => {});
+                  }
+                  setIsScannerOpen(false);
+                }}
+              >
+                <X className="h-4 w-4" />
+                Zamknij
+              </Button>
             </div>
           )}
 
@@ -1918,6 +2048,9 @@ const AddVariantDialog = ({
                 <p className="text-sm text-muted-foreground">
                   {content} {unit} • {calories ? `${calories} kcal/100g` : "Brak danych o kaloriach"}
                 </p>
+                {brands && (
+                  <p className="text-xs text-muted-foreground mt-1">Marka: {brands}</p>
+                )}
                 <Badge variant="outline" className="mt-2 text-green-600 border-green-300">
                   <ExternalLink className="h-3 w-3 mr-1" />
                   OpenFoodFacts
@@ -1926,30 +2059,43 @@ const AddVariantDialog = ({
             </div>
           )}
 
+          {/* Missing fields warning */}
+          {dataFetched && missingFields.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Niektóre wymagane pola nie zostały uzupełnione</p>
+                <p className="text-xs mt-1">Uzupełnij podświetlone pola przed zapisaniem.</p>
+              </div>
+            </div>
+          )}
+
           {/* Form Fields */}
           <div className="space-y-2">
-            <Label>Nazwa wariantu</Label>
+            <RequiredLabel>Nazwa wariantu</RequiredLabel>
             <Input
               placeholder="np. Nutella 400g"
               value={variantName}
               onChange={(e) => setVariantName(e.target.value)}
+              className={getFieldClass("variantName")}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Zawartość</Label>
+              <RequiredLabel>Zawartość</RequiredLabel>
               <Input
                 type="number"
                 placeholder="500"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                className={getFieldClass("content")}
               />
             </div>
             <div className="space-y-2">
-              <Label>Jednostka</Label>
+              <RequiredLabel>Jednostka</RequiredLabel>
               <Select value={unit} onValueChange={setUnit}>
-                <SelectTrigger>
+                <SelectTrigger className={getFieldClass("unit")}>
                   <SelectValue placeholder="Wybierz" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1974,15 +2120,34 @@ const AddVariantDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label>SKU (generowany automatycznie)</Label>
+            <Label>Marka (opcjonalne)</Label>
+            <Input
+              placeholder="np. Ferrero"
+              value={brands}
+              onChange={(e) => setBrands(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <RequiredLabel>SKU (generowany automatycznie)</RequiredLabel>
             <Input
               placeholder="SKU zostanie wygenerowany"
               value={sku}
               onChange={(e) => setSku(e.target.value)}
-              className="font-mono"
+              className={`font-mono ${getFieldClass("sku")}`}
             />
           </div>
         </div>
+
+        {/* Categories footer (informational) */}
+        {categories && (
+          <div className="pt-2 pb-4 border-t">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium">Kategorie:</span> {categories}
+            </p>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Anuluj
