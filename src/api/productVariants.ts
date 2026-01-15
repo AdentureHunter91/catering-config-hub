@@ -130,17 +130,17 @@ export async function updateProductVariant(payload: ProductVariant): Promise<{ i
     return j.data;
 }
 
-export async function archiveProductVariant(id: number): Promise<{ id: number; archived: boolean }> {
+export async function archiveProductVariant(id: number, restore: boolean = false): Promise<{ id: number; status: string }> {
     const r = await fetch(`${API}/delete.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, restore }),
     });
 
     const j = await r.json();
     
     if (!j.success) {
-        throw new Error(j.error || "Failed to archive variant");
+        throw new Error(j.error || "Failed to archive/restore product variant");
     }
     
     return j.data;

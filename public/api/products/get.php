@@ -17,4 +17,11 @@ if (!$product) {
     jsonResponse(null, false, "NOT_FOUND", 404);
 }
 
+// Get allergens
+$allergenStmt = $pdo->prepare("SELECT allergen_id FROM product_allergens WHERE product_id = ?");
+$allergenStmt->execute([$id]);
+$allergens = $allergenStmt->fetchAll(PDO::FETCH_COLUMN);
+
+$product['allergens'] = $allergens ?: [];
+
 jsonResponse($product);
