@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $id = isset($data['id']) ? (int)$data['id'] : 0;
@@ -9,6 +10,9 @@ $id = isset($data['id']) ? (int)$data['id'] : 0;
 if ($id <= 0) {
     jsonResponse(null, false, "INVALID_ID", 422);
 }
+
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'client_department_diets', $id);
 
 $stmt = $pdo->prepare("
     SELECT is_active, is_default
@@ -39,5 +43,9 @@ $upd = $pdo->prepare("
     WHERE id = ?
 ");
 $upd->execute([$isActive, $isDefault, $id]);
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'client_department_diets', $id);
+logAudit($pdo, 'client_department_diets', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
 jsonResponse(true);

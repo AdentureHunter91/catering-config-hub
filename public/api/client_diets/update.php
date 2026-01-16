@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $id        = isset($data['id']) ? (int)$data['id'] : 0;
@@ -12,6 +13,9 @@ $customShort = trim($data['custom_short_name'] ?? '');
 if ($id <= 0 || $dietId <= 0) {
     jsonResponse(null, false, "INVALID_DATA", 422);
 }
+
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'client_diets', $id);
 
 // pobierz client_id
 $stmt = $pdo->prepare("SELECT client_id FROM client_diets WHERE id = ?");
@@ -44,5 +48,9 @@ $upd->execute([
     $customShort ?: null,
     $id
 ]);
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'client_diets', $id);
+logAudit($pdo, 'client_diets', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
 jsonResponse(true);

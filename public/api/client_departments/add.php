@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $clientId        = isset($data['client_id']) ? (int)$data['client_id'] : 0;
@@ -47,6 +48,10 @@ $stmt->execute([
 ]);
 
 $id = (int)$pdo->lastInsertId();
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'client_departments', $id);
+logAudit($pdo, 'client_departments', $id, 'insert', null, $newRecord, $user['id'] ?? null);
 
 // pobieramy z joinem, żeby zwrócić komplet
 $stmt2 = $pdo->prepare("

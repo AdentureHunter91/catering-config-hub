@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -14,6 +15,9 @@ $desc        = trim($data["description"] ?? "");
 if ($name === "") jsonError("Name is required");
 
 if ($id > 0) {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'meal_types', $id);
+
     // UPDATE
     $stmt = $pdo->prepare("
         UPDATE meal_types
@@ -21,6 +25,11 @@ if ($id > 0) {
         WHERE id = ?
     ");
     $stmt->execute([$name, $short, $sort, $desc, $id]);
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'meal_types', $id);
+    logAudit($pdo, 'meal_types', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
+
     jsonResponse(["updated" => true, "id" => $id]);
 }
 
@@ -31,4 +40,10 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$name, $short, $sort, $desc]);
 
-jsonResponse(["created" => true, "id" => $pdo->lastInsertId()]);
+$newId = (int)$pdo->lastInsertId();
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'meal_types', $newId);
+logAudit($pdo, 'meal_types', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
+
+jsonResponse(["created" => true, "id" => $newId]);

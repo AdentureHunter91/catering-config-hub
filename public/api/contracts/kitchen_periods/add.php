@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $contractId = (int)($data['contract_id'] ?? 0);
@@ -19,8 +20,14 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$contractId, $kitchenId, $startDate, $endDate]);
 
+$newId = (int)$pdo->lastInsertId();
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'contract_kitchen_periods', $newId);
+logAudit($pdo, 'contract_kitchen_periods', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
+
 jsonResponse([
-    "id" => $pdo->lastInsertId(),
+    "id" => $newId,
     "contract_id" => $contractId,
     "kitchen_id" => $kitchenId,
     "start_date" => $startDate,

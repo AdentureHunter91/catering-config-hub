@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -20,6 +21,9 @@ if (!$client_id || !$contract_number || !$start_date) {
 }
 
 if ($id > 0) {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'contracts', (int)$id);
+
     // UPDATE
     $stmt = $pdo->prepare("
         UPDATE contracts 
@@ -30,6 +34,10 @@ if ($id > 0) {
         $client_id, $contract_number, $start_date, $end_date, $contract_value, $status, $contract_beds,
         $id
     ]);
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'contracts', (int)$id);
+    logAudit($pdo, 'contracts', (int)$id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 } else {
     // INSERT (NEW CONTRACT)
     $stmt = $pdo->prepare("
@@ -41,6 +49,10 @@ if ($id > 0) {
     ]);
 
     $id = (int)$pdo->lastInsertId();
+
+    // Audit log for new contract
+    $newRecord = getRecordForAudit($pdo, 'contracts', $id);
+    logAudit($pdo, 'contracts', $id, 'insert', null, $newRecord, $user['id'] ?? null);
 
     /*
     |--------------------------------------------------------------------------
