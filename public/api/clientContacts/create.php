@@ -5,7 +5,6 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $authUser = requireLogin($pdo);
-// opcjonalnie: requirePermission($pdo, 'config.clients_list.edit');
 
 // ustawiamy current_user_id dla triggerów (jak w innych modułach)
 if (!empty($authUser['id'])) {
@@ -40,6 +39,10 @@ $stmt->execute([
 ]);
 
 $id = (int)$pdo->lastInsertId();
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'client_contacts', $id);
+logAudit($pdo, 'client_contacts', $id, 'insert', null, $newRecord, $authUser['id'] ?? null);
 
 $stmt2 = $pdo->prepare("
     SELECT id, client_id, full_name, position, phone, email, notes

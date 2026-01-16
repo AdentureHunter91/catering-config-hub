@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 function respond(bool $success, $payload = null, string $error = null): void {
     header('Content-Type: application/json');
     $out = ['success' => $success];
@@ -32,6 +35,11 @@ if ($roleId <= 0) {
 }
 
 try {
+    // Get old permissions for audit
+    $oldPermsStmt = $pdo->prepare("SELECT permission_id FROM role_permissions WHERE role_id = :role_id");
+    $oldPermsStmt->execute([':role_id' => $roleId]);
+    $oldPerms = $oldPermsStmt->fetchAll(PDO::FETCH_COLUMN);
+    
     $pdo->beginTransaction();
 
     $stmtDel = $pdo->prepare("DELETE FROM role_permissions WHERE role_id = :role_id");
@@ -54,6 +62,14 @@ try {
     }
 
     $pdo->commit();
+    
+    // Audit log
+    logAudit($pdo, 'role_permissions', $roleId, 'update', 
+        ['role_id' => $roleId, 'permission_ids' => $oldPerms], 
+        ['role_id' => $roleId, 'permission_ids' => array_map('intval', $permissionIds)], 
+        $user['id'] ?? null
+    );
+    
     respond(true, [
         'roleId'        => $roleId,
         'permissionIds' => array_map('intval', $permissionIds),

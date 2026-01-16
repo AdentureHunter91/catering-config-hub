@@ -5,7 +5,6 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $authUser = requireLogin($pdo);
-// opcjonalnie: requirePermission($pdo, 'config.clients_list.edit');
 
 if (!empty($authUser['id'])) {
     $setUser = $pdo->prepare("SET @current_user_id = :uid");
@@ -19,7 +18,13 @@ if ($id <= 0) {
     jsonResponse(null, false, 'INVALID_ID', 400);
 }
 
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'client_contacts', $id);
+
 $stmt = $pdo->prepare("DELETE FROM client_contacts WHERE id = :id");
 $stmt->execute(['id' => $id]);
+
+// Audit log
+logAudit($pdo, 'client_contacts', $id, 'delete', $oldRecord, null, $authUser['id'] ?? null);
 
 jsonResponse(['deleted' => true], true, null);

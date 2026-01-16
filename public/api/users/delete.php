@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 function respond(bool $success, $payload = null, string $error = null): void {
     header('Content-Type: application/json');
     $out = ['success' => $success];
@@ -28,8 +31,14 @@ if ($id <= 0) {
 }
 
 try {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'users', $id);
+    
     $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id");
     $stmt->execute([':id' => $id]);
+    
+    // Audit log
+    logAudit($pdo, 'users', $id, 'delete', $oldRecord, null, $user['id'] ?? null);
 
     respond(true, ['id' => $id]);
 } catch (Throwable $e) {

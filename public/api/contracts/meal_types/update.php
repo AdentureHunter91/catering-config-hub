@@ -5,6 +5,9 @@ ini_set("display_errors", 0);
 require_once __DIR__ . "/../../bootstrap.php";
 require_once __DIR__ . "/../../db.php";
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!$data) {
@@ -37,10 +40,8 @@ if ($copyFrom === "" || $copyFrom === null) {
     $copyFrom = intval($copyFrom);
 }
 
-$db = getPDO();
-
 // sprawdzamy czy istnieje
-$stmt = $db->prepare("
+$stmt = $pdo->prepare("
     SELECT id FROM contract_meal_type_settings
     WHERE contract_id = ? AND client_meal_type_id = ?
 ");
@@ -48,8 +49,11 @@ $stmt->execute([$contractId, $clientMealTypeId]);
 $existingId = $stmt->fetchColumn();
 
 if ($existingId) {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'contract_meal_type_settings', $existingId);
+    
     // UPDATE
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         UPDATE contract_meal_type_settings
         SET cutoff_time = ?, cutoff_days_offset = ?, is_active = ?,
             copy_from_client_meal_type_id = ?, updated_at = NOW()
@@ -58,9 +62,13 @@ if ($existingId) {
     $stmt->execute([
         $cutoff, $offset, $isActive, $copyFrom, $existingId
     ]);
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'contract_meal_type_settings', $existingId);
+    logAudit($pdo, 'contract_meal_type_settings', $existingId, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 } else {
     // INSERT
-    $stmt = $db->prepare("
+    $stmt = $pdo->prepare("
         INSERT INTO contract_meal_type_settings
             (contract_id, client_meal_type_id, cutoff_time, cutoff_days_offset, is_active, copy_from_client_meal_type_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -68,6 +76,12 @@ if ($existingId) {
     $stmt->execute([
         $contractId, $clientMealTypeId, $cutoff, $offset, $isActive, $copyFrom
     ]);
+    
+    $newId = (int)$pdo->lastInsertId();
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'contract_meal_type_settings', $newId);
+    logAudit($pdo, 'contract_meal_type_settings', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
 }
 
 jsonResponse(["updated" => true], true);

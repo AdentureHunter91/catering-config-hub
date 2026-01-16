@@ -5,7 +5,7 @@ import StatCard from "@/components/StatCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, Filter } from "lucide-react";
+import { FileText, Search, Filter, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -14,10 +14,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { getAuditLog } from "@/api/audit";
 
-// 🔍 Renderowanie OLD / NEW wartości wygodnie i czytelnie
+const TABLE_LABELS: Record<string, string> = {
+  products: "Produkty",
+  product_variants: "Warianty produktów",
+  product_categories: "Kategorie produktów",
+  product_subcategories: "Subkategorie produktów",
+  subproducts: "Subprodukty",
+  clients: "Klienci",
+  contracts: "Kontrakty",
+  kitchens: "Kuchnie",
+  kitchen_settings: "Ustawienia kuchni",
+  kitchen_quality_settings: "Ustawienia jakości kuchni",
+  kitchen_monthly_targets: "Cele miesięczne kuchni",
+  contract_kitchen_periods: "Okresy kuchni kontraktu",
+  departments: "Oddziały",
+  client_departments: "Oddziały klienta",
+  diets: "Diety",
+  client_diets: "Diety klienta",
+  client_department_diets: "Diety oddziałów klienta",
+  meal_types: "Typy posiłków",
+  client_meal_types: "Typy posiłków klienta",
+  contract_meal_type_settings: "Ustawienia posiłków kontraktu",
+  contract_departments: "Oddziały kontraktu",
+  contract_diets: "Diety kontraktu",
+  contract_diet_meal_types: "Typy posiłków diet kontraktu",
+  contract_meal_prices: "Ceny posiłków kontraktu",
+  users: "Użytkownicy",
+  user_roles: "Role użytkowników",
+  roles: "Role",
+  role_permissions: "Uprawnienia ról",
+  permissions: "Uprawnienia",
+  page_access: "Dostęp do stron",
+  nutrition_database: "Baza danych IŻŻ",
+  nutrition_database_uploads: "Wgrania bazy IŻŻ",
+  client_contacts: "Kontakty klienta",
+};
+
 const renderDiff = (oldJson: any, newJson: any) => {
   if (!oldJson && !newJson)
     return <span className="text-muted-foreground">—</span>;
@@ -26,8 +75,8 @@ const renderDiff = (oldJson: any, newJson: any) => {
   let newObj: any = {};
 
   try {
-    if (oldJson) oldObj = JSON.parse(oldJson);
-    if (newJson) newObj = JSON.parse(newJson);
+    if (oldJson) oldObj = typeof oldJson === 'string' ? JSON.parse(oldJson) : oldJson;
+    if (newJson) newObj = typeof newJson === 'string' ? JSON.parse(newJson) : newJson;
   } catch (e) {}
 
   const keys = Array.from(
@@ -35,24 +84,24 @@ const renderDiff = (oldJson: any, newJson: any) => {
   );
 
   return (
-      <div className="text-xs border rounded-md p-2 bg-muted/20 space-y-1">
+      <div className="text-xs space-y-1 max-h-[400px] overflow-y-auto">
         {keys.map((key) => {
           const oldVal = oldObj[key];
           const newVal = newObj[key];
-          const changed = oldVal !== newVal;
+          const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal);
 
           return (
               <div
                   key={key}
-                  className={`flex flex-col border-b pb-1 ${
+                  className={`flex flex-col border-b border-border pb-1 px-2 py-1 rounded ${
                       changed ? "bg-yellow-100 dark:bg-yellow-900/30" : ""
                   }`}
               >
-                <span className="font-semibold text-foreground">{key}</span>
-
-                <div className="flex justify-between gap-4 pl-2">
-                  <span className="text-red-600">{oldVal ?? "—"}</span>
-                  <span className="text-green-600">{newVal ?? "—"}</span>
+                <span className="font-semibold text-foreground text-xs">{key}</span>
+                <div className="flex gap-4 pl-2 text-xs">
+                  <span className="text-red-600 break-all">{oldVal !== undefined ? String(oldVal) : "—"}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-green-600 break-all">{newVal !== undefined ? String(newVal) : "—"}</span>
                 </div>
               </div>
           );
@@ -64,13 +113,22 @@ const renderDiff = (oldJson: any, newJson: any) => {
 const AuditLog = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
   // Filtry
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("all");
   const [tableFilter, setTableFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const limit = 50;
+  
+  // Modal
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
-  // Pobranie logów
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -78,8 +136,13 @@ const AuditLog = () => {
         q: search,
         action: action,
         table: tableFilter,
+        date_from: dateFrom,
+        date_to: dateTo,
+        limit: limit,
+        offset: (page - 1) * limit,
       });
-      setLogs(data || []);
+      setLogs(data.logs || []);
+      setTotal(data.total || 0);
     } finally {
       setLoading(false);
     }
@@ -87,19 +150,38 @@ const AuditLog = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [page]);
+
+  const handleFilter = () => {
+    setPage(1);
+    fetchLogs();
+  };
+
+  const totalPages = Math.ceil(total / limit);
 
   const getActionBadge = (action: string) => {
     switch (action) {
       case "insert":
-        return <Badge className="bg-success text-white">Dodano</Badge>;
+        return <Badge className="bg-green-600 text-white">Dodano</Badge>;
       case "update":
-        return <Badge variant="secondary">Zmieniono</Badge>;
+        return <Badge className="bg-blue-600 text-white">Zmieniono</Badge>;
       case "delete":
         return <Badge variant="destructive">Usunięto</Badge>;
       default:
         return <Badge>{action}</Badge>;
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "—";
+    const date = new Date(dateStr);
+    return date.toLocaleString("pl-PL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -121,37 +203,37 @@ const AuditLog = () => {
           <StatCard
               icon={<FileText className="h-4 w-4" />}
               label="Wszystkie zdarzenia"
-              value={logs.length}
-              subtext="Ostatnie 30 dni"
+              value={total}
+              subtext="Wyniki wyszukiwania"
           />
           <StatCard
               icon={<FileText className="h-4 w-4" />}
               label="Dodania"
               value={logs.filter((x) => x.action === "insert").length}
-              subtext="INSERT"
+              subtext="Na tej stronie"
           />
           <StatCard
               icon={<FileText className="h-4 w-4" />}
               label="Zmiany"
               value={logs.filter((x) => x.action === "update").length}
-              subtext="UPDATE"
+              subtext="Na tej stronie"
           />
           <StatCard
               icon={<FileText className="h-4 w-4" />}
               label="Usunięcia"
               value={logs.filter((x) => x.action === "delete").length}
-              subtext="DELETE"
+              subtext="Na tej stronie"
           />
         </div>
 
         <Card>
           <div className="border-b p-4">
-            <h2 className="text-lg font-semibold text-foreground">Dziennik zdarzeń</h2>
+            <h2 className="text-lg font-semibold text-foreground">Filtrowanie zdarzeń</h2>
           </div>
 
           <div className="p-4">
             {/* Filtrowanie */}
-            <div className="mb-4 grid gap-2 md:grid-cols-5">
+            <div className="mb-4 grid gap-3 md:grid-cols-6">
               <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -159,112 +241,199 @@ const AuditLog = () => {
                     className="pl-10"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
                 />
               </div>
 
-              <Select onValueChange={setAction} defaultValue="all">
+              <Select value={action} onValueChange={setAction}>
                 <SelectTrigger>
                   <SelectValue placeholder="Typ akcji" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Wszystkie</SelectItem>
+                  <SelectItem value="all">Wszystkie akcje</SelectItem>
                   <SelectItem value="insert">Dodano</SelectItem>
                   <SelectItem value="update">Zmieniono</SelectItem>
                   <SelectItem value="delete">Usunięto</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Select onValueChange={setTableFilter} defaultValue="all">
+              <Select value={tableFilter} onValueChange={setTableFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tabela" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Wszystkie</SelectItem>
-                  <SelectItem value="contracts">Kontrakty</SelectItem>
-                  <SelectItem value="kitchens">Kuchnie</SelectItem>
-                  <SelectItem value="users">Użytkownicy</SelectItem>
+                <SelectContent className="max-h-80">
+                  <SelectItem value="all">Wszystkie tabele</SelectItem>
+                  {Object.entries(TABLE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    type="date"
+                    className="pl-10"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    placeholder="Od daty"
+                />
+              </div>
+
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    type="date"
+                    className="pl-10"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    placeholder="Do daty"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
               <Button
-                  variant="outline"
                   className="gap-2"
-                  onClick={fetchLogs}
+                  onClick={handleFilter}
                   disabled={loading}
               >
                 <Filter className="h-4 w-4" />
-                Filtruj
+                Zastosuj filtry
               </Button>
             </div>
 
             {/* Tabela */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                <tr className="border-b">
-                  <th className="pb-3 text-left">Data</th>
-                  <th className="pb-3 text-left">Użytkownik</th>
-                  <th className="pb-3 text-left">Akcja</th>
-                  <th className="pb-3 text-left">Tabela</th>
-                  <th className="pb-3 text-left">ID rekordu</th>
-                  <th className="pb-3 text-left">Zmiany (OLD → NEW)</th>
-                </tr>
-                </thead>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[160px]">Data</TableHead>
+                    <TableHead className="w-[140px]">Użytkownik</TableHead>
+                    <TableHead className="w-[100px]">Akcja</TableHead>
+                    <TableHead className="w-[180px]">Moduł</TableHead>
+                    <TableHead className="w-[80px]">ID</TableHead>
+                    <TableHead className="w-[100px]">Szczegóły</TableHead>
+                  </TableRow>
+                </TableHeader>
 
-                <tbody>
-                {loading ? (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-center text-muted-foreground">
-                        Ładowanie…
-                      </td>
-                    </tr>
-                ) : logs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-6 text-center text-muted-foreground">
-                        Brak danych
-                      </td>
-                    </tr>
-                ) : (
-                    logs.map((log) => (
-                        <tr key={log.id} className="border-b last:border-0">
-                          <td className="py-3 text-muted-foreground">{log.changed_at}</td>
-
-                          <td className="py-3 font-medium">
-                            {log.user_name || "System"}
-                          </td>
-
-                          <td className="py-3">{getActionBadge(log.action)}</td>
-
-                          <td className="py-3 text-muted-foreground">
-                            {log.table_name}
-                          </td>
-
-                          <td className="py-3 text-muted-foreground">{log.record_id}</td>
-
-                          <td className="py-3">
-                            {renderDiff(log.old_values, log.new_values)}
-                          </td>
-                        </tr>
-                    ))
-                )}
-                </tbody>
-              </table>
+                <TableBody>
+                  {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Ładowanie…
+                        </TableCell>
+                      </TableRow>
+                  ) : logs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Brak danych
+                        </TableCell>
+                      </TableRow>
+                  ) : (
+                      logs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDate(log.changed_at)}
+                            </TableCell>
+                            <TableCell className="font-medium text-sm">
+                              {log.user_name?.trim() || "System"}
+                            </TableCell>
+                            <TableCell>{getActionBadge(log.action)}</TableCell>
+                            <TableCell className="text-sm">
+                              <span className="font-medium">{TABLE_LABELS[log.table_name] || log.table_name}</span>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground font-mono">
+                              #{log.record_id}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setSelectedLog(log)}
+                              >
+                                Pokaż
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Future pagination */}
+            {/* Pagination */}
             <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Strona 1</p>
+              <p className="text-sm text-muted-foreground">
+                Wyświetlono {logs.length} z {total} zdarzeń (strona {page} z {totalPages || 1})
+              </p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
                   Poprzednia
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                >
                   Następna
+                  <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
             </div>
           </div>
         </Card>
+
+        {/* Modal szczegółów */}
+        <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <span>Szczegóły zmiany</span>
+                {selectedLog && getActionBadge(selectedLog.action)}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedLog && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Data:</span>
+                    <p className="font-medium">{formatDate(selectedLog.changed_at)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Użytkownik:</span>
+                    <p className="font-medium">{selectedLog.user_name?.trim() || "System"}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Moduł:</span>
+                    <p className="font-medium">{TABLE_LABELS[selectedLog.table_name] || selectedLog.table_name}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">ID rekordu:</span>
+                    <p className="font-medium font-mono">#{selectedLog.record_id}</p>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <span className="text-red-600">Stara wartość</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-green-600">Nowa wartość</span>
+                  </h4>
+                  {renderDiff(selectedLog.old_values, selectedLog.new_values)}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </Layout>
   );
 };
