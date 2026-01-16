@@ -6,8 +6,8 @@ ini_set("display_errors", "0");
 require_once __DIR__ . "/../bootstrap.php";
 header('Cache-Control: no-store');
 
-// This endpoint receives parsed XLSX data from frontend and inserts into database
-// Frontend parses XLSX using 'xlsx' library and sends JSON array of records
+// This endpoint receives parsed XLSX data from frontend and inserts/updates database
+// Uses UPSERT strategy: if code exists, update; otherwise insert
 
 try {
     $inputRaw = file_get_contents('php://input');
@@ -26,10 +26,8 @@ try {
 
     $pdo->beginTransaction();
 
-    // Clear existing data (full replacement strategy)
-    $pdo->exec('DELETE FROM nutrition_database');
-
-    // Insert new records
+    // UPSERT strategy using INSERT ... ON DUPLICATE KEY UPDATE
+    // Requires UNIQUE index on `code` column
     $stmt = $pdo->prepare("INSERT INTO nutrition_database (
         code, name_pl, name_en, waste_percent, energy_kj, energy_kcal, energy_kj_1169, energy_kcal_1169,
         water, protein_total, protein_animal, protein_plant, protein_1169, fat, carbohydrates_total, carbohydrates_available, ash,
@@ -42,7 +40,51 @@ try {
         :sodium, :salt, :potassium, :calcium, :phosphorus, :magnesium, :iron, :zinc, :copper, :manganese, :iodine,
         :vitamin_a, :retinol, :beta_carotene, :vitamin_d, :vitamin_e, :vitamin_b1, :vitamin_b2, :niacin, :vitamin_b6, :folate, :vitamin_b12, :vitamin_c,
         :saturated_fat, :cholesterol, :sugars, :fiber
-    )");
+    ) ON DUPLICATE KEY UPDATE
+        name_pl = VALUES(name_pl),
+        name_en = VALUES(name_en),
+        waste_percent = VALUES(waste_percent),
+        energy_kj = VALUES(energy_kj),
+        energy_kcal = VALUES(energy_kcal),
+        energy_kj_1169 = VALUES(energy_kj_1169),
+        energy_kcal_1169 = VALUES(energy_kcal_1169),
+        water = VALUES(water),
+        protein_total = VALUES(protein_total),
+        protein_animal = VALUES(protein_animal),
+        protein_plant = VALUES(protein_plant),
+        protein_1169 = VALUES(protein_1169),
+        fat = VALUES(fat),
+        carbohydrates_total = VALUES(carbohydrates_total),
+        carbohydrates_available = VALUES(carbohydrates_available),
+        ash = VALUES(ash),
+        sodium = VALUES(sodium),
+        salt = VALUES(salt),
+        potassium = VALUES(potassium),
+        calcium = VALUES(calcium),
+        phosphorus = VALUES(phosphorus),
+        magnesium = VALUES(magnesium),
+        iron = VALUES(iron),
+        zinc = VALUES(zinc),
+        copper = VALUES(copper),
+        manganese = VALUES(manganese),
+        iodine = VALUES(iodine),
+        vitamin_a = VALUES(vitamin_a),
+        retinol = VALUES(retinol),
+        beta_carotene = VALUES(beta_carotene),
+        vitamin_d = VALUES(vitamin_d),
+        vitamin_e = VALUES(vitamin_e),
+        vitamin_b1 = VALUES(vitamin_b1),
+        vitamin_b2 = VALUES(vitamin_b2),
+        niacin = VALUES(niacin),
+        vitamin_b6 = VALUES(vitamin_b6),
+        folate = VALUES(folate),
+        vitamin_b12 = VALUES(vitamin_b12),
+        vitamin_c = VALUES(vitamin_c),
+        saturated_fat = VALUES(saturated_fat),
+        cholesterol = VALUES(cholesterol),
+        sugars = VALUES(sugars),
+        fiber = VALUES(fiber)
+    ");
 
     $parseNum = static function ($val): ?float {
         if ($val === null) return null;
@@ -123,7 +165,7 @@ try {
 
     jsonResponse([
         'inserted' => $insertedCount,
-        'message' => 'Database updated successfully',
+        'message' => 'Database updated successfully (upsert mode)',
     ]);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {

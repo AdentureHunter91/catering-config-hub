@@ -1,25 +1,27 @@
 <?php
-header("Content-Type: application/json");
-require_once __DIR__ . '/../db.php';
+declare(strict_types=1);
+error_reporting(E_ALL);
+ini_set("display_errors", "0");
+
+require_once __DIR__ . "/../bootstrap.php";
+header('Cache-Control: no-store');
 
 try {
-    $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     
     if (!$id) {
-        echo json_encode(["success" => false, "error" => "ID is required"]);
-        exit;
+        jsonResponse(null, false, 'ID is required', 400);
     }
     
     $stmt = $pdo->prepare("SELECT * FROM nutrition_database WHERE id = ?");
     $stmt->execute([$id]);
-    $data = $stmt->fetch(PDO::FETCH_ASSOC);
+    $data = $stmt->fetch();
     
     if (!$data) {
-        echo json_encode(["success" => false, "error" => "Record not found"]);
-        exit;
+        jsonResponse(null, false, 'Record not found', 404);
     }
     
-    echo json_encode(["success" => true, "data" => $data]);
-} catch (PDOException $e) {
-    echo json_encode(["success" => false, "error" => $e->getMessage()]);
+    jsonResponse($data);
+} catch (Throwable $e) {
+    jsonResponse(null, false, $e->getMessage(), 500);
 }
