@@ -751,7 +751,7 @@ const ProductsConfig = () => {
               </div>
             </div>
 
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-[calc(100vh-360px)] min-h-[400px]">
               <div className="p-4">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-12">
@@ -1850,7 +1850,7 @@ const ProductManagementPanel = ({
   const linkedEntry = nutritionDatabase.find(e => e.id === product.nutrition_database_id);
   
   return (
-    <ScrollArea className="h-[600px]">
+    <ScrollArea className="h-[calc(100vh-360px)] min-h-[400px]">
       <div className="p-4 space-y-4">
         <div>
           <Label className="text-xs text-muted-foreground">Produkt</Label>
@@ -1887,6 +1887,14 @@ const ProductManagementPanel = ({
                 Brak
               </Badge>
             )}
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Stawka VAT</span>
+            <span className="font-medium">{product.vat_rate != null ? `${product.vat_rate}%` : "—"}</span>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+            <span className="text-sm">Odpad (%)</span>
+            <span className="font-medium">{product.waste_percentage != null ? `${product.waste_percentage}%` : "—"}</span>
           </div>
         </div>
 
