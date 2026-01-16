@@ -4,8 +4,9 @@ import { Routes, Route } from "react-router-dom";
 import { RequireLogin } from "./auth/RequireLogin";
 import { RequireAccess } from "./auth/RequireAccess";
 
-/* Import stron – identycznie jak w App.tsx */
-import Index from "./pages/Index";
+/* Import stron */
+import LandingPage from "./pages/LandingPage";
+import Dashboard from "./pages/Dashboard";
 
 import ContractsList from "./pages/ContractsList";
 import ContractConfig from "./pages/ContractConfig";
@@ -45,279 +46,330 @@ import NutritionDatabaseUpload from "./pages/NutritionDatabaseUpload";
 
 export default function Router() {
     return (
-        <RequireLogin>
-            <Routes>
+        <Routes>
+            {/* LANDING PAGE - publiczna, bez logowania */}
+            <Route path="/" element={<LandingPage />} />
 
-                {/* DASHBOARD */}
-                <Route
-                    path="/"
-                    element={
+            {/* WSZYSTKO PONIŻEJ WYMAGA LOGOWANIA */}
+            <Route
+                path="/dashboard"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.dashboard">
-                            <Index />
+                            <Dashboard />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-
-                {/* KONTRAKTY */}
-                <Route
-                    path="/kontrakty"
-                    element={
+            {/* KONTRAKTY */}
+            <Route
+                path="/kontrakty"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.contracts">
                             <ContractsList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/kontrakty/nowy"
-                    element={
+            <Route
+                path="/kontrakty/nowy"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.contracts">
                             <ContractConfig isNew />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/kontrakty/:id"
-                    element={
+            <Route
+                path="/kontrakty/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.contracts">
                             <ContractConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* KLIENCI */}
-                <Route
-                    path="/klienci"
-                    element={
+            {/* KLIENCI */}
+            <Route
+                path="/klienci"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.clients">
                             <ClientsList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/klienci/nowy"
-                    element={
+            <Route
+                path="/klienci/nowy"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.clients">
                             <ClientConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/klienci/:id"
-                    element={
+            <Route
+                path="/klienci/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.clients">
                             <ClientConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* KUCHNIE */}
-                <Route
-                    path="/kuchnie"
-                    element={
+            {/* KUCHNIE */}
+            <Route
+                path="/kuchnie"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.kitchens">
                             <KitchensList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/kuchnie/:id"
-                    element={
+            <Route
+                path="/kuchnie/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.kitchens">
                             <KitchenConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* ODDZIAŁY */}
-                <Route
-                    path="/oddzialy"
-                    element={
+            {/* ODDZIAŁY */}
+            <Route
+                path="/oddzialy"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.departments">
                             <DepartmentsList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/oddzialy/:id"
-                    element={
+            <Route
+                path="/oddzialy/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.departments">
                             <DepartmentConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* DIETY */}
-                <Route
-                    path="/diety"
-                    element={
+            {/* DIETY */}
+            <Route
+                path="/diety"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.diets">
                             <DietsList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/diety/:id"
-                    element={
+            <Route
+                path="/diety/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.diets">
                             <DietConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* POSIŁKI */}
-                <Route
-                    path="/posilki"
-                    element={
+            {/* POSIŁKI */}
+            <Route
+                path="/posilki"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.meal_types">
                             <MealTypesList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/posilki/:id"
-                    element={
+            <Route
+                path="/posilki/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.meal_types">
                             <MealTypeConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* UŻYTKOWNICY */}
-                <Route
-                    path="/uzytkownicy"
-                    element={
+            {/* UŻYTKOWNICY */}
+            <Route
+                path="/uzytkownicy"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.users">
                             <UsersList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/uzytkownicy/:id"
-                    element={
+            <Route
+                path="/uzytkownicy/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.users">
                             <UserConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* ROLE / PERMISJE */}
-                <Route
-                    path="/role/:id"
-                    element={
+            {/* ROLE / PERMISJE */}
+            <Route
+                path="/role/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.roles">
                             <RoleConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/uprawnienia"
-                    element={
+            <Route
+                path="/uprawnienia"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.permissions">
                             <PermissionsList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/uprawnienia/:id"
-                    element={
+            <Route
+                path="/uprawnienia/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.permissions">
                             <PermissionConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                {/* Dostęp do stron */}
-                <Route
-                    path="/dostep-stron"
-                    element={
+            {/* Dostęp do stron */}
+            <Route
+                path="/dostep-stron"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.page_access">
                             <PageAccessList />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/dostep-stron/:id"
-                    element={
+            <Route
+                path="/dostep-stron/:id"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.page_access">
                             <PageAccessConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* AUDYT */}
-                <Route
-                    path="/audit"
-                    element={
+            {/* AUDYT */}
+            <Route
+                path="/audit"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.audit">
                             <AuditLog />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                {/* PRODUKTY */}
-                <Route
-                    path="/settings/productCategories"
-                    element={
+            {/* PRODUKTY */}
+            <Route
+                path="/settings/productCategories"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.products">
                             <ProductCategories />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/settings/products"
-                    element={
+            <Route
+                path="/settings/products"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.products">
                             <ProductsConfig />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-                <Route
-                    path="/settings/nutritionDatabase"
-                    element={
+            <Route
+                path="/settings/nutritionDatabase"
+                element={
+                    <RequireLogin>
                         <RequireAccess page="config.products">
                             <NutritionDatabaseUpload />
                         </RequireAccess>
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
 
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-
-                {/* --- DIETETYKA ---*/}
-                {/* Przegląd i akceptacja posiłków */}
-                <Route
-                    path="/dietetyka/akceptacja-posilkow"
-                    element={
+            {/* --- DIETETYKA ---*/}
+            {/* Przegląd i akceptacja posiłków */}
+            <Route
+                path="/dietetyka/akceptacja-posilkow"
+                element={
+                    <RequireLogin>
                         <MealsApproval />
-                    }
-                />
+                    </RequireLogin>
+                }
+            />
 
-
-            </Routes>
-        </RequireLogin>
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+        </Routes>
     );
 }
