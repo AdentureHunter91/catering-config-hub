@@ -27,7 +27,7 @@ try {
     $pdo->beginTransaction();
 
     // UPSERT strategy using INSERT ... ON DUPLICATE KEY UPDATE
-    // Requires UNIQUE index on `code` column
+    // Requires UNIQUE index on `name_pl` column
     $stmt = $pdo->prepare("INSERT INTO nutrition_database (
         code, name_pl, name_en, waste_percent, energy_kj, energy_kcal, energy_kj_1169, energy_kcal_1169,
         water, protein_total, protein_animal, protein_plant, protein_1169, fat, carbohydrates_total, carbohydrates_available, ash,
@@ -41,7 +41,7 @@ try {
         :vitamin_a, :retinol, :beta_carotene, :vitamin_d, :vitamin_e, :vitamin_b1, :vitamin_b2, :niacin, :vitamin_b6, :folate, :vitamin_b12, :vitamin_c,
         :saturated_fat, :cholesterol, :sugars, :fiber
     ) ON DUPLICATE KEY UPDATE
-        name_pl = VALUES(name_pl),
+        code = VALUES(code),
         name_en = VALUES(name_en),
         waste_percent = VALUES(waste_percent),
         energy_kj = VALUES(energy_kj),
