@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'PUT
 
 try {
     $pdo = getPDO();
+    $user = requireLogin($pdo);
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (empty($input['id'])) {
@@ -21,6 +22,10 @@ try {
     }
     
     $id = (int)$input['id'];
+    
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'product_categories', $id);
+    
     $updates = [];
     $params = [];
     
@@ -66,6 +71,10 @@ try {
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_categories', $id);
+    logAudit($pdo, 'product_categories', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
     
     // Fetch updated category
     $fetchStmt = $pdo->prepare("SELECT * FROM product_categories WHERE id = ?");

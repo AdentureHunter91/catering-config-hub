@@ -1,8 +1,7 @@
 // src/api/audit.ts
 import { API_BASE } from "./apiBase.ts";
 
-
-const API = '${API_BASE}/audit-log';
+const API = `${API_BASE}/audit-log`;
 
 
 export async function getAuditLog(params: {
