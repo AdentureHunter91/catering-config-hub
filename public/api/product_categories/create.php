@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     $pdo = getPDO();
+    $user = requireLogin($pdo);
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (empty($input['name'])) {
@@ -38,12 +39,16 @@ try {
     $stmt = $pdo->prepare("INSERT INTO product_categories (name, status, sort_order) VALUES (?, 'active', ?)");
     $stmt->execute([$name, $nextOrder]);
     
-    $newId = $pdo->lastInsertId();
+    $newId = (int)$pdo->lastInsertId();
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_categories', $newId);
+    logAudit($pdo, 'product_categories', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
     
     echo json_encode([
         'success' => true,
         'data' => [
-            'id' => (int)$newId,
+            'id' => $newId,
             'name' => $name,
             'status' => 'active',
             'sort_order' => (int)$nextOrder,

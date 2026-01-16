@@ -3,6 +3,7 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $data = json_decode(file_get_contents("php://input"), true);
+$user = requireLogin($pdo);
 
 $id = isset($data['id']) ? (int)$data['id'] : 0;
 $restore = isset($data['restore']) && $data['restore'] === true;
@@ -14,6 +15,9 @@ if ($id <= 0) {
 if ($id <= 0) {
     jsonResponse(null, false, "MISSING_ID", 422);
 }
+
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'products', $id);
 
 try {
     $pdo->beginTransaction();
@@ -29,6 +33,11 @@ try {
     $cascadeStmt->execute([$newStatus, $id]);
 
     $pdo->commit();
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'products', $id);
+    $action = $restore ? 'update' : 'delete';
+    logAudit($pdo, 'products', $id, $action, $oldRecord, $newRecord, $user['id'] ?? null);
 
     jsonResponse([
         "id" => $id,

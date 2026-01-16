@@ -71,6 +71,50 @@ function jsonResponse($data = null, bool $success = true, string $error = null, 
     exit;
 }
 
+/**
+ * Log an action to the audit_log table
+ * 
+ * @param PDO $pdo Database connection
+ * @param string $tableName Name of the table being modified
+ * @param int $recordId ID of the record being modified
+ * @param string $action One of: 'insert', 'update', 'delete'
+ * @param array|null $oldValues Previous values (for update/delete)
+ * @param array|null $newValues New values (for insert/update)
+ * @param int|null $changedBy User ID who made the change
+ */
+function logAudit(PDO $pdo, string $tableName, int $recordId, string $action, ?array $oldValues = null, ?array $newValues = null, ?int $changedBy = null): void {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO audit_log (table_name, record_id, action, changed_by, old_values, new_values)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $tableName,
+            $recordId,
+            $action,
+            $changedBy,
+            $oldValues ? json_encode($oldValues, JSON_UNESCAPED_UNICODE) : null,
+            $newValues ? json_encode($newValues, JSON_UNESCAPED_UNICODE) : null
+        ]);
+    } catch (Throwable $e) {
+        // Silently ignore audit log errors to not break main operations
+        error_log("Audit log error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Get record from table by ID for audit purposes
+ */
+function getRecordForAudit(PDO $pdo, string $tableName, int $recordId): ?array {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM `{$tableName}` WHERE id = ?");
+        $stmt->execute([$recordId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 set_exception_handler(function(Throwable $e) {
     jsonResponse(null, false, "SERVER_ERROR: " . $e->getMessage(), 500);
 });

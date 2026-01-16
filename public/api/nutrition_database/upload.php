@@ -10,6 +10,7 @@ header('Cache-Control: no-store');
 // Uses UPSERT strategy: if code exists, update; otherwise insert
 
 try {
+    $user = requireLogin($pdo);
     $inputRaw = file_get_contents('php://input');
     $input = json_decode($inputRaw, true);
 
@@ -154,14 +155,24 @@ try {
     }
 
     // Log the upload (best-effort)
+    $uploadId = null;
     try {
         $logStmt = $pdo->prepare("INSERT INTO nutrition_database_uploads (file_name, uploaded_by, records_count, status) VALUES (?, ?, ?, 'success')");
         $logStmt->execute([$input['file_name'] ?? 'unknown.xlsx', $uploadedBy, $insertedCount]);
+        $uploadId = (int)$pdo->lastInsertId();
     } catch (Throwable $e) {
         // ignore
     }
 
     $pdo->commit();
+
+    // Audit log for the upload
+    logAudit($pdo, 'nutrition_database_uploads', $uploadId ?? 0, 'insert', null, [
+        'file_name' => $input['file_name'] ?? 'unknown.xlsx',
+        'uploaded_by' => $uploadedBy,
+        'records_count' => $insertedCount,
+        'status' => 'success'
+    ], $user['id'] ?? null);
 
     jsonResponse([
         'inserted' => $insertedCount,

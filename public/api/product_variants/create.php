@@ -3,6 +3,7 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $data = json_decode(file_get_contents("php://input"), true);
+$user = requireLogin($pdo);
 
 $product_id = isset($data['product_id']) ? (int)$data['product_id'] : null;
 $ean           = trim($data['ean'] ?? "");
@@ -84,6 +85,10 @@ try {
     }
 
     $pdo->commit();
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_variants', $newId);
+    logAudit($pdo, 'product_variants', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
 
     jsonResponse([
         "id" => $newId,
