@@ -52,15 +52,21 @@ try {
     $maxOrderStmt->execute([$categoryId]);
     $nextOrder = $maxOrderStmt->fetch()['next_order'];
     
+    $user = requireLogin($pdo);
+    
     $stmt = $pdo->prepare("INSERT INTO product_subcategories (category_id, name, status, sort_order) VALUES (?, ?, 'active', ?)");
     $stmt->execute([$categoryId, $name, $nextOrder]);
     
-    $newId = $pdo->lastInsertId();
+    $newId = (int)$pdo->lastInsertId();
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_subcategories', $newId);
+    logAudit($pdo, 'product_subcategories', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
     
     echo json_encode([
         'success' => true,
         'data' => [
-            'id' => (int)$newId,
+            'id' => $newId,
             'category_id' => $categoryId,
             'name' => $name,
             'status' => 'active',
