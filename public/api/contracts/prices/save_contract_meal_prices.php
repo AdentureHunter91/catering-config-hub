@@ -139,6 +139,14 @@ try {
 
     $pdo->commit();
 
+    // Audit log for batch price save
+    logAudit($pdo, 'contract_meal_prices', $contractId, 'insert', null, [
+        'batch_id' => $batchId,
+        'mode' => $mode,
+        'rows_inserted' => $rowsInserted,
+        'contract_id' => $contractId
+    ], $userId > 0 ? $userId : null);
+
     respond(true, ['batch_id' => $batchId, 'rows_inserted' => $rowsInserted]);
 
 } catch (Throwable $e) {

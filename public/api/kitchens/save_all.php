@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . "/../bootstrap.php";
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!$data) {
@@ -28,17 +31,28 @@ if ($name === "" || $city === "" || $address === "" || $nip === "") {
     jsonResponse(null, false, "Missing kitchen fields", 400);
 }
 
-if ($id > 0) {
+$isUpdate = $id > 0;
+$oldKitchenRecord = null;
+
+if ($isUpdate) {
+    $oldKitchenRecord = getRecordForAudit($pdo, 'kitchens', $id);
+    
     // UPDATE
     $sql = "UPDATE kitchens SET name=?, city=?, address=?, nip=?, updated_at=NOW() WHERE id=?";
-    $stmt = $db->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([$name, $city, $address, $nip, $id]);
+    
+    $newKitchenRecord = getRecordForAudit($pdo, 'kitchens', $id);
+    logAudit($pdo, 'kitchens', $id, 'update', $oldKitchenRecord, $newKitchenRecord, $user['id'] ?? null);
 } else {
     // INSERT
     $sql = "INSERT INTO kitchens (name, city, address, nip) VALUES (?, ?, ?, ?)";
-    $stmt = $db->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([$name, $city, $address, $nip]);
-    $id = intval($db->lastInsertId());
+    $id = intval($pdo->lastInsertId());
+    
+    $newKitchenRecord = getRecordForAudit($pdo, 'kitchens', $id);
+    logAudit($pdo, 'kitchens', $id, 'insert', null, $newKitchenRecord, $user['id'] ?? null);
 }
 
 
@@ -47,9 +61,9 @@ if ($id > 0) {
 --------------------------- */
 
 $settings = $data["settings"] ?? [];
-$exists = $db->prepare("SELECT id FROM kitchen_settings WHERE kitchen_id=?");
+$exists = $pdo->prepare("SELECT id FROM kitchen_settings WHERE kitchen_id=?");
 $exists->execute([$id]);
-$hasSettings = $exists->fetchColumn();
+$settingsId = $exists->fetchColumn();
 
 $sqlInsertSettings = "
     INSERT INTO kitchen_settings (
@@ -78,12 +92,21 @@ $params = [
     $settings["notes"] ?? null
 ];
 
-if ($hasSettings) {
-    $stmt = $db->prepare($sqlUpdateSettings);
+if ($settingsId) {
+    $oldSettingsRecord = getRecordForAudit($pdo, 'kitchen_settings', (int)$settingsId);
+    
+    $stmt = $pdo->prepare($sqlUpdateSettings);
     $stmt->execute([...$params, $id]);
+    
+    $newSettingsRecord = getRecordForAudit($pdo, 'kitchen_settings', (int)$settingsId);
+    logAudit($pdo, 'kitchen_settings', (int)$settingsId, 'update', $oldSettingsRecord, $newSettingsRecord, $user['id'] ?? null);
 } else {
-    $stmt = $db->prepare($sqlInsertSettings);
+    $stmt = $pdo->prepare($sqlInsertSettings);
     $stmt->execute([$id, ...$params]);
+    
+    $newSettingsId = (int)$pdo->lastInsertId();
+    $newSettingsRecord = getRecordForAudit($pdo, 'kitchen_settings', $newSettingsId);
+    logAudit($pdo, 'kitchen_settings', $newSettingsId, 'insert', null, $newSettingsRecord, $user['id'] ?? null);
 }
 
 
@@ -92,9 +115,9 @@ if ($hasSettings) {
 --------------------------- */
 
 $quality = $data["quality"] ?? [];
-$exists = $db->prepare("SELECT id FROM kitchen_quality_settings WHERE kitchen_id=?");
+$exists = $pdo->prepare("SELECT id FROM kitchen_quality_settings WHERE kitchen_id=?");
 $exists->execute([$id]);
-$hasQuality = $exists->fetchColumn();
+$qualityId = $exists->fetchColumn();
 
 $sqlInsertQ = "
     INSERT INTO kitchen_quality_settings (
@@ -114,12 +137,21 @@ $paramsQ = [
     $quality["audit_5s_frequency_days"] ?? 30
 ];
 
-if ($hasQuality) {
-    $stmt = $db->prepare($sqlUpdateQ);
+if ($qualityId) {
+    $oldQualityRecord = getRecordForAudit($pdo, 'kitchen_quality_settings', (int)$qualityId);
+    
+    $stmt = $pdo->prepare($sqlUpdateQ);
     $stmt->execute([...$paramsQ, $id]);
+    
+    $newQualityRecord = getRecordForAudit($pdo, 'kitchen_quality_settings', (int)$qualityId);
+    logAudit($pdo, 'kitchen_quality_settings', (int)$qualityId, 'update', $oldQualityRecord, $newQualityRecord, $user['id'] ?? null);
 } else {
-    $stmt = $db->prepare($sqlInsertQ);
+    $stmt = $pdo->prepare($sqlInsertQ);
     $stmt->execute([$id, ...$paramsQ]);
+    
+    $newQualityId = (int)$pdo->lastInsertId();
+    $newQualityRecord = getRecordForAudit($pdo, 'kitchen_quality_settings', $newQualityId);
+    logAudit($pdo, 'kitchen_quality_settings', $newQualityId, 'insert', null, $newQualityRecord, $user['id'] ?? null);
 }
 
 /* --------------------------
@@ -138,7 +170,7 @@ $sql = "
         target_daily_meals = VALUES(target_daily_meals)
 ";
 
-$stmt = $db->prepare($sql);
+$stmt = $pdo->prepare($sql);
 
 foreach ($targets as $t) {
 
@@ -155,6 +187,13 @@ foreach ($targets as $t) {
         jsonResponse(null, false, "Invalid year value: $year.", 400);
     }
 
+    // Check if target exists
+    $checkStmt = $pdo->prepare("SELECT id FROM kitchen_monthly_targets WHERE kitchen_id = ? AND year = ? AND month = ?");
+    $checkStmt->execute([$id, $year, $month]);
+    $targetId = $checkStmt->fetchColumn();
+    
+    $oldTargetRecord = $targetId ? getRecordForAudit($pdo, 'kitchen_monthly_targets', (int)$targetId) : null;
+
     $stmt->execute([
         $id,
         $year,
@@ -163,6 +202,17 @@ foreach ($targets as $t) {
         $t["target_rbh"] ?? null,
         $t["target_daily_meals"] ?? null
     ]);
+    
+    if ($targetId) {
+        $newTargetRecord = getRecordForAudit($pdo, 'kitchen_monthly_targets', (int)$targetId);
+        logAudit($pdo, 'kitchen_monthly_targets', (int)$targetId, 'update', $oldTargetRecord, $newTargetRecord, $user['id'] ?? null);
+    } else {
+        $newTargetId = (int)$pdo->lastInsertId();
+        if ($newTargetId > 0) {
+            $newTargetRecord = getRecordForAudit($pdo, 'kitchen_monthly_targets', $newTargetId);
+            logAudit($pdo, 'kitchen_monthly_targets', $newTargetId, 'insert', null, $newTargetRecord, $user['id'] ?? null);
+        }
+    }
 }
 
 jsonResponse([

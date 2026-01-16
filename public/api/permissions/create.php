@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 function respond(bool $success, $payload = null, string $error = null): void {
     header('Content-Type: application/json');
     $out = ['success' => $success];
@@ -40,6 +43,11 @@ try {
     ]);
 
     $id = (int)$pdo->lastInsertId();
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'permissions', $id);
+    logAudit($pdo, 'permissions', $id, 'insert', null, $newRecord, $user['id'] ?? null);
+    
     respond(true, ['id' => $id]);
 } catch (PDOException $e) {
     if ($e->getCode() === '23000') {

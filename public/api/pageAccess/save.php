@@ -2,6 +2,9 @@
 // /api/pageAccess/save.php
 require_once __DIR__ . "/../bootstrap.php";
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 $input = json_decode(file_get_contents("php://input"), true);
 
 $id = isset($input['id']) ? (int)$input['id'] : 0;
@@ -18,6 +21,9 @@ if ($page_key === '') {
 
 try {
     if ($id > 0) {
+        // Get old record for audit
+        $oldRecord = getRecordForAudit($pdo, 'page_access', $id);
+        
         // update
         $stmt = $pdo->prepare("
             UPDATE page_access
@@ -37,6 +43,10 @@ try {
             ':is_active' => $is_active,
             ':id' => $id
         ]);
+        
+        // Audit log
+        $newRecord = getRecordForAudit($pdo, 'page_access', $id);
+        logAudit($pdo, 'page_access', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
     } else {
         // insert
@@ -54,6 +64,10 @@ try {
         ]);
 
         $id = (int)$pdo->lastInsertId();
+        
+        // Audit log
+        $newRecord = getRecordForAudit($pdo, 'page_access', $id);
+        logAudit($pdo, 'page_access', $id, 'insert', null, $newRecord, $user['id'] ?? null);
     }
 
     echo json_encode(["success" => true, "id" => $id]);

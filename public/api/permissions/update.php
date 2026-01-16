@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 function respond(bool $success, $payload = null, string $error = null): void {
     header('Content-Type: application/json');
     $out = ['success' => $success];
@@ -34,6 +37,9 @@ if ($name === '') {
 }
 
 try {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'permissions', $id);
+    
     $stmt = $pdo->prepare("
         UPDATE permissions
         SET name = :name,
@@ -45,6 +51,10 @@ try {
         ':name'        => $name,
         ':description' => $description,
     ]);
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'permissions', $id);
+    logAudit($pdo, 'permissions', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
     respond(true, ['id' => $id]);
 } catch (PDOException $e) {

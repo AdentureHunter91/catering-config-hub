@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 
+$pdo = getPDO();
+$user = requireLogin($pdo);
+
 function respond(bool $success, $payload = null, string $error = null): void {
     header('Content-Type: application/json');
     $out = ['success' => $success];
@@ -37,6 +40,9 @@ if ($email === '') {
 }
 
 try {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'users', $id);
+    
     $params = [
         ':id'         => $id,
         ':email'      => $email,
@@ -62,6 +68,10 @@ try {
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'users', $id);
+    logAudit($pdo, 'users', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
     respond(true, ['id' => $id]);
 } catch (PDOException $e) {
