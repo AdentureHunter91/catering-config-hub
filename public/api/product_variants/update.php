@@ -42,20 +42,27 @@ $cholesterol     = isset($data['cholesterol']) && $data['cholesterol'] !== "" ? 
 
 $allergens = $data['allergens'] ?? [];
 
+$no_ean = isset($data['no_ean']) && $data['no_ean'] ? true : false;
+
 if ($id <= 0) {
     jsonResponse(null, false, "MISSING_ID", 422);
 }
 
-// Validate required fields
-if ($ean === "" || $name === "" || $content === "" || $unit === "" || $sku === "") {
+// Validate required fields - EAN is not required if no_ean is true
+if (!$no_ean && $ean === "") {
+    jsonResponse(null, false, "MISSING_REQUIRED_FIELDS", 422);
+}
+if ($name === "" || $content === "" || $unit === "" || $sku === "") {
     jsonResponse(null, false, "MISSING_REQUIRED_FIELDS", 422);
 }
 
-// Check for duplicate EAN (excluding current record)
-$checkStmt = $pdo->prepare("SELECT id FROM product_variants WHERE ean = ? AND id != ?");
-$checkStmt->execute([$ean, $id]);
-if ($checkStmt->fetch()) {
-    jsonResponse(null, false, "EAN_ALREADY_EXISTS", 409);
+// Check for duplicate EAN (excluding current record, only if EAN is provided)
+if ($ean !== "") {
+    $checkStmt = $pdo->prepare("SELECT id FROM product_variants WHERE ean = ? AND id != ?");
+    $checkStmt->execute([$ean, $id]);
+    if ($checkStmt->fetch()) {
+        jsonResponse(null, false, "EAN_ALREADY_EXISTS", 409);
+    }
 }
 
 // Get old record for audit

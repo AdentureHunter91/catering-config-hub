@@ -39,7 +39,7 @@ export type ProductVariant = {
     cholesterol: number | null;
 };
 
-export type ProductVariantPayload = Omit<ProductVariant, 'id'> & { id?: number };
+export type ProductVariantPayload = Omit<ProductVariant, 'id'> & { id?: number; no_ean?: boolean };
 
 export type EanCheckResult = {
     exists: boolean;
@@ -114,7 +114,7 @@ export async function createProductVariant(payload: ProductVariantPayload): Prom
     return j.data;
 }
 
-export async function updateProductVariant(payload: ProductVariant): Promise<{ id: number; updated: boolean }> {
+export async function updateProductVariant(payload: ProductVariant & { no_ean?: boolean }): Promise<{ id: number; updated: boolean }> {
     const r = await fetch(`${API}/update.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

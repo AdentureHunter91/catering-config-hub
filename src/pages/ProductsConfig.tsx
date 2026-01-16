@@ -2048,16 +2048,17 @@ const AddSubProductDialog = ({
   const [html5QrCode, setHtml5QrCode] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [eanDuplicate, setEanDuplicate] = useState<EanCheckResult | null>(null);
+  const [noEan, setNoEan] = useState(false);
   
   const getMissingFields = useCallback(() => {
     const missing: string[] = [];
-    if (!ean) missing.push("ean");
+    if (!noEan && !ean) missing.push("ean");
     if (!variantName) missing.push("variantName");
     if (!content) missing.push("content");
     if (!unit) missing.push("unit");
     if (!sku) missing.push("sku");
     return missing;
-  }, [ean, variantName, content, unit, sku]);
+  }, [ean, variantName, content, unit, sku, noEan]);
 
   const missingFields = dataFetched ? getMissingFields() : [];
 
@@ -2079,6 +2080,7 @@ const AddSubProductDialog = ({
       setDataFetched(false);
       setIsScannerOpen(false);
       setEanDuplicate(null);
+      setNoEan(false);
     }
   }, [open]);
 
@@ -2238,7 +2240,7 @@ const AddSubProductDialog = ({
     try {
       await createProductVariant({
         product_id: parentProduct?.id || null,
-        ean, 
+        ean: noEan ? "" : ean, 
         name: variantName, 
         content, 
         unit, 
@@ -2251,6 +2253,7 @@ const AddSubProductDialog = ({
         nutrition_database_id: null,
         energy_kj: null,
         energy_kcal: calories ? parseFloat(calories) : null,
+        no_ean: noEan,
         energy_kj_1169: null,
         energy_kcal_1169: null,
         water: null,
@@ -2315,10 +2318,17 @@ const AddSubProductDialog = ({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <RequiredLabel>
-              <Barcode className="h-4 w-4" />
-              Kod EAN / GTIN
-            </RequiredLabel>
+            {!noEan ? (
+              <RequiredLabel>
+                <Barcode className="h-4 w-4" />
+                Kod EAN / GTIN
+              </RequiredLabel>
+            ) : (
+              <Label className="flex items-center gap-1">
+                <Barcode className="h-4 w-4" />
+                Kod EAN / GTIN
+              </Label>
+            )}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -2329,6 +2339,7 @@ const AddSubProductDialog = ({
                   onKeyDown={handleEanKeyDown}
                   className={`pr-10 font-mono text-lg ${getFieldClass("ean")}`}
                   autoFocus
+                  disabled={noEan}
                 />
                 {isLoading && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -2336,13 +2347,29 @@ const AddSubProductDialog = ({
                   </div>
                 )}
               </div>
-              <Button type="button" variant={isScannerOpen ? "default" : "outline"} size="icon" onClick={toggleScanner}>
+              <Button type="button" variant={isScannerOpen ? "default" : "outline"} size="icon" onClick={toggleScanner} disabled={noEan}>
                 <Camera className="h-5 w-5" />
               </Button>
-              <Button type="button" variant="secondary" onClick={() => fetchProductData(ean)} disabled={isLoading || ean.length < 8} className="gap-2">
+              <Button type="button" variant="secondary" onClick={() => fetchProductData(ean)} disabled={isLoading || ean.length < 8 || noEan} className="gap-2">
                 <Download className="h-4 w-4" />
                 Pobierz dane
               </Button>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Checkbox
+                id="no-ean-add"
+                checked={noEan}
+                onCheckedChange={(checked) => {
+                  setNoEan(checked === true);
+                  if (checked) {
+                    setEan("");
+                    setEanDuplicate(null);
+                  }
+                }}
+              />
+              <Label htmlFor="no-ean-add" className="text-sm text-muted-foreground cursor-pointer">
+                Brak kodu EAN (produkt bez kodu kreskowego)
+              </Label>
             </div>
           </div>
 
@@ -2478,6 +2505,7 @@ const EditSubProductDialog = ({
   const [isSaving, setIsSaving] = useState(false);
   const [eanDuplicate, setEanDuplicate] = useState<EanCheckResult | null>(null);
   const [dataFetched, setDataFetched] = useState(false);
+  const [noEan, setNoEan] = useState(false);
 
   const getSubcategoriesForCategory = (categoryId: string) => {
     const cat = categories.find(c => c.id === parseInt(categoryId));
@@ -2494,13 +2522,13 @@ const EditSubProductDialog = ({
 
   const getMissingFields = useCallback(() => {
     const missing: string[] = [];
-    if (!ean) missing.push("ean");
+    if (!noEan && !ean) missing.push("ean");
     if (!variantName) missing.push("variantName");
     if (!content) missing.push("content");
     if (!unit) missing.push("unit");
     if (!sku) missing.push("sku");
     return missing;
-  }, [ean, variantName, content, unit, sku]);
+  }, [ean, variantName, content, unit, sku, noEan]);
 
   const missingFields = dataFetched ? getMissingFields() : [];
 
@@ -2517,6 +2545,7 @@ const EditSubProductDialog = ({
       setImageUrl(subProduct.image_url || "");
       setDataFetched(true);
       setEanDuplicate(null);
+      setNoEan(!subProduct.ean || subProduct.ean === "");
       
       if (subProduct.product_id) {
         for (const cat of categories) {
@@ -2632,7 +2661,7 @@ const EditSubProductDialog = ({
       await updateProductVariant({
         id: subProduct.id,
         product_id: selectedProductId ? parseInt(selectedProductId) : subProduct.product_id,
-        ean,
+        ean: noEan ? "" : ean,
         name: variantName,
         content,
         unit,
@@ -2663,6 +2692,7 @@ const EditSubProductDialog = ({
         vitamin_d: null,
         vitamin_c: null,
         cholesterol: null,
+        no_ean: noEan,
       });
       toast.success("Subprodukt został zaktualizowany!");
       onSave?.();
@@ -2706,10 +2736,17 @@ const EditSubProductDialog = ({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <RequiredLabel>
-              <Barcode className="h-4 w-4" />
-              Kod EAN / GTIN
-            </RequiredLabel>
+            {!noEan ? (
+              <RequiredLabel>
+                <Barcode className="h-4 w-4" />
+                Kod EAN / GTIN
+              </RequiredLabel>
+            ) : (
+              <Label className="flex items-center gap-1">
+                <Barcode className="h-4 w-4" />
+                Kod EAN / GTIN
+              </Label>
+            )}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -2718,6 +2755,7 @@ const EditSubProductDialog = ({
                   value={ean}
                   onChange={(e) => handleEanChange(e.target.value)}
                   className={`pr-10 font-mono text-lg ${getFieldClass("ean")} ${eanDuplicate?.exists ? "border-red-500" : ""}`}
+                  disabled={noEan}
                 />
                 {isLoading && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -2725,10 +2763,26 @@ const EditSubProductDialog = ({
                   </div>
                 )}
               </div>
-              <Button type="button" variant="secondary" onClick={() => fetchProductData(ean)} disabled={isLoading || ean.length < 8} className="gap-2">
+              <Button type="button" variant="secondary" onClick={() => fetchProductData(ean)} disabled={isLoading || ean.length < 8 || noEan} className="gap-2">
                 <Download className="h-4 w-4" />
                 Pobierz dane
               </Button>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Checkbox
+                id="no-ean-edit"
+                checked={noEan}
+                onCheckedChange={(checked) => {
+                  setNoEan(checked === true);
+                  if (checked) {
+                    setEan("");
+                    setEanDuplicate(null);
+                  }
+                }}
+              />
+              <Label htmlFor="no-ean-edit" className="text-sm text-muted-foreground cursor-pointer">
+                Brak kodu EAN (produkt bez kodu kreskowego)
+              </Label>
             </div>
           </div>
 
