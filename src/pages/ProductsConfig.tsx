@@ -433,42 +433,119 @@ const ProductsConfig = () => {
     });
   };
 
-  // Filter logic
+  // Filter logic with category/subcategory name matching
   const filterCategories = (cats: DisplayCategory[]): DisplayCategory[] => {
+    const s = search.trim().toLowerCase();
+    
     return cats
-      .map((cat) => ({
-        ...cat,
-        subcategories: cat.subcategories
-          .map((sub) => ({
-            ...sub,
-            products: sub.products
-              .filter((prod) => showArchived || prod.status === "active")
-              .map((prod) => ({
-                ...prod,
-                subProducts: prod.subProducts.filter(
-                  (sp) => showArchived || sp.status === "active"
-                ),
-              }))
-              .filter((prod) => {
-                if (!search.trim()) return true;
-                const s = search.toLowerCase();
-                return (
-                  prod.name.toLowerCase().includes(s) ||
-                  prod.subProducts.some(
-                    (sp) =>
-                      sp.name.toLowerCase().includes(s) ||
-                      sp.ean.includes(s) ||
-                      sp.sku.toLowerCase().includes(s)
-                  )
-                );
-              }),
-          }))
-          .filter((sub) => sub.products.length > 0 || !search.trim()),
-      }))
-      .filter((cat) => cat.subcategories.length > 0 || !search.trim());
+      .map((cat) => {
+        const categoryMatches = s && cat.name.toLowerCase().includes(s);
+        
+        return {
+          ...cat,
+          subcategories: cat.subcategories
+            .map((sub) => {
+              const subcategoryMatches = s && sub.name.toLowerCase().includes(s);
+              
+              return {
+                ...sub,
+                products: sub.products
+                  .filter((prod) => showArchived || prod.status === "active")
+                  .map((prod) => ({
+                    ...prod,
+                    subProducts: prod.subProducts.filter(
+                      (sp) => showArchived || sp.status === "active"
+                    ),
+                  }))
+                  .filter((prod) => {
+                    // If category or subcategory matches, show all products
+                    if (categoryMatches || subcategoryMatches) return true;
+                    if (!s) return true;
+                    return (
+                      prod.name.toLowerCase().includes(s) ||
+                      prod.subProducts.some(
+                        (sp) =>
+                          sp.name.toLowerCase().includes(s) ||
+                          sp.ean.includes(s) ||
+                          sp.sku.toLowerCase().includes(s)
+                      )
+                    );
+                  }),
+              };
+            })
+            .filter((sub) => {
+              // Show subcategory if it matches or has matching products
+              if (categoryMatches) return true;
+              return sub.products.length > 0 || !s;
+            }),
+        };
+      })
+      .filter((cat) => {
+        // Show category if it matches or has matching subcategories
+        if (s && cat.name.toLowerCase().includes(s)) return true;
+        return cat.subcategories.length > 0 || !s;
+      });
   };
 
   const filteredCategories = filterCategories(categories);
+
+  // Auto-expand matching items when searching
+  useEffect(() => {
+    if (!search.trim()) return;
+    
+    const s = search.trim().toLowerCase();
+    const categoriesToExpand = new Set<number>();
+    const subcategoriesToExpand = new Set<number>();
+    const productsToExpand = new Set<number>();
+    
+    categories.forEach((cat) => {
+      const categoryMatches = cat.name.toLowerCase().includes(s);
+      let shouldExpandCategory = categoryMatches;
+      
+      cat.subcategories.forEach((sub) => {
+        const subcategoryMatches = sub.name.toLowerCase().includes(s);
+        let shouldExpandSubcategory = subcategoryMatches;
+        
+        sub.products.forEach((prod) => {
+          if (!(showArchived || prod.status === "active")) return;
+          
+          const productMatches = prod.name.toLowerCase().includes(s);
+          const subProductMatches = prod.subProducts.some(
+            (sp) =>
+              (showArchived || sp.status === "active") &&
+              (sp.name.toLowerCase().includes(s) ||
+                sp.ean.includes(s) ||
+                sp.sku.toLowerCase().includes(s))
+          );
+          
+          if (productMatches || subProductMatches || categoryMatches || subcategoryMatches) {
+            shouldExpandCategory = true;
+            shouldExpandSubcategory = true;
+            
+            if (subProductMatches) {
+              productsToExpand.add(prod.id);
+            }
+          }
+        });
+        
+        if (shouldExpandSubcategory) {
+          subcategoriesToExpand.add(sub.id);
+        }
+      });
+      
+      if (shouldExpandCategory) {
+        categoriesToExpand.add(cat.id);
+      }
+    });
+    
+    if (categoriesToExpand.size > 0 || subcategoriesToExpand.size > 0 || productsToExpand.size > 0) {
+      setExpanded((prev) => ({
+        categories: new Set([...prev.categories, ...categoriesToExpand]),
+        subcategories: new Set([...prev.subcategories, ...subcategoriesToExpand]),
+        products: new Set([...prev.products, ...productsToExpand]),
+      }));
+    }
+  }, [search, categories, showArchived]);
 
   // Count totals
   const totalProducts = categories.reduce(
