@@ -3,6 +3,7 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $data = json_decode(file_get_contents("php://input"), true);
+$user = requireLogin($pdo);
 
 $id = isset($data['id']) ? (int)$data['id'] : 0;
 $product_id = isset($data['product_id']) ? (int)$data['product_id'] : null;
@@ -41,6 +42,9 @@ if ($name === "") {
     jsonResponse(null, false, "MISSING_REQUIRED_FIELDS", 422);
 }
 
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'subproducts', $id);
+
 $pdo->beginTransaction();
 try {
     $stmt = $pdo->prepare("
@@ -72,6 +76,10 @@ try {
     }
     
     $pdo->commit();
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'subproducts', $id);
+    logAudit($pdo, 'subproducts', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
     
     jsonResponse([
         "id" => $id,

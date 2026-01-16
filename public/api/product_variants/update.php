@@ -3,6 +3,7 @@ require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
 $data = json_decode(file_get_contents("php://input"), true);
+$user = requireLogin($pdo);
 
 $id            = isset($data['id']) ? (int)$data['id'] : 0;
 $product_id    = isset($data['product_id']) ? (int)$data['product_id'] : null;
@@ -57,6 +58,9 @@ if ($checkStmt->fetch()) {
     jsonResponse(null, false, "EAN_ALREADY_EXISTS", 409);
 }
 
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'product_variants', $id);
+
 try {
     $pdo->beginTransaction();
 
@@ -93,6 +97,10 @@ try {
     }
 
     $pdo->commit();
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_variants', $id);
+    logAudit($pdo, 'product_variants', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
     jsonResponse([
         "id" => $id,

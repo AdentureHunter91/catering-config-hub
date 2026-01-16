@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DEL
 
 try {
     $pdo = getPDO();
+    $user = requireLogin($pdo);
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (empty($input['id'])) {
@@ -22,9 +23,16 @@ try {
     
     $id = (int)$input['id'];
     
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'product_categories', $id);
+    
     // Archive instead of delete
     $stmt = $pdo->prepare("UPDATE product_categories SET status = 'archived' WHERE id = ?");
     $stmt->execute([$id]);
+    
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'product_categories', $id);
+    logAudit($pdo, 'product_categories', $id, 'delete', $oldRecord, $newRecord, $user['id'] ?? null);
     
     echo json_encode([
         'success' => true,
