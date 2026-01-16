@@ -11,6 +11,10 @@ $name = trim($data['name'] ?? "");
 $description = trim($data['description'] ?? "");
 $status = trim($data['status'] ?? "active");
 
+// VAT rate and waste percentage
+$vat_rate = isset($data['vat_rate']) && $data['vat_rate'] !== "" ? (float)$data['vat_rate'] : null;
+$waste_percentage = isset($data['waste_percentage']) && $data['waste_percentage'] !== "" ? (float)$data['waste_percentage'] : null;
+
 // Nutritional values
 $nutrition_database_id = isset($data['nutrition_database_id']) && $data['nutrition_database_id'] !== "" ? (int)$data['nutrition_database_id'] : null;
 $energy_kj = isset($data['energy_kj']) && $data['energy_kj'] !== "" ? (float)$data['energy_kj'] : null;
@@ -63,7 +67,7 @@ try {
 
     $stmt = $pdo->prepare("
         UPDATE products SET
-            subcategory_id = ?, name = ?, description = ?, status = ?,
+            subcategory_id = ?, name = ?, description = ?, status = ?, vat_rate = ?, waste_percentage = ?,
             nutrition_database_id = ?, energy_kj = ?, energy_kcal = ?, energy_kj_1169 = ?, energy_kcal_1169 = ?,
             water = ?, protein_animal = ?, protein_plant = ?, fat = ?, saturated_fat = ?, carbohydrates = ?, sugars = ?, fiber = ?,
             sodium = ?, salt = ?, potassium = ?, calcium = ?, phosphorus = ?, magnesium = ?, iron = ?, zinc = ?,
@@ -72,7 +76,7 @@ try {
         WHERE id = ?
     ");
     $stmt->execute([
-        $subcategory_id, $name, $description, $status,
+        $subcategory_id, $name, $description, $status, $vat_rate, $waste_percentage,
         $nutrition_database_id, $energy_kj, $energy_kcal, $energy_kj_1169, $energy_kcal_1169,
         $water, $protein_animal, $protein_plant, $fat, $saturated_fat, $carbohydrates, $sugars, $fiber,
         $sodium, $salt, $potassium, $calcium, $phosphorus, $magnesium, $iron, $zinc,

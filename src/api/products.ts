@@ -9,6 +9,9 @@ export type Product = {
     name: string;
     description: string;
     status: "active" | "archived";
+    // VAT rate and waste percentage
+    vat_rate: number | null;
+    waste_percentage: number | null;
     // Nutrition database link
     nutrition_database_id: number | null;
     // Nutritional values

@@ -119,6 +119,8 @@ interface DisplayProduct {
   name: string;
   description: string;
   status: "active" | "archived";
+  vat_rate: number | null;
+  waste_percentage: number | null;
   nutrition_database_id: number | null;
   energy_kj: number | null;
   energy_kcal: number | null;
@@ -326,6 +328,8 @@ const ProductsConfig = () => {
                 name: prod.name,
                 description: prod.description,
                 status: prod.status,
+                vat_rate: prod.vat_rate,
+                waste_percentage: prod.waste_percentage,
                 nutrition_database_id: prod.nutrition_database_id,
                 energy_kj: prod.energy_kj,
                 energy_kcal: prod.energy_kcal,
@@ -1034,6 +1038,8 @@ const AddProductDialog = ({
   const [subcategoryId, setSubcategoryId] = useState<string>("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [vatRate, setVatRate] = useState("");
+  const [wastePercentage, setWastePercentage] = useState("");
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
   const [nutritionDbId, setNutritionDbId] = useState<string>("none"); // Just for UI selection
   const [linkedNutritionDbId, setLinkedNutritionDbId] = useState<string>("none"); // Actually linked ID
@@ -1061,6 +1067,8 @@ const AddProductDialog = ({
       setSubcategoryId("");
       setName("");
       setDescription("");
+      setVatRate("");
+      setWastePercentage("");
       setSelectedAllergens([]);
       setNutritionDbId("none");
       setLinkedNutritionDbId("none");
@@ -1097,6 +1105,8 @@ const AddProductDialog = ({
         name: name.trim(),
         description: description.trim(),
         status: "active",
+        vat_rate: parseNum(vatRate),
+        waste_percentage: parseNum(wastePercentage),
         nutrition_database_id: nutritionDbId !== "none" ? parseInt(nutritionDbId) : null,
         energy_kj: parseNum(nutrition.energy_kj),
         energy_kcal: parseNum(nutrition.energy_kcal),
@@ -1194,6 +1204,33 @@ const AddProductDialog = ({
             <div className="space-y-2">
               <Label>Opis</Label>
               <Textarea placeholder="Opis produktu..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Stawka VAT (%)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="np. 23" 
+                  value={vatRate} 
+                  onChange={(e) => setVatRate(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Odpad (%)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="np. 15" 
+                  value={wastePercentage} 
+                  onChange={(e) => setWastePercentage(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                />
+              </div>
             </div>
             
             <Separator className="my-4" />
@@ -1406,6 +1443,8 @@ const EditProductDialog = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"active" | "archived">("active");
+  const [vatRate, setVatRate] = useState("");
+  const [wastePercentage, setWastePercentage] = useState("");
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
   const [nutritionDbId, setNutritionDbId] = useState<string>("none");
   const [isSaving, setIsSaving] = useState(false);
@@ -1425,6 +1464,8 @@ const EditProductDialog = ({
       setName(product.name);
       setDescription(product.description);
       setStatus(product.status);
+      setVatRate(product.vat_rate?.toString() || "");
+      setWastePercentage(product.waste_percentage?.toString() || "");
       setSelectedAllergens(product.allergens || []);
       setNutritionDbId(product.nutrition_database_id?.toString() || "none");
       setNutrition({
@@ -1485,6 +1526,8 @@ const EditProductDialog = ({
         name: name.trim(),
         description: description.trim(),
         status,
+        vat_rate: parseNum(vatRate),
+        waste_percentage: parseNum(wastePercentage),
         nutrition_database_id: nutritionDbId !== "none" ? parseInt(nutritionDbId) : null,
         energy_kj: parseNum(nutrition.energy_kj),
         energy_kcal: parseNum(nutrition.energy_kcal),
@@ -1568,6 +1611,33 @@ const EditProductDialog = ({
                   <SelectItem value="archived">Zarchiwizowany</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Stawka VAT (%)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="np. 23" 
+                  value={vatRate} 
+                  onChange={(e) => setVatRate(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Odpad (%)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="np. 15" 
+                  value={wastePercentage} 
+                  onChange={(e) => setWastePercentage(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                />
+              </div>
             </div>
             
             <Separator className="my-4" />
