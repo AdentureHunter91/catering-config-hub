@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $id           = isset($data['id']) ? (int)$data['id'] : 0;
@@ -16,6 +17,9 @@ $buildingNumber  = trim($data['building_number'] ?? '');
 if ($id <= 0 || $departmentId <= 0) {
     jsonResponse(null, false, "INVALID_DATA", 422);
 }
+
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'client_departments', $id);
 
 // sprawdź, jaki client_id ma ten rekord
 $stmt = $pdo->prepare("SELECT client_id FROM client_departments WHERE id = ?");
@@ -60,5 +64,9 @@ $upd->execute([
     $buildingNumber ?: null,
     $id
 ]);
+
+// Audit log
+$newRecord = getRecordForAudit($pdo, 'client_departments', $id);
+logAudit($pdo, 'client_departments', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
 jsonResponse(true);

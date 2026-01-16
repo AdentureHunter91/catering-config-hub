@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 
 $pdo = getPDO();
+$user = requireLogin($pdo);
 
 $input = json_decode(file_get_contents("php://input"), true);
 
@@ -19,6 +20,9 @@ if ($name === "") {
 }
 
 if ($id > 0) {
+    // Get old record for audit
+    $oldRecord = getRecordForAudit($pdo, 'departments', $id);
+
     // UPDATE
     $stmt = $pdo->prepare("
         UPDATE departments
@@ -26,6 +30,10 @@ if ($id > 0) {
         WHERE id = ?
     ");
     $stmt->execute([$name, $short_name, $description, $id]);
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'departments', $id);
+    logAudit($pdo, 'departments', $id, 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
     jsonResponse([
         "updated" => true,
@@ -39,8 +47,14 @@ if ($id > 0) {
     ");
     $stmt->execute([$name, $short_name, $description]);
 
+    $newId = (int)$pdo->lastInsertId();
+
+    // Audit log
+    $newRecord = getRecordForAudit($pdo, 'departments', $newId);
+    logAudit($pdo, 'departments', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
+
     jsonResponse([
         "created" => true,
-        "id" => $pdo->lastInsertId()
+        "id" => $newId
     ]);
 }
