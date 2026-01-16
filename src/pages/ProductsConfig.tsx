@@ -251,10 +251,19 @@ const saveExpandedToStorage = (state: ExpandedState) => {
 
 const ProductsConfig = () => {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [categories, setCategories] = useState<DisplayCategory[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<ExpandedState>(loadExpandedFromStorage);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Selected item for management panel
   const [selectedItem, setSelectedItem] = useState<{
@@ -435,7 +444,7 @@ const ProductsConfig = () => {
 
   // Filter logic with category/subcategory name matching
   const filterCategories = (cats: DisplayCategory[]): DisplayCategory[] => {
-    const s = search.trim().toLowerCase();
+    const s = debouncedSearch.trim().toLowerCase();
     
     return cats
       .map((cat) => {
@@ -491,9 +500,9 @@ const ProductsConfig = () => {
 
   // Auto-expand matching items when searching
   useEffect(() => {
-    if (!search.trim()) return;
+    if (!debouncedSearch.trim()) return;
     
-    const s = search.trim().toLowerCase();
+    const s = debouncedSearch.trim().toLowerCase();
     const categoriesToExpand = new Set<number>();
     const subcategoriesToExpand = new Set<number>();
     const productsToExpand = new Set<number>();
@@ -545,7 +554,7 @@ const ProductsConfig = () => {
         products: new Set([...prev.products, ...productsToExpand]),
       }));
     }
-  }, [search, categories, showArchived]);
+  }, [debouncedSearch, categories, showArchived]);
 
   // Count totals
   const totalProducts = categories.reduce(
