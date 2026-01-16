@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Copy,
   Info,
+  ChevronsDownUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -217,16 +218,43 @@ const emptyNutritionData = {
   allergens: [] as string[],
 };
 
+const STORAGE_KEY = "productsConfigExpanded";
+
+const loadExpandedFromStorage = (): ExpandedState => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        categories: new Set(parsed.categories || []),
+        subcategories: new Set(parsed.subcategories || []),
+        products: new Set(parsed.products || []),
+      };
+    }
+  } catch (e) {
+    console.error("Error loading expanded state from localStorage:", e);
+  }
+  return { categories: new Set(), subcategories: new Set(), products: new Set() };
+};
+
+const saveExpandedToStorage = (state: ExpandedState) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      categories: Array.from(state.categories),
+      subcategories: Array.from(state.subcategories),
+      products: Array.from(state.products),
+    }));
+  } catch (e) {
+    console.error("Error saving expanded state to localStorage:", e);
+  }
+};
+
 const ProductsConfig = () => {
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState<DisplayCategory[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [expanded, setExpanded] = useState<ExpandedState>({
-    categories: new Set(),
-    subcategories: new Set(),
-    products: new Set(),
-  });
+  const [expanded, setExpanded] = useState<ExpandedState>(loadExpandedFromStorage);
 
   // Selected item for management panel
   const [selectedItem, setSelectedItem] = useState<{
@@ -362,6 +390,20 @@ const ProductsConfig = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Save expanded state to localStorage whenever it changes
+  useEffect(() => {
+    saveExpandedToStorage(expanded);
+  }, [expanded]);
+
+  // Collapse all function
+  const collapseAll = () => {
+    setExpanded({
+      categories: new Set(),
+      subcategories: new Set(),
+      products: new Set(),
+    });
+  };
 
   // Toggle functions
   const toggleCategory = (id: number) => {
@@ -595,6 +637,16 @@ const ProductsConfig = () => {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={collapseAll}
+                  className="gap-1"
+                  disabled={expanded.categories.size === 0 && expanded.subcategories.size === 0 && expanded.products.size === 0}
+                >
+                  <ChevronsDownUp className="h-4 w-4" />
+                  Zwiń
+                </Button>
                 <div className="flex items-center gap-2">
                   <Switch
                     id="show-archived"
