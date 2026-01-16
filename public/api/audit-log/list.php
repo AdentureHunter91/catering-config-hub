@@ -135,8 +135,10 @@ $countStmt = $pdo->prepare($countSql);
 $countStmt->execute($countParams);
 $totalCount = (int)$countStmt->fetchColumn();
 
+$logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 jsonResponse([
-    'logs' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+    'logs' => $logs,
     'total' => $totalCount,
     'limit' => $limit,
     'offset' => $offset

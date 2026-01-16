@@ -28,5 +28,10 @@ export async function getAuditLog(params: {
 
     if (!j.success) throw new Error(j.error);
 
-    return j.data;
+    // Handle both old format (array) and new format (object with logs)
+    const data = j.data;
+    if (Array.isArray(data)) {
+        return { logs: data, total: data.length, limit: 300, offset: 0 };
+    }
+    return data;
 }
