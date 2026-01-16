@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../bootstrap.php';
 
 $pdo  = getPDO();
+$user = requireLogin($pdo);
 $data = json_decode(file_get_contents("php://input"), true);
 
 $client_id    = (int)($data["client_id"] ?? 0);
@@ -37,8 +38,17 @@ if (!$current) {
         $data["is_active"]         ?? 1
     ]);
 
+    $newId = (int)$pdo->lastInsertId();
+    
+    // Audit log for insert
+    $newRecord = getRecordForAudit($pdo, 'client_meal_types', $newId);
+    logAudit($pdo, 'client_meal_types', $newId, 'insert', null, $newRecord, $user['id'] ?? null);
+
     jsonResponse(true);
 }
+
+// Get old record for audit
+$oldRecord = getRecordForAudit($pdo, 'client_meal_types', $current["id"]);
 
 // MERGE – zmieniamy tylko to, co przyszło z frontu
 $custom_name       = array_key_exists("custom_name", $data)
@@ -75,5 +85,9 @@ $stmt->execute([
     $is_active,
     $current["id"]
 ]);
+
+// Audit log for update
+$newRecord = getRecordForAudit($pdo, 'client_meal_types', $current["id"]);
+logAudit($pdo, 'client_meal_types', $current["id"], 'update', $oldRecord, $newRecord, $user['id'] ?? null);
 
 jsonResponse(true);
