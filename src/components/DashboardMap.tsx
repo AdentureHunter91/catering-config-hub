@@ -116,7 +116,61 @@ const CITY_COORDINATES: Record<string, [number, number]> = {
     "Racibórz": [50.0833, 18.2167],
     "Sanok": [49.5500, 22.2000],
     "Nowa Sól": [51.8000, 15.7167],
-    "Zawiercie": [50.4833, 19.4167]
+    "Zawiercie": [50.4833, 19.4167],
+    // Mniejsze miasta
+    "Sierpc": [52.8553, 19.6697],
+    "Rypin": [53.0667, 19.4333],
+    "Nidzica": [53.3592, 20.4267],
+    "Działdowo": [53.2333, 20.1833],
+    "Mława": [53.1167, 20.3833],
+    "Płońsk": [52.6167, 20.3667],
+    "Żuromin": [53.0667, 19.9167],
+    "Lipno": [52.8500, 19.1833],
+    "Brodnica": [53.2500, 19.4000],
+    "Golub-Dobrzyń": [53.1167, 19.0500],
+    "Wąbrzeźno": [53.2833, 18.9500],
+    "Nowe Miasto Lubawskie": [53.4167, 19.6000],
+    "Iława": [53.5833, 19.5667],
+    "Szczytno": [53.5667, 21.0167],
+    "Mrągowo": [53.8667, 21.3000],
+    "Lidzbark Warmiński": [54.1333, 20.5833],
+    "Bartoszyce": [54.2500, 20.8167],
+    "Braniewo": [54.3833, 19.8167],
+    "Kętrzyn": [54.0833, 21.3667],
+    "Giżycko": [54.0333, 21.7667],
+    "Węgorzewo": [54.2167, 21.7500],
+    "Gołdap": [54.3167, 22.3000],
+    "Olecko": [54.0333, 22.5000],
+    "Augustów": [53.8333, 23.0000],
+    "Sejny": [54.1167, 23.3500],
+    "Grajewo": [53.6500, 22.4500],
+    "Kolno": [53.4000, 21.9333],
+    "Ostrołęka": [53.0833, 21.5667],
+    "Maków Mazowiecki": [52.8667, 21.1000],
+    "Przasnysz": [53.0167, 20.8833],
+    "Pułtusk": [52.7000, 21.0833],
+    "Wyszków": [52.5833, 21.4667],
+    "Legionowo": [52.4000, 20.9333],
+    "Nowy Dwór Mazowiecki": [52.4333, 20.7167],
+    "Sochaczew": [52.2333, 20.2500],
+    "Żyrardów": [52.0500, 20.4500],
+    "Grójec": [51.8667, 20.8667],
+    "Garwolin": [51.9000, 21.6167],
+    "Mińsk Mazowiecki": [52.1833, 21.5667],
+    "Sokołów Podlaski": [52.4167, 22.2500],
+    "Węgrów": [52.4000, 22.0167],
+    "Łuków": [51.9333, 22.3833],
+    "Radzyń Podlaski": [51.7833, 22.6167],
+    "Parczew": [51.6333, 22.9000],
+    "Włodawa": [51.5500, 23.5500],
+    "Hrubieszów": [50.8000, 23.8833],
+    "Krasnystaw": [50.9833, 23.1667],
+    "Lubartów": [51.4667, 22.6000],
+    "Łęczna": [51.3000, 22.8833],
+    "Świdnik": [51.2167, 22.6833],
+    "Kraśnik": [50.9167, 22.2167],
+    "Janów Lubelski": [50.7000, 22.4167],
+    "Biłgoraj": [50.5333, 22.7167]
 };
 
 // Helper to find city coordinates with fuzzy matching
@@ -279,7 +333,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     
     if (isLoading) {
         return (
-            <Card className="h-[calc(100vh-280px)] min-h-[500px]">
+            <Card className="h-[400px]">
                 <CardContent className="p-0 h-full">
                     <Skeleton className="w-full h-full rounded-lg" />
                 </CardContent>
@@ -288,7 +342,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     }
     
     return (
-        <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px]">
+        <div className="flex gap-4 h-[400px]">
             {/* Map */}
             <Card className="flex-1">
                 <CardContent className="p-0 h-full">
