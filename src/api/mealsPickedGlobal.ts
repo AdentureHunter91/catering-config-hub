@@ -42,7 +42,20 @@ export type PickedGlobalRow = {
     kitchen_id: number | null;
 };
 
-export async function getMealsPickedGlobal(limit = 50000): Promise<PickedGlobalRow[]> {
-    const payload = await fetchJson(apiUrl(`diet/meals_table/list.php?limit=${limit}`));
+type MealsPickedGlobalParams = {
+    limit?: number;
+    dateFrom?: string;
+    dateTo?: string;
+};
+
+export async function getMealsPickedGlobal({
+    limit = 50000,
+    dateFrom,
+    dateTo,
+}: MealsPickedGlobalParams = {}): Promise<PickedGlobalRow[]> {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (dateFrom) query.set("date_from", dateFrom);
+    if (dateTo) query.set("date_to", dateTo);
+    const payload = await fetchJson(apiUrl(`diet/meals_table/list.php?${query.toString()}`));
     return unwrapArray<PickedGlobalRow>(payload);
 }
