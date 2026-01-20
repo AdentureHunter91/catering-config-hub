@@ -145,6 +145,62 @@ All colors MUST be HSL.
     border: 1px solid rgba(15, 23, 42, 0.4);
   }
 
+  /* Kitchen marker styles */
+  .kitchen-status-icon {
+    background: transparent;
+    border: none;
+  }
+
+  .kitchen-status-marker {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kitchen-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  }
+
+  .kitchen-core {
+    position: absolute;
+    inset: 4px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%);
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
+
+  .kitchen-status-badges {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2px;
+    z-index: 10;
+  }
+
+  .kitchen-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 6px;
+    color: white;
+    line-height: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .kitchen-badge-active {
+    background: #22c55e;
+  }
+
+  .kitchen-badge-planned {
+    background: #3b82f6;
+  }
+
   .map-connection-line {
     stroke-linecap: round;
     animation: map-connection-dash 1.6s linear infinite;

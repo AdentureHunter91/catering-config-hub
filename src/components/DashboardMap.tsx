@@ -376,13 +376,59 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
             const offsetCoords: [number, number] = [coords[0] + 0.02, coords[1] - 0.02];
             
             const capacity = kitchen.max_osobodni || kitchen.current_osobodni || 0;
-            const radius = Math.max(10, Math.min(35, (capacity / maxKitchenOsobodni) * 28 + 10));
+            const radius = Math.max(12, Math.min(35, (capacity / maxKitchenOsobodni) * 28 + 10));
+            const diameter = radius * 2;
+            
+            // Build status ring based on contract counts
+            const activeCount = kitchen.active_contracts || 0;
+            const plannedCount = kitchen.planned_contracts || 0;
+            const totalContracts = activeCount + plannedCount;
+            
+            let ringGradient = "#ea580c"; // default orange border
+            let statusIndicators = "";
+            
+            if (totalContracts > 0) {
+                // Create a gradient ring showing the proportion of active vs planned
+                const activePercent = (activeCount / totalContracts) * 100;
+                if (activeCount > 0 && plannedCount > 0) {
+                    // Mixed: green and blue ring
+                    ringGradient = `conic-gradient(#22c55e 0% ${activePercent}%, #3b82f6 ${activePercent}% 100%)`;
+                } else if (activeCount > 0) {
+                    ringGradient = "#22c55e"; // all active
+                } else {
+                    ringGradient = "#3b82f6"; // all planned
+                }
+                
+                // Add small status badges
+                if (activeCount > 0 && plannedCount > 0) {
+                    statusIndicators = `
+                        <div class="kitchen-status-badges">
+                            <span class="kitchen-badge kitchen-badge-active">${activeCount}</span>
+                            <span class="kitchen-badge kitchen-badge-planned">${plannedCount}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            const icon = L.divIcon({
+                className: "kitchen-status-icon",
+                html: `
+                    <div class="kitchen-status-marker" style="width:${diameter}px;height:${diameter}px;">
+                        <div class="kitchen-ring" style="background:${ringGradient};"></div>
+                        <div class="kitchen-core"></div>
+                        ${statusIndicators}
+                    </div>
+                `,
+                iconSize: [diameter + 16, diameter + 16],
+                iconAnchor: [(diameter + 16) / 2, (diameter + 16) / 2]
+            });
             
             return {
                 kitchen,
                 coords: offsetCoords,
                 radius,
-                capacity
+                capacity,
+                icon
             };
         }).filter(Boolean);
     }, [kitchens, maxKitchenOsobodni]);
@@ -494,18 +540,12 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                             />
                         ))}
                         
-                        {/* Kitchen markers (orange/amber) */}
+                        {/* Kitchen markers (orange with status ring) */}
                         {kitchenMarkers.map((marker) => marker && (
-                            <CircleMarker
+                            <Marker
                                 key={`kitchen-${marker.kitchen.id}`}
-                                center={marker.coords}
-                                radius={marker.radius}
-                                pathOptions={{
-                                    fillColor: "#f97316",
-                                    fillOpacity: 0.7,
-                                    color: "#ea580c",
-                                    weight: 3,
-                                }}
+                                position={marker.coords}
+                                icon={marker.icon}
                                 eventHandlers={{
                                     click: () => setSelectedItem({ type: "kitchen", data: marker.kitchen })
                                 }}
@@ -514,7 +554,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                                     <div className="font-medium">{marker.kitchen.name}</div>
                                     <div className="text-sm text-muted-foreground">{marker.kitchen.city}</div>
                                 </Popup>
-                            </CircleMarker>
+                            </Marker>
                         ))}
                         
                         {/* Client markers (colored by status) */}
