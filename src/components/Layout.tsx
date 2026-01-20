@@ -203,7 +203,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
   return (
       <div className="min-h-screen bg-background">
         {/* === TOP NAV === */}
-        <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
+        <header className="sticky top-0 z-[1200] w-full border-b bg-card shadow-sm">
           <div className="flex h-16 items-center px-6">
             {/* LOGO */}
             <Link to="/dashboard" className="font-bold text-xl mr-10">
@@ -272,7 +272,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
                   <div
                       data-open={true}
                       className={cn(
-                          "absolute right-0 mt-3 bg-card shadow-lg rounded-md p-2 w-48 z-50",
+                          "absolute right-0 mt-3 bg-card shadow-lg rounded-md p-2 w-48 z-[1300]",
                           dropdownAnimation
                       )}
                   >
@@ -329,7 +329,7 @@ const Dropdown = ({ label, icon: Icon, isOpen, onOpen, children }: DropdownProps
         {isOpen && (
             <div
                 data-open={isOpen}
-                className={cn("absolute mt-2 w-64 bg-card shadow-lg rounded-lg p-2 z-50", animation)}
+                className={cn("absolute mt-2 w-64 bg-card shadow-lg rounded-lg p-2 z-[1300]", animation)}
             >
               {children}
             </div>
