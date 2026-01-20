@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Polyline, Popup, useMap } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import type { ClientMapData, KitchenMapData } from "@/api/dashboardMap";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
 // Polish cities coordinates (approximate centers)
 const CITY_COORDINATES: Record<string, [number, number]> = {
@@ -233,11 +234,82 @@ type SelectedItem =
     | { type: "kitchen"; data: KitchenMapData }
     | null;
 
+type ClientStatus = ClientMapData["status"];
+
+type ClientStatusSegment = {
+    status: ClientStatus;
+    label: string;
+    color: string;
+    ringColor: string;
+    weight: number;
+};
+
+type ClientMarker = {
+    client: ClientMapData;
+    coords: [number, number];
+    radius: number;
+    beds: number;
+    segments: ClientStatusSegment[];
+    gradient: string;
+    borderColor: string;
+    icon: L.DivIcon;
+};
+
 interface DashboardMapProps {
     clients: ClientMapData[];
     kitchens: KitchenMapData[];
     isLoading: boolean;
 }
+
+const STATUS_META: Record<ClientStatus, { label: string; color: string; ringColor: string; badgeClass: string }> = {
+    active: { label: "Aktywny", color: "#22c55e", ringColor: "#16a34a", badgeClass: "bg-green-500" },
+    planned: { label: "Planowany", color: "#3b82f6", ringColor: "#2563eb", badgeClass: "bg-blue-500" },
+    expired: { label: "Wygasły", color: "#9ca3af", ringColor: "#6b7280", badgeClass: "bg-gray-400" },
+    none: { label: "Brak kontraktu", color: "#d1d5db", ringColor: "#9ca3af", badgeClass: "bg-gray-300" }
+};
+
+const getStatusMeta = (status: ClientStatus) => STATUS_META[status] ?? STATUS_META.none;
+
+const getClientStatusSegments = (client: ClientMapData): ClientStatusSegment[] => {
+    const segments: ClientStatusSegment[] = [];
+    const activeBeds = client.active_contract_beds ?? 0;
+    const plannedBeds = client.planned_contract_beds ?? 0;
+
+    if (activeBeds > 0) {
+        const meta = getStatusMeta("active");
+        segments.push({ status: "active", label: meta.label, color: meta.color, ringColor: meta.ringColor, weight: activeBeds });
+    }
+
+    if (plannedBeds > 0) {
+        const meta = getStatusMeta("planned");
+        segments.push({ status: "planned", label: meta.label, color: meta.color, ringColor: meta.ringColor, weight: plannedBeds });
+    }
+
+    if (!segments.length) {
+        const meta = getStatusMeta(client.status);
+        segments.push({ status: client.status, label: meta.label, color: meta.color, ringColor: meta.ringColor, weight: 1 });
+    } else if (client.status === "expired") {
+        const meta = getStatusMeta("expired");
+        segments.push({ status: "expired", label: meta.label, color: meta.color, ringColor: meta.ringColor, weight: 1 });
+    }
+
+    return segments;
+};
+
+const buildConicGradient = (segments: ClientStatusSegment[]) => {
+    const total = segments.reduce((sum, seg) => sum + seg.weight, 0);
+    if (!total) return STATUS_META.none.color;
+
+    let current = 0;
+    const stops = segments.map((segment) => {
+        const start = (current / total) * 360;
+        current += segment.weight;
+        const end = (current / total) * 360;
+        return `${segment.color} ${start}deg ${end}deg`;
+    });
+
+    return `conic-gradient(${stops.join(", ")})`;
+};
 
 export default function DashboardMap({ clients, kitchens, isLoading }: DashboardMapProps) {
     const navigate = useNavigate();
@@ -260,20 +332,39 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     
     // Prepare map markers
     const clientMarkers = useMemo(() => {
-        return clients.map(client => {
+        const markers: ClientMarker[] = [];
+
+        clients.forEach((client) => {
             const coords = getCityCoordinates(client.city);
-            if (!coords) return null;
-            
+            if (!coords) return;
+
             const beds = client.active_contract_beds || client.planned_contract_beds || client.total_beds || 0;
             const radius = Math.max(8, Math.min(30, (beds / maxClientBeds) * 25 + 8));
-            
-            return {
+            const diameter = radius * 2;
+            const segments = getClientStatusSegments(client);
+            const gradient = buildConicGradient(segments);
+            const borderColor = segments.length > 1 ? "rgba(15, 23, 42, 0.55)" : segments[0].ringColor;
+
+            const icon = L.divIcon({
+                className: "client-status-icon",
+                html: `<div class="client-status-marker" style="width:${diameter}px;height:${diameter}px;background:${gradient};border-color:${borderColor};"></div>`,
+                iconSize: [diameter, diameter],
+                iconAnchor: [diameter / 2, diameter / 2]
+            });
+
+            markers.push({
                 client,
                 coords,
                 radius,
-                beds
-            };
-        }).filter(Boolean);
+                beds,
+                segments,
+                gradient,
+                borderColor,
+                icon
+            });
+        });
+
+        return markers;
     }, [clients, maxClientBeds]);
     
     const kitchenMarkers = useMemo(() => {
@@ -303,33 +394,46 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
         kitchenMarkers.forEach(m => m && positions.push(m.coords));
         return positions;
     }, [clientMarkers, kitchenMarkers]);
+
+    const kitchenCoordsById = useMemo(() => {
+        return new Map(kitchenMarkers.map((marker) => [marker.kitchen.id, marker.coords]));
+    }, [kitchenMarkers]);
+
+    const clientCoordsById = useMemo(() => {
+        return new Map(clientMarkers.map((marker) => [marker.client.id, marker.coords]));
+    }, [clientMarkers]);
+
+    const connectionLines = useMemo(() => {
+        const lines: { id: string; positions: [[number, number], [number, number]] }[] = [];
+
+        clients.forEach((client) => {
+            const rawKitchenIds = Array.isArray(client.kitchen_ids)
+                ? client.kitchen_ids
+                : client.kitchen_id
+                    ? [client.kitchen_id]
+                    : [];
+
+            if (!rawKitchenIds.length) return;
+
+            const clientCoords = clientCoordsById.get(client.id);
+            if (!clientCoords) return;
+
+            rawKitchenIds.forEach((kitchenId, index) => {
+                const kitchenCoords = kitchenCoordsById.get(kitchenId);
+                if (!kitchenCoords) return;
+
+                lines.push({
+                    id: `link-${client.id}-${kitchenId}-${index}`,
+                    positions: [kitchenCoords, clientCoords]
+                });
+            });
+        });
+
+        return lines;
+    }, [clients, clientCoordsById, kitchenCoordsById]);
     
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "active": return "bg-green-500";
-            case "planned": return "bg-blue-500";
-            case "expired": return "bg-gray-400";
-            default: return "bg-gray-300";
-        }
-    };
-    
-    const getStatusLabel = (status: string) => {
-        switch (status) {
-            case "active": return "Aktywny";
-            case "planned": return "Planowany";
-            case "expired": return "Wygasły";
-            default: return "Brak kontraktu";
-        }
-    };
-    
-    const getClientFillColor = (status: string) => {
-        switch (status) {
-            case "active": return "#22c55e";
-            case "planned": return "#3b82f6";
-            case "expired": return "#9ca3af";
-            default: return "#d1d5db";
-        }
-    };
+    const getStatusColor = (status: ClientStatus) => getStatusMeta(status).badgeClass;
+    const getStatusLabel = (status: ClientStatus) => getStatusMeta(status).label;
     
     if (isLoading) {
         return (
@@ -358,6 +462,20 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                         />
                         
                         {allPositions.length > 0 && <MapBoundsFitter positions={allPositions} />}
+
+                        {connectionLines.map((line) => (
+                            <Polyline
+                                key={line.id}
+                                positions={line.positions}
+                                pathOptions={{
+                                    color: "#f59e0b",
+                                    weight: 2,
+                                    opacity: 0.7,
+                                    dashArray: "8 12",
+                                    className: "map-connection-line"
+                                }}
+                            />
+                        ))}
                         
                         {/* Kitchen markers (orange/amber) */}
                         {kitchenMarkers.map((marker) => marker && (
@@ -384,17 +502,10 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                         
                         {/* Client markers (colored by status) */}
                         {clientMarkers.map((marker) => marker && (
-                            <CircleMarker
+                            <Marker
                                 key={`client-${marker.client.id}`}
-                                center={marker.coords}
-                                radius={marker.radius}
-                                pathOptions={{
-                                    fillColor: getClientFillColor(marker.client.status),
-                                    fillOpacity: 0.7,
-                                    color: marker.client.status === "active" ? "#16a34a" : 
-                                           marker.client.status === "planned" ? "#2563eb" : "#6b7280",
-                                    weight: 2,
-                                }}
+                                position={marker.coords}
+                                icon={marker.icon}
                                 eventHandlers={{
                                     click: () => setSelectedItem({ type: "client", data: marker.client })
                                 }}
@@ -403,7 +514,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                                     <div className="font-medium">{marker.client.short_name}</div>
                                     <div className="text-sm text-muted-foreground">{marker.client.city}</div>
                                 </Popup>
-                            </CircleMarker>
+                            </Marker>
                         ))}
                     </MapContainer>
                 </CardContent>
@@ -467,13 +578,14 @@ function ClientDetails({
 }: { 
     client: ClientMapData;
     onNavigate: (path: string) => void;
-    getStatusColor: (status: string) => string;
-    getStatusLabel: (status: string) => string;
+    getStatusColor: (status: ClientStatus) => string;
+    getStatusLabel: (status: ClientStatus) => string;
 }) {
     const contractBeds = client.active_contract_beds || client.planned_contract_beds || 0;
     const coveragePercent = client.total_beds && contractBeds 
         ? Math.round((contractBeds / client.total_beds) * 100) 
         : null;
+    const statusSegments = getClientStatusSegments(client);
     
     return (
         <div className="space-y-4">
@@ -496,9 +608,13 @@ function ClientDetails({
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Status</span>
-                    <Badge className={getStatusColor(client.status)}>
-                        {getStatusLabel(client.status)}
-                    </Badge>
+                    <div className="flex flex-wrap justify-end gap-2">
+                        {statusSegments.map((segment) => (
+                            <Badge key={`status-${segment.status}`} className={getStatusColor(segment.status)}>
+                                {getStatusLabel(segment.status)}
+                            </Badge>
+                        ))}
+                    </div>
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -698,6 +814,10 @@ function MapLegend() {
                         <div className="w-4 h-4 rounded-full bg-gray-400" />
                         <span className="text-sm">Wygasły / brak kontraktu</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full client-status-legend" />
+                        <span className="text-sm">Mieszane statusy kontraktów</span>
+                    </div>
                 </div>
                 <p className="text-xs text-muted-foreground pl-2">
                     Rozmiar = liczba łóżek w kontrakcie
@@ -712,6 +832,10 @@ function MapLegend() {
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-orange-600" />
                         <span className="text-sm">Kuchnia</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="map-connection-legend" />
+                        <span className="text-sm">Powiązanie kuchnia-klient</span>
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground pl-2">

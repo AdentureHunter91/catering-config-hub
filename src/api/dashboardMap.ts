@@ -11,6 +11,8 @@ export type ClientMapData = {
     planned_contract_beds: number | null;
     status: "active" | "planned" | "expired" | "none";
     contract_id: number | null;
+    kitchen_id?: number | null;
+    kitchen_ids?: number[] | null;
 };
 
 export type KitchenMapData = {
