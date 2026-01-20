@@ -71,6 +71,28 @@ $clientsSql = "
 $clientsStmt = $pdo->query($clientsSql);
 $clients = $clientsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Pobierz kitchen_ids dla każdego klienta z tabeli contract_kitchen_periods
+$kitchenIdsSql = "
+    SELECT 
+        ct.client_id,
+        GROUP_CONCAT(DISTINCT ckp.kitchen_id) AS kitchen_ids
+    FROM contracts ct
+    JOIN contract_kitchen_periods ckp ON ckp.contract_id = ct.id
+    WHERE ct.status IN ('active', 'planned')
+    GROUP BY ct.client_id
+";
+$kitchenIdsStmt = $pdo->query($kitchenIdsSql);
+$kitchenIdsMap = [];
+while ($row = $kitchenIdsStmt->fetch(PDO::FETCH_ASSOC)) {
+    $kitchenIdsMap[$row['client_id']] = array_map('intval', explode(',', $row['kitchen_ids']));
+}
+
+// Dodaj kitchen_ids do każdego klienta
+foreach ($clients as &$client) {
+    $client['kitchen_ids'] = $kitchenIdsMap[$client['id']] ?? [];
+}
+unset($client);
+
 // ==========================================
 // KUCHNIE z danymi operacyjnymi
 // ==========================================
