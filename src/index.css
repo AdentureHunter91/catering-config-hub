@@ -127,3 +127,50 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .client-status-icon {
+    background: transparent;
+    border: none;
+  }
+
+  .client-status-marker {
+    border-radius: 9999px;
+    border: 2px solid rgba(15, 23, 42, 0.4);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.25);
+  }
+
+  .client-status-legend {
+    background: conic-gradient(#22c55e 0deg 120deg, #3b82f6 120deg 240deg, #9ca3af 240deg 360deg);
+    border: 1px solid rgba(15, 23, 42, 0.4);
+  }
+
+  .map-connection-line {
+    stroke-linecap: round;
+    animation: map-connection-dash 1.6s linear infinite;
+  }
+
+  .map-connection-legend {
+    width: 28px;
+    height: 4px;
+    border-radius: 9999px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgba(245, 158, 11, 0.9) 0 10px,
+      rgba(245, 158, 11, 0) 10px 16px
+    );
+    animation: map-connection-legend 1.6s linear infinite;
+  }
+
+  @keyframes map-connection-dash {
+    to {
+      stroke-dashoffset: -20;
+    }
+  }
+
+  @keyframes map-connection-legend {
+    to {
+      background-position: 20px 0;
+    }
+  }
+}
