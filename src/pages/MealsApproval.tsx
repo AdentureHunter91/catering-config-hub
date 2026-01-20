@@ -784,15 +784,36 @@ const MealsApproval = () => {
         }
     };
 
-    const pickedFilters = useMemo(() => ({
+    const pickedFilters = useMemo(() => {
+        const applyClient = shouldApply(clientIds, clients.length);
+        const applyDept = shouldApply(departmentIds, departments.length);
+        const applyDiet = shouldApply(dietIds, diets.length);
+        const applyMeal = shouldApply(mealTypeIds, mealTypes.length);
+        const applyKitchen = shouldApply(kitchenIds, kitchens.length);
+
+        return {
+            dateFrom,
+            dateTo,
+            clientIds: applyClient ? (clientIds.map(Number) as number[]) : undefined,
+            globalDepartmentIds: applyDept ? (departmentIds.map(Number) as number[]) : undefined,
+            globalDietIds: applyDiet ? (dietIds.map(Number) as number[]) : undefined,
+            globalMealTypeIds: applyMeal ? (mealTypeIds.map(Number) as number[]) : undefined,
+            kitchenIds: applyKitchen ? (kitchenIds.map(Number) as number[]) : undefined,
+        };
+    }, [
         dateFrom,
         dateTo,
-        clientIds: clientIds.map(Number) as number[],
-        globalDepartmentIds: departmentIds.map(Number) as number[],
-        globalDietIds: dietIds.map(Number) as number[],
-        globalMealTypeIds: mealTypeIds.map(Number) as number[],
-        kitchenIds: kitchenIds.map(Number) as number[],
-    }), [dateFrom, dateTo, clientIds, departmentIds, dietIds, mealTypeIds, kitchenIds]);
+        clientIds,
+        departmentIds,
+        dietIds,
+        mealTypeIds,
+        kitchenIds,
+        clients.length,
+        departments.length,
+        diets.length,
+        mealTypes.length,
+        kitchens.length,
+    ]);
 
     return (
         <Layout pageKey="diet.meals_approval">

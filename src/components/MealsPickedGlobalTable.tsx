@@ -251,7 +251,11 @@ export default function MealsPickedGlobalTable({
     inflight.current = true;
     try {
       setError(null);
-      const data = await getMealsPickedGlobal(limit);
+      const data = await getMealsPickedGlobal({
+        limit,
+        dateFrom: filters?.dateFrom,
+        dateTo: filters?.dateTo,
+      });
       setRows(data);
     } catch (e: any) {
       setError(e?.message || "Błąd pobierania danych");
@@ -291,7 +295,12 @@ export default function MealsPickedGlobalTable({
     }, refreshMs);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshMs, limit]);
+  }, [refreshMs, limit, filters?.dateFrom, filters?.dateTo]);
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters?.dateFrom, filters?.dateTo, limit]);
 
   const clientsMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d])), [departments]);

@@ -174,7 +174,11 @@ export default function MealsPickedGlobalTotalsTable({
         inflight.current = true;
         try {
             setError(null);
-            const data = await getMealsPickedGlobal(limit);
+            const data = await getMealsPickedGlobal({
+                limit,
+                dateFrom: filters?.dateFrom,
+                dateTo: filters?.dateTo,
+            });
             setRows(data);
         } catch (e: any) {
             setError(e?.message || "Błąd pobierania danych");
@@ -209,7 +213,12 @@ export default function MealsPickedGlobalTotalsTable({
         const t = setInterval(() => reload(), refreshMs);
         return () => clearInterval(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshMs, limit]);
+    }, [refreshMs, limit, filters?.dateFrom, filters?.dateTo]);
+
+    useEffect(() => {
+        reload();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filters?.dateFrom, filters?.dateTo, limit]);
 
     const dietMap = useMemo(() => Object.fromEntries(diets.map((d) => [d.id, d])), [diets]);
 
