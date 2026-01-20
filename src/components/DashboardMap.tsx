@@ -404,7 +404,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     }, [clientMarkers]);
 
     const connectionLines = useMemo(() => {
-        const lines: { id: string; positions: [[number, number], [number, number]] }[] = [];
+        const lines: { id: string; positions: [[number, number], [number, number]]; status: "active" | "planned" | "mixed" }[] = [];
 
         clients.forEach((client) => {
             const rawKitchenIds = Array.isArray(client.kitchen_ids)
@@ -418,26 +418,43 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
             const clientCoords = clientCoordsById.get(client.id);
             if (!clientCoords) return;
 
+            // Determine line status based on contract types
+            const hasActive = (client.active_contract_beds ?? 0) > 0;
+            const hasPlanned = (client.planned_contract_beds ?? 0) > 0;
+            const lineStatus: "active" | "planned" | "mixed" = 
+                hasActive && hasPlanned ? "mixed" : 
+                hasActive ? "active" : 
+                hasPlanned ? "planned" : "active";
+
             rawKitchenIds.forEach((kitchenId, index) => {
                 const kitchenCoords = kitchenCoordsById.get(kitchenId);
                 if (!kitchenCoords) return;
 
                 lines.push({
                     id: `link-${client.id}-${kitchenId}-${index}`,
-                    positions: [kitchenCoords, clientCoords]
+                    positions: [kitchenCoords, clientCoords],
+                    status: lineStatus
                 });
             });
         });
 
         return lines;
     }, [clients, clientCoordsById, kitchenCoordsById]);
+
+    const getLineColor = (status: "active" | "planned" | "mixed") => {
+        switch (status) {
+            case "active": return "#22c55e";
+            case "planned": return "#3b82f6";
+            case "mixed": return "#8b5cf6";
+        }
+    };
     
     const getStatusColor = (status: ClientStatus) => getStatusMeta(status).badgeClass;
     const getStatusLabel = (status: ClientStatus) => getStatusMeta(status).label;
     
     if (isLoading) {
         return (
-            <Card className="h-[400px]">
+            <Card className="h-[480px]">
                 <CardContent className="p-0 h-full">
                     <Skeleton className="w-full h-full rounded-lg" />
                 </CardContent>
@@ -446,7 +463,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     }
     
     return (
-        <div className="flex gap-4 h-[400px]">
+        <div className="flex gap-4 h-[480px]">
             {/* Map */}
             <Card className="flex-1">
                 <CardContent className="p-0 h-full">
@@ -468,9 +485,9 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                                 key={line.id}
                                 positions={line.positions}
                                 pathOptions={{
-                                    color: "#f59e0b",
-                                    weight: 2,
-                                    opacity: 0.7,
+                                    color: getLineColor(line.status),
+                                    weight: 2.5,
+                                    opacity: 0.8,
                                     dashArray: "8 12",
                                     className: "map-connection-line"
                                 }}
@@ -833,14 +850,30 @@ function MapLegend() {
                         <div className="w-4 h-4 rounded-full bg-orange-500 border-2 border-orange-600" />
                         <span className="text-sm">Kuchnia</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="map-connection-legend" />
-                        <span className="text-sm">Powiązanie kuchnia-klient</span>
-                    </div>
                 </div>
                 <p className="text-xs text-muted-foreground pl-2">
                     Rozmiar = maks. osobodni (potencjał)
                 </p>
+            </div>
+            
+            <Separator />
+            
+            <div className="space-y-3">
+                <h4 className="font-medium text-sm">Połączenia kuchnia-klient</h4>
+                <div className="space-y-2 pl-2">
+                    <div className="flex items-center gap-2">
+                        <div className="map-connection-legend map-connection-active" />
+                        <span className="text-sm">Aktywny kontrakt</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="map-connection-legend map-connection-planned" />
+                        <span className="text-sm">Planowany kontrakt</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="map-connection-legend map-connection-mixed" />
+                        <span className="text-sm">Aktywny + planowany</span>
+                    </div>
+                </div>
             </div>
         </div>
     );
