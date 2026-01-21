@@ -19,12 +19,12 @@ if (isset($_SESSION["user_id"])) {
 <head>
     <meta charset="UTF-8">
     <title>Logowanie • Platforma Cateringowa</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/Login/style.css">
 </head>
 <body>
 
 <canvas id="bg"></canvas>
-<script src="background.js"></script>
+<script src="/Login/background.js"></script>
 
 <div class="login-card">
     <h2>Platforma Cateringowa</h2>
@@ -58,7 +58,7 @@ if (isset($_SESSION["user_id"])) {
         e.preventDefault();
 
         const form = new FormData(e.target);
-        const res = await fetch("login.php", {
+        const res = await fetch("/Login/login.php", {
             method: "POST",
             body: form
         });

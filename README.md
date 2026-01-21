@@ -36,6 +36,23 @@ npm i
 npm run dev
 ```
 
+## Local development (PHP + Vite)
+
+Run the backend (PHP):
+
+```sh
+php -S 127.0.0.1:8000 -t public
+```
+
+Run the frontend (Vite):
+
+```sh
+npm run dev
+```
+
+Open the app:
+- http://127.0.0.1:8080
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

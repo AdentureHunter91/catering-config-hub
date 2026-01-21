@@ -18,12 +18,12 @@ if (isset($_SESSION["user_id"])) {
 <head>
     <meta charset="UTF-8">
     <title>Rejestracja • Platforma Cateringowa</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/Login/style.css">
 </head>
 <body>
 
 <canvas id="bg"></canvas>
-<script src="background.js"></script>
+<script src="/Login/background.js"></script>
 
 <div class="login-card">
     <h2>Platforma Cateringowa</h2>
@@ -56,7 +56,7 @@ if (isset($_SESSION["user_id"])) {
         <p class="note small-text">Po rejestracji Twoje konto musi zostać aktywowane przez administratora.</p>
 
         <p class="small-text">
-            Masz konto? <a href="/Login">Zaloguj się</a>
+            Masz konto? <a href="/Login/">Zaloguj się</a>
         </p>
     </form>
 </div>
@@ -75,7 +75,7 @@ if (isset($_SESSION["user_id"])) {
         e.preventDefault();
 
         const form = new FormData(e.target);
-        const res = await fetch("register_submit.php", {
+        const res = await fetch("/Login/register_submit.php", {
             method: "POST",
             body: form
         });
@@ -108,7 +108,7 @@ if (isset($_SESSION["user_id"])) {
 
             if (seconds <= 0) {
                 clearInterval(interval);
-                window.location.href = "/Login";
+                window.location.href = "/Login/";
             }
         }, 1000);
     });
@@ -117,3 +117,4 @@ if (isset($_SESSION["user_id"])) {
 
 </body>
 </html>
+
