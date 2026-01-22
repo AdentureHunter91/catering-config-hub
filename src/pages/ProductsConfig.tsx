@@ -167,6 +167,7 @@ interface DisplaySubcategory {
 interface DisplayCategory {
   id: number;
   name: string;
+  status: "active" | "archived";
   subcategories: DisplaySubcategory[];
 }
 
@@ -314,6 +315,7 @@ const ProductsConfig = () => {
       const displayCategories: DisplayCategory[] = dbCategories.map(cat => ({
         id: cat.id,
         name: cat.name,
+        status: cat.status,
         subcategories: dbSubcategories
           .filter(sub => sub.category_id === cat.id)
           .map(sub => ({
@@ -451,6 +453,7 @@ const ProductsConfig = () => {
     const s = debouncedSearch.trim().toLowerCase();
     
     return cats
+      .filter((cat) => showArchived || cat.status === "active")
       .map((cat) => {
         const categoryMatches = s && cat.name.toLowerCase().includes(s);
         

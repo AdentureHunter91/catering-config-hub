@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Open App (external browser)",
+      "type": "pwa-msedge",
+      "request": "launch",
+      "url": "http://127.0.0.1:8080",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev: all"
+    },
+    {
+      "name": "Open App (Chrome)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:8080",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev: all"
+    }
+  ]
+}

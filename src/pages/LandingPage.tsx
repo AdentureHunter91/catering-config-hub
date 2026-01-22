@@ -12,7 +12,7 @@ import {
 const LandingPage = () => {
   const handleLogin = () => {
     const returnUrl = window.location.origin + "/dashboard";
-    window.location.href = buildAuthUrl(`Login?returnUrl=${encodeURIComponent(returnUrl)}`);
+    window.location.href = buildAuthUrl(`Login/?returnUrl=${encodeURIComponent(returnUrl)}`);
   };
 
   return (

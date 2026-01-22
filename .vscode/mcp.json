@@ -1,0 +1,32 @@
+{
+  "servers": {
+    "mysql-ro": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "./scripts/mcp-mysql.mjs"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.18",
+        "--isolated",
+        "--storage-state",
+        ".auth/storageState.json"
+      ]
+    },
+    "docs": {
+      "command": "C:\\Users\\lukasz.graczyk\\.local\\bin\\uvx.exe",
+      "args": [
+        "mcp-server-docs==0.1.6",
+        "catering=./"
+      ]
+    },
+    "vite": {
+      "type": "sse",
+      "url": "http://localhost:8080/__mcp/sse"
+    }
+  }
+}

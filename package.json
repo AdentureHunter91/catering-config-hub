@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/generate-docs.mjs",
+    "prebuild": "node scripts/generate-docs.mjs",
+    "prebuild:dev": "node scripts/generate-docs.mjs",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -83,6 +86,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "6.4.1",
+    "vite-plugin-mcp": "0.2.4"
   }
 }

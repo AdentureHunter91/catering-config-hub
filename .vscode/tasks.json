@@ -1,0 +1,78 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: php",
+      "type": "shell",
+      "command": "php -S 127.0.0.1:8000 -t public",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "message": 1,
+            "kind": "file"
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "PHP .* Development Server",
+          "endsPattern": "Development Server .* started"
+        }
+      }
+    },
+    {
+      "label": "dev: vite",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "message": 1,
+            "kind": "file"
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:"
+        }
+      }
+    },
+    {
+      "label": "dev: all",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "dependsOn": [
+        "dev: php",
+        "dev: vite"
+      ],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "mcp: check vite sse",
+      "type": "shell",
+      "command": "powershell -NoProfile -Command \"try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/__mcp/sse -TimeoutSec 2).StatusCode } catch { $_.Exception.Message; exit 1 }\"",
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: all + mcp check",
+      "dependsOn": [
+        "dev: all",
+        "mcp: check vite sse"
+      ],
+      "dependsOrder": "sequence",
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}

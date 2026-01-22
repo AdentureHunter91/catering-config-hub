@@ -53,6 +53,18 @@ npm run dev
 Open the app:
 - http://127.0.0.1:8080
 
+## MCP quick start (5 lines)
+1) Fill `MYSQL_*` in `.env` (use read-only `mcp_ro`).
+2) Start PHP + Vite (`dev: all` task or two terminals).
+3) Point your MCP client to `.vscode/mcp.json`.
+4) Check MySQL MCP by listing schemas or running a `SELECT`.
+5) Check Vite MCP at `http://127.0.0.1:8080/__mcp/sse` (HTTP 200).
+
+## MCP lifecycle (when you return to the project)
+- `mysql-ro`, `docs`, `playwright` are started by VS Code on demand when you select them or use them in Chat.
+- `vite` MCP works only while `npm run dev` is running (SSE endpoint).
+- If Playwright auth expires, regenerate `.auth/storageState.json`.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
