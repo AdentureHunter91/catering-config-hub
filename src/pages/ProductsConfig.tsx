@@ -161,6 +161,7 @@ interface DisplaySubcategory {
   id: number;
   category_id: number;
   name: string;
+  status: "active" | "archived";
   products: DisplayProduct[];
 }
 
@@ -322,6 +323,7 @@ const ProductsConfig = () => {
             id: sub.id,
             category_id: sub.category_id,
             name: sub.name,
+            status: sub.status,
             products: dbProducts
               .filter(prod => prod.subcategory_id === sub.id)
               .map(prod => ({
@@ -788,6 +790,12 @@ const ProductsConfig = () => {
                             <Folder className="h-4 w-4 text-blue-600" />
                           )}
                           <span className="font-semibold">{category.name}</span>
+                          {category.status === "archived" && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              <Archive className="h-3 w-3 mr-1" />
+                              Archiwalna
+                            </Badge>
+                          )}
                           <Badge variant="secondary" className="ml-auto">
                             {category.subcategories.length} subkat.
                           </Badge>
@@ -813,6 +821,12 @@ const ProductsConfig = () => {
                                   )}
                                   <FolderOpen className="h-4 w-4 text-purple-500" />
                                   <span className="font-medium">{subcategory.name}</span>
+                                  {subcategory.status === "archived" && (
+                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                      <Archive className="h-3 w-3 mr-1" />
+                                      Archiwalna
+                                    </Badge>
+                                  )}
                                   <Badge variant="outline" className="ml-auto">
                                     {subcategory.products.length} prod.
                                   </Badge>

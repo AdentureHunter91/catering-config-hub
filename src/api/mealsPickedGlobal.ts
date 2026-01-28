@@ -40,6 +40,9 @@ export type PickedGlobalRow = {
 
     contract_id: number | null;
     kitchen_id: number | null;
+
+    exclusions_json?: string | null;
+    comment_text?: string | null;
 };
 
 type MealsPickedGlobalParams = {

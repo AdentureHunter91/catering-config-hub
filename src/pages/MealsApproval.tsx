@@ -23,6 +23,11 @@ import { buildApiUrl } from "@/api/apiBase";
 
 /** ===== helpers ===== */
 const apiUrl = (p: string) => buildApiUrl(p);
+const getLocalISODate = () => {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60_000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+};
 
 async function fetchJsonAny(url: string): Promise<any> {
     const res = await fetch(url, { credentials: "include" });
@@ -377,7 +382,7 @@ const MealsApproval = () => {
     const refreshMs = useMemo(() => Math.max(5, refreshSec) * 1000, [refreshSec]);
 
     /** ===== global filters ===== */
-    const [dateFrom, setDateFrom] = useState<string>("");
+    const [dateFrom, setDateFrom] = useState<string>(() => getLocalISODate());
     const [dateTo, setDateTo] = useState<string>("");
 
     // FILTRUJEMY PO GLOBAL ID
@@ -740,7 +745,7 @@ const MealsApproval = () => {
     const pendingCount = useMemo(() => rows.filter((r) => r.status === "pending_approval").length, [rows]);
 
     const resetFilters = () => {
-        setDateFrom("");
+        setDateFrom(getLocalISODate());
         setDateTo("");
         setClientIds(clientOptions.map((o) => o.value));
         setDepartmentIds(deptOptions.map((o) => o.value));

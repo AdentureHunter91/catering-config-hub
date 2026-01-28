@@ -12,29 +12,47 @@ if ($limit <= 0 || $limit > 200000) $limit = 50000;
 
 $sql = "
 SELECT
-  meal_date,
-  client_id,
+  v.meal_date,
+  v.client_id,
 
-  client_department_id,
-  client_diet_id,
-  client_meal_type_id,
+  v.client_department_id,
+  v.client_diet_id,
+  v.client_meal_type_id,
 
-  global_department_id,
-  global_diet_id,
-  global_meal_type_id,
+  v.global_department_id,
+  v.global_diet_id,
+  v.global_meal_type_id,
 
-  variant_label,
+  v.variant_label,
 
-  quantity,
-  status,
-  is_after_cutoff,
-  cutoff_at,
-  updated_at,
-  entry_id,
+  v.quantity,
+  v.status,
+  v.is_after_cutoff,
+  v.cutoff_at,
+  v.updated_at,
+  v.entry_id,
 
-  contract_id,
-  kitchen_id
-FROM srv83804_client.v_meal_entries_picked_global
+  v.contract_id,
+  v.kitchen_id,
+
+  mv.exclusions_json,
+  mv.comment_text
+FROM srv83804_client.v_meal_entries_picked_global v
+LEFT JOIN (
+  SELECT
+    client_id,
+    meal_date,
+    department_id,
+    diet_id,
+    MAX(exclusions_json) AS exclusions_json,
+    MAX(comment_text) AS comment_text
+  FROM srv83804_client.meal_variants
+  GROUP BY client_id, meal_date, department_id, diet_id
+) mv
+  ON mv.client_id = v.client_id
+ AND mv.meal_date = v.meal_date
+ AND mv.department_id = v.client_department_id
+ AND mv.diet_id = v.client_diet_id
 ORDER BY meal_date DESC, client_id, global_department_id, global_diet_id, global_meal_type_id, variant_label
 LIMIT :lim
 ";

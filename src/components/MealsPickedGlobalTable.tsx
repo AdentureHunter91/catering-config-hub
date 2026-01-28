@@ -178,6 +178,8 @@ type MatrixRow = {
   client_diet_id: number | null;
 
   variant_label: string;
+  exclusions_json?: string | null;
+  comment_text?: string | null;
   cells: Record<string, number>;
   sum: number;
 };
@@ -489,6 +491,8 @@ export default function MealsPickedGlobalTable({
           client_department_id: r.client_department_id ?? null,
           client_diet_id: r.client_diet_id ?? null,
           variant_label: variant,
+          exclusions_json: r.exclusions_json ?? null,
+          comment_text: r.comment_text ?? null,
           cells: {},
           sum: 0,
         });
@@ -497,6 +501,8 @@ export default function MealsPickedGlobalTable({
       const mr = g.rowsMap.get(rowKey)!;
       if (mr.client_department_id == null && r.client_department_id != null) mr.client_department_id = r.client_department_id;
       if (mr.client_diet_id == null && r.client_diet_id != null) mr.client_diet_id = r.client_diet_id;
+      if (mr.exclusions_json == null && r.exclusions_json != null) mr.exclusions_json = r.exclusions_json;
+      if (mr.comment_text == null && r.comment_text != null) mr.comment_text = r.comment_text;
 
       const mealId = r.global_meal_type_id;
       if (mealId != null) {
@@ -566,9 +572,10 @@ export default function MealsPickedGlobalTable({
                 // Desktop: wracamy do "komfortowych" procentów.
                 const W_DEPT = isMdUp ? 16 : 13;   // %
                 const W_DIET = isMdUp ? 18 : 14;   // %
-                const W_VARIANT = isMdUp ? 14 : 12; // %  wężej
+                const W_VARIANT = isMdUp ? 12 : 11; // %  wężej
+                const W_COMMENT = isMdUp ? 12 : 11; // %
                 const W_SUM = isMdUp ? 6 : 8;      // %
-                const remaining = Math.max(0, 100 - (W_DEPT + W_DIET + W_VARIANT + W_SUM));
+                const remaining = Math.max(0, 100 - (W_DEPT + W_DIET + W_VARIANT + W_COMMENT + W_SUM));
                 const mealW = headerMeals.length ? remaining / headerMeals.length : 0;
 
                 // MinWidth tylko na >= md (żeby mobile nie musiał scrollować przez sztuczne minWidth)
@@ -622,6 +629,7 @@ export default function MealsPickedGlobalTable({
                             <col style={{ width: `${W_DEPT}%` }} />
                             <col style={{ width: `${W_DIET}%` }} />
                             <col style={{ width: `${W_VARIANT}%` }} />
+                            <col style={{ width: `${W_COMMENT}%` }} />
                             {headerMeals.map((m) => (
                                 <col key={m.id} style={{ width: `${mealW}%` }} />
                             ))}
@@ -633,6 +641,7 @@ export default function MealsPickedGlobalTable({
                             <th className="p-3 text-left text-xs font-semibold text-foreground truncate">Oddział</th>
                             <th className="p-3 text-left text-xs font-semibold text-foreground truncate">Dieta</th>
                             <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Wariant</th>
+                            <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Komentarz</th>
 
                             {/* ✅ Pełne nazwy bez "..." na >= md: zawijamy w 2 linie.
                             ✅ Na mobile: pokazujemy tylko short (żeby nie pchać scrolla). */}
@@ -680,9 +689,7 @@ export default function MealsPickedGlobalTable({
                                     }
                                     : { name: "", short: "" });
 
-                            const label = (r.variant_label ?? "").trim();
-                            const variant = label ? variantMap[label] : null;
-                            const exclusions = label ? parseExclusions(variant?.exclusions_json ?? null) : [];
+                            const exclusions = parseExclusions(r.exclusions_json ?? null);
 
                             return (
                                 <tr
@@ -713,6 +720,14 @@ export default function MealsPickedGlobalTable({
                                     ) : null}
                                   </td>
 
+                                  <td className="p-2 sm:p-3 text-sm align-top text-foreground">
+                                    {r.comment_text ? (
+                                        <div className="text-[11px] sm:text-xs whitespace-normal break-words leading-snug text-foreground">
+                                          {r.comment_text}
+                                        </div>
+                                    ) : null}
+                                  </td>
+
                                   {visibleMealTypes.map((mt) => {
                                     const v = r.cells[String(mt.id)] ?? 0;
                                     return (
@@ -738,7 +753,7 @@ export default function MealsPickedGlobalTable({
 
                           <tfoot>
                           <tr className="border-t bg-muted/20">
-                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={3}>
+                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={4}>
                               Suma
                             </td>
 

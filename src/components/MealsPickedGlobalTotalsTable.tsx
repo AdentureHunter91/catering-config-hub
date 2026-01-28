@@ -131,6 +131,8 @@ type Props = {
 type AggRow = {
     global_diet_id: number | null;
     variant_label: string; // "" dla braku wariantu
+    exclusions_json?: string | null;
+    comment_text?: string | null;
     cells: Record<string, number>; // mealTypeId -> qty
     sum: number;
 };
@@ -368,12 +370,20 @@ export default function MealsPickedGlobalTotalsTable({
                 map.set(k, {
                     global_diet_id: dietId,
                     variant_label: variant,
+                    exclusions_json: r.exclusions_json ?? null,
+                    comment_text: r.comment_text ?? null,
                     cells: {},
                     sum: 0,
                 });
             }
 
             const ar = map.get(k)!;
+            if (ar.exclusions_json == null && r.exclusions_json != null) {
+                ar.exclusions_json = r.exclusions_json;
+            }
+            if (ar.comment_text == null && r.comment_text != null) {
+                ar.comment_text = r.comment_text;
+            }
             const mealId = r.global_meal_type_id;
             if (mealId != null) {
                 ar.cells[String(mealId)] = (ar.cells[String(mealId)] ?? 0) + (Number(r.quantity) || 0);
@@ -433,9 +443,10 @@ export default function MealsPickedGlobalTotalsTable({
 
     // layout % (bez oddziału; tylko Dieta + Wariant + posiłki + suma)
     const W_DIET = isMdUp ? 22 : 18;
-    const W_VARIANT = isMdUp ? 14 : 14;
+    const W_VARIANT = isMdUp ? 12 : 12;
+    const W_COMMENT = isMdUp ? 12 : 12;
     const W_SUM = isMdUp ? 7 : 9;
-    const remaining = Math.max(0, 100 - (W_DIET + W_VARIANT + W_SUM));
+    const remaining = Math.max(0, 100 - (W_DIET + W_VARIANT + W_COMMENT + W_SUM));
     const mealW = headerMeals.length ? remaining / headerMeals.length : 0;
 
     // minWidth tylko na md+ (tak jak w poprzednim)
@@ -467,6 +478,7 @@ export default function MealsPickedGlobalTotalsTable({
                         <colgroup>
                             <col style={{ width: `${W_DIET}%` }} />
                             <col style={{ width: `${W_VARIANT}%` }} />
+                            <col style={{ width: `${W_COMMENT}%` }} />
                             {headerMeals.map((m) => (
                                 <col key={m.id} style={{ width: `${mealW}%` }} />
                             ))}
@@ -477,6 +489,7 @@ export default function MealsPickedGlobalTotalsTable({
                         <tr className="border-b">
                             <th className="p-3 text-left text-xs font-semibold text-foreground truncate">Dieta</th>
                             <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Wariant</th>
+                            <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Komentarz</th>
 
                             {headerMeals.map((m) => {
                                 const mobileText = (m.short || m.name || "").trim();
@@ -504,9 +517,7 @@ export default function MealsPickedGlobalTotalsTable({
                             const d = dietLabel(r.global_diet_id);
                             const dTextLg = d.name && d.short ? `${d.name} (${d.short})` : d.name || d.short || "—";
 
-                            const label = (r.variant_label ?? "").trim();
-                            const variant = label ? variantMap[label] : null;
-                            const exclusions = label ? parseExclusions(variant?.exclusions_json ?? null) : [];
+                            const exclusions = parseExclusions(r.exclusions_json ?? null);
 
                             return (
                                 <tr key={`${r.global_diet_id ?? 0}-${r.variant_label}-${idx}`} className="border-b last:border-0">
@@ -522,6 +533,14 @@ export default function MealsPickedGlobalTotalsTable({
                                                 {exclusions.map((x, i) => (
                                                     <div key={i}>- {x}</div>
                                                 ))}
+                                            </div>
+                                        ) : null}
+                                    </td>
+
+                                    <td className="p-2 sm:p-3 text-sm align-top text-foreground">
+                                        {r.comment_text ? (
+                                            <div className="text-[11px] sm:text-xs whitespace-normal break-words leading-snug text-foreground">
+                                                {r.comment_text}
                                             </div>
                                         ) : null}
                                     </td>
@@ -549,7 +568,7 @@ export default function MealsPickedGlobalTotalsTable({
 
                         <tfoot>
                         <tr className="border-t bg-muted/20">
-                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={2}>
+                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={3}>
                                 Suma
                             </td>
 
