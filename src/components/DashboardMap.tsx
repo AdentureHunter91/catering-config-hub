@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Marker, Polyline, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Polyline, Popup, useMap, useMapEvent } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,8 @@ import {
     ExternalLink,
     MapPin,
     TrendingUp,
-    Percent
+    Percent,
+    Plus
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { ClientMapData, KitchenMapData } from "@/api/dashboardMap";
@@ -203,6 +204,27 @@ function getCityCoordinates(city: string): [number, number] | null {
     return null;
 }
 
+const toCityKey = (city: string) => city.trim().toLowerCase();
+
+function getOffsetPosition(
+    base: [number, number],
+    index: number,
+    count: number,
+    radiusDeg: number,
+    angleOffset: number
+): [number, number] {
+    if (!radiusDeg) return base;
+
+    const safeCount = Math.max(1, count);
+    const safeIndex = Math.max(0, index);
+    const angle = (safeIndex / safeCount) * Math.PI * 2 + angleOffset;
+    const latRad = (base[0] * Math.PI) / 180;
+    const latOffset = Math.sin(angle) * radiusDeg;
+    const lngOffset = (Math.cos(angle) * radiusDeg) / Math.max(0.2, Math.cos(latRad));
+
+    return [base[0] + latOffset, base[1] + lngOffset];
+}
+
 // Map bounds fitter component
 function MapBoundsFitter({ positions }: { positions: [number, number][] }) {
     const map = useMap();
@@ -228,6 +250,12 @@ function MapBoundsFitter({ positions }: { positions: [number, number][] }) {
     
     return null;
 }
+
+function MapClickReset({ onReset }: { onReset: () => void }) {
+    useMapEvent("click", () => onReset());
+    return null;
+}
+
 
 type SelectedItem = 
     | { type: "client"; data: ClientMapData }
@@ -259,7 +287,12 @@ interface DashboardMapProps {
     clients: ClientMapData[];
     kitchens: KitchenMapData[];
     isLoading: boolean;
+    onSelectionChange?: (selection: MapSelection | null) => void;
 }
+
+export type MapSelection =
+    | { type: "client"; id: number; name: string }
+    | { type: "kitchen"; id: number; name: string };
 
 const STATUS_META: Record<ClientStatus, { label: string; color: string; ringColor: string; badgeClass: string }> = {
     active: { label: "Aktywny", color: "#22c55e", ringColor: "#16a34a", badgeClass: "bg-green-500" },
@@ -311,9 +344,56 @@ const buildConicGradient = (segments: ClientStatusSegment[]) => {
     return `conic-gradient(${stops.join(", ")})`;
 };
 
-export default function DashboardMap({ clients, kitchens, isLoading }: DashboardMapProps) {
+export default function DashboardMap({ clients, kitchens, isLoading, onSelectionChange }: DashboardMapProps) {
     const navigate = useNavigate();
     const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
+    const [quickOpen, setQuickOpen] = useState(false);
+
+    useEffect(() => {
+        if (!onSelectionChange) return;
+        if (!selectedItem) {
+            onSelectionChange(null);
+            return;
+        }
+        if (selectedItem.type === "client") {
+            onSelectionChange({
+                type: "client",
+                id: selectedItem.data.id,
+                name: selectedItem.data.short_name || selectedItem.data.full_name
+            });
+            return;
+        }
+        onSelectionChange({
+            type: "kitchen",
+            id: selectedItem.data.id,
+            name: selectedItem.data.name
+        });
+    }, [onSelectionChange, selectedItem]);
+
+    const cityMeta = useMemo(() => {
+        const map = new Map<string, { clientIds: number[]; kitchenIds: number[] }>();
+
+        clients.forEach((client) => {
+            if (!client.city) return;
+            const key = toCityKey(client.city);
+            if (!map.has(key)) map.set(key, { clientIds: [], kitchenIds: [] });
+            map.get(key)!.clientIds.push(client.id);
+        });
+
+        kitchens.forEach((kitchen) => {
+            if (!kitchen.city) return;
+            const key = toCityKey(kitchen.city);
+            if (!map.has(key)) map.set(key, { clientIds: [], kitchenIds: [] });
+            map.get(key)!.kitchenIds.push(kitchen.id);
+        });
+
+        for (const entry of map.values()) {
+            entry.clientIds.sort((a, b) => a - b);
+            entry.kitchenIds.sort((a, b) => a - b);
+        }
+
+        return map;
+    }, [clients, kitchens]);
     
     // Calculate max values for scaling
     const maxClientBeds = useMemo(() => {
@@ -338,6 +418,14 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
             const coords = getCityCoordinates(client.city);
             if (!coords) return;
 
+            const cityKey = toCityKey(client.city);
+            const meta = cityMeta.get(cityKey);
+            const clientIndex = meta ? meta.clientIds.indexOf(client.id) : 0;
+            const clientCount = meta ? meta.clientIds.length : 1;
+            const kitchenCount = meta ? meta.kitchenIds.length : 0;
+            const clientRadius = clientCount > 1 || kitchenCount > 0 ? 0.015 : 0;
+            const positionedCoords = getOffsetPosition(coords, clientIndex, clientCount, clientRadius, 0);
+
             const beds = client.active_contract_beds || client.planned_contract_beds || client.total_beds || 0;
             const radius = Math.max(8, Math.min(30, (beds / maxClientBeds) * 25 + 8));
             const diameter = radius * 2;
@@ -354,7 +442,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
 
             markers.push({
                 client,
-                coords,
+                coords: positionedCoords,
                 radius,
                 beds,
                 segments,
@@ -365,15 +453,20 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
         });
 
         return markers;
-    }, [clients, maxClientBeds]);
+    }, [clients, cityMeta, maxClientBeds]);
     
     const kitchenMarkers = useMemo(() => {
         return kitchens.map(kitchen => {
             const coords = getCityCoordinates(kitchen.city);
             if (!coords) return null;
-            
-            // Offset kitchens slightly so they don't overlap with clients in same city
-            const offsetCoords: [number, number] = [coords[0] + 0.02, coords[1] - 0.02];
+
+            const cityKey = toCityKey(kitchen.city);
+            const meta = cityMeta.get(cityKey);
+            const kitchenIndex = meta ? meta.kitchenIds.indexOf(kitchen.id) : 0;
+            const kitchenCount = meta ? meta.kitchenIds.length : 1;
+            const clientCount = meta ? meta.clientIds.length : 0;
+            const kitchenRadius = kitchenCount > 1 || clientCount > 0 ? 0.03 : 0;
+            const offsetCoords = getOffsetPosition(coords, kitchenIndex, kitchenCount, kitchenRadius, Math.PI / 6);
             
             const capacity = kitchen.max_osobodni || kitchen.current_osobodni || 0;
             const radius = Math.max(12, Math.min(35, (capacity / maxKitchenOsobodni) * 28 + 10));
@@ -431,7 +524,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                 icon
             };
         }).filter(Boolean);
-    }, [kitchens, maxKitchenOsobodni]);
+    }, [kitchens, cityMeta, maxKitchenOsobodni]);
     
     // Collect all positions for bounds
     const allPositions = useMemo(() => {
@@ -450,7 +543,11 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     }, [clientMarkers]);
 
     const connectionLines = useMemo(() => {
-        const lines: { id: string; positions: [[number, number], [number, number]]; status: "active" | "planned" | "mixed" }[] = [];
+        const lines: {
+            id: string;
+            positions: [[number, number], [number, number]];
+            status: "active" | "planned" | "mixed";
+        }[] = [];
 
         clients.forEach((client) => {
             const rawKitchenIds = Array.isArray(client.kitchen_ids)
@@ -494,7 +591,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
             case "mixed": return "#8b5cf6";
         }
     };
-    
+
     const getStatusColor = (status: ClientStatus) => getStatusMeta(status).badgeClass;
     const getStatusLabel = (status: ClientStatus) => getStatusMeta(status).label;
     
@@ -509,10 +606,55 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
     }
     
     return (
-        <div className="flex gap-4 h-[480px]">
+        <div className="flex flex-col gap-4 h-[528px] lg:flex-row">
             {/* Map */}
-            <Card className="flex-1">
-                <CardContent className="p-0 h-full">
+            <Card className="flex-1 min-h-[320px] lg:min-h-0">
+                <CardContent className="relative p-0 h-full">
+                    <div
+                        className="absolute right-3 top-3 z-[1000] pointer-events-auto"
+                        onPointerDownCapture={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="relative">
+                            <Button
+                                variant="secondary"
+                                size="icon"
+                                className="h-10 w-10 rounded-full bg-background/90 shadow-sm"
+                                aria-label="Szybkie akcje"
+                                onClick={() => setQuickOpen((prev) => !prev)}
+                            >
+                                <Plus className="h-5 w-5" />
+                            </Button>
+                            {quickOpen && (
+                                <div
+                                    className="absolute right-0 mt-2 w-[180px] rounded-md border border-border bg-popover p-1 shadow-lg"
+                                    onPointerDownCapture={(event) => event.stopPropagation()}
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    <button
+                                        type="button"
+                                        className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                        onClick={() => {
+                                            setQuickOpen(false);
+                                            navigate("/klienci/nowy");
+                                        }}
+                                    >
+                                        Nowy klient
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                        onClick={() => {
+                                            setQuickOpen(false);
+                                            navigate("/kontrakty/nowy");
+                                        }}
+                                    >
+                                        Nowy kontrakt
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     <MapContainer
                         center={[52.0, 19.0]}
                         zoom={6}
@@ -525,6 +667,10 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
                         />
                         
                         {allPositions.length > 0 && <MapBoundsFitter positions={allPositions} />}
+                        <MapClickReset onReset={() => {
+                            setSelectedItem(null);
+                            setQuickOpen(false);
+                        }} />
 
                         {connectionLines.map((line) => (
                             <Polyline
@@ -578,7 +724,7 @@ export default function DashboardMap({ clients, kitchens, isLoading }: Dashboard
             </Card>
             
             {/* Details Panel */}
-            <Card className="w-80 flex flex-col">
+            <Card className="w-full flex flex-col lg:w-80">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                         {selectedItem ? (
@@ -710,10 +856,10 @@ function ClientDetails({
                     variant="outline" 
                     size="sm" 
                     className="w-full"
-                    onClick={() => onNavigate(`/settings/clients/${client.id}`)}
+                    onClick={() => onNavigate(`/klienci/${client.id}`)}
                 >
                     <Building2 className="h-4 w-4 mr-2" />
-                    Przejdź do klienta
+                    Zarządzaj klientem
                     <ExternalLink className="h-3 w-3 ml-auto" />
                 </Button>
                 
@@ -722,10 +868,10 @@ function ClientDetails({
                         variant="outline" 
                         size="sm" 
                         className="w-full"
-                        onClick={() => onNavigate(`/settings/contracts/${client.contract_id}`)}
+                        onClick={() => onNavigate(`/kontrakty/${client.contract_id}`)}
                     >
                         <FileText className="h-4 w-4 mr-2" />
-                        Przejdź do kontraktu
+                        Zarządzaj kontraktem
                         <ExternalLink className="h-3 w-3 ml-auto" />
                     </Button>
                 )}
@@ -837,10 +983,10 @@ function KitchenDetails({
                 variant="outline" 
                 size="sm" 
                 className="w-full"
-                onClick={() => onNavigate(`/settings/kitchens/${kitchen.id}`)}
+                onClick={() => onNavigate(`/kuchnie/${kitchen.id}`)}
             >
                 <ChefHat className="h-4 w-4 mr-2" />
-                Przejdź do kuchni
+                Zarządzaj kuchnią
                 <ExternalLink className="h-3 w-3 ml-auto" />
             </Button>
         </div>

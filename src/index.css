@@ -203,7 +203,6 @@ All colors MUST be HSL.
 
   .map-connection-line {
     stroke-linecap: round;
-    animation: map-connection-dash 1.6s linear infinite;
   }
 
   .map-connection-legend {
@@ -235,12 +234,6 @@ All colors MUST be HSL.
       rgba(139, 92, 246, 0.9) 0 10px,
       rgba(139, 92, 246, 0) 10px 16px
     );
-  }
-
-  @keyframes map-connection-dash {
-    to {
-      stroke-dashoffset: -20;
-    }
   }
 
   @keyframes map-connection-legend {
