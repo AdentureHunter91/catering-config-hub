@@ -133,6 +133,7 @@ type AggRow = {
     variant_label: string; // "" dla braku wariantu
     exclusions_json?: string | null;
     comment_text?: string | null;
+    extra_packaging_count?: number | null;
     cells: Record<string, number>; // mealTypeId -> qty
     sum: number;
 };
@@ -372,6 +373,7 @@ export default function MealsPickedGlobalTotalsTable({
                     variant_label: variant,
                     exclusions_json: r.exclusions_json ?? null,
                     comment_text: r.comment_text ?? null,
+                    extra_packaging_count: r.extra_packaging_count ?? null,
                     cells: {},
                     sum: 0,
                 });
@@ -383,6 +385,9 @@ export default function MealsPickedGlobalTotalsTable({
             }
             if (ar.comment_text == null && r.comment_text != null) {
                 ar.comment_text = r.comment_text;
+            }
+            if (ar.extra_packaging_count == null && r.extra_packaging_count != null) {
+                ar.extra_packaging_count = r.extra_packaging_count;
             }
             const mealId = r.global_meal_type_id;
             if (mealId != null) {
@@ -445,8 +450,9 @@ export default function MealsPickedGlobalTotalsTable({
     const W_DIET = isMdUp ? 22 : 18;
     const W_VARIANT = isMdUp ? 12 : 12;
     const W_COMMENT = isMdUp ? 12 : 12;
+    const W_PACK = isMdUp ? 8 : 10;
     const W_SUM = isMdUp ? 7 : 9;
-    const remaining = Math.max(0, 100 - (W_DIET + W_VARIANT + W_COMMENT + W_SUM));
+    const remaining = Math.max(0, 100 - (W_DIET + W_VARIANT + W_COMMENT + W_PACK + W_SUM));
     const mealW = headerMeals.length ? remaining / headerMeals.length : 0;
 
     // minWidth tylko na md+ (tak jak w poprzednim)
@@ -479,6 +485,7 @@ export default function MealsPickedGlobalTotalsTable({
                             <col style={{ width: `${W_DIET}%` }} />
                             <col style={{ width: `${W_VARIANT}%` }} />
                             <col style={{ width: `${W_COMMENT}%` }} />
+                            <col style={{ width: `${W_PACK}%` }} />
                             {headerMeals.map((m) => (
                                 <col key={m.id} style={{ width: `${mealW}%` }} />
                             ))}
@@ -490,6 +497,7 @@ export default function MealsPickedGlobalTotalsTable({
                             <th className="p-3 text-left text-xs font-semibold text-foreground truncate">Dieta</th>
                             <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Wariant</th>
                             <th className="p-2 sm:p-3 text-left text-xs font-semibold text-foreground truncate">Komentarz</th>
+                            <th className="p-2 sm:p-3 text-center text-xs font-semibold text-foreground truncate">Opak.</th>
 
                             {headerMeals.map((m) => {
                                 const mobileText = (m.short || m.name || "").trim();
@@ -545,6 +553,10 @@ export default function MealsPickedGlobalTotalsTable({
                                         ) : null}
                                     </td>
 
+                                    <td className="p-2 sm:p-3 text-sm text-center text-foreground">
+                                        {r.extra_packaging_count ?? "—"}
+                                    </td>
+
                                     {visibleMealTypes.map((mt) => {
                                         const v = r.cells[String(mt.id)] ?? 0;
                                         return (
@@ -568,7 +580,7 @@ export default function MealsPickedGlobalTotalsTable({
 
                         <tfoot>
                         <tr className="border-t bg-muted/20">
-                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={3}>
+                            <td className="p-3 text-sm font-semibold text-foreground" colSpan={4}>
                                 Suma
                             </td>
 

@@ -43,6 +43,7 @@ export type PickedGlobalRow = {
 
     exclusions_json?: string | null;
     comment_text?: string | null;
+    extra_packaging_count?: number | null;
 };
 
 type MealsPickedGlobalParams = {

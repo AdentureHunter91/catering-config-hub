@@ -162,16 +162,3 @@
 | `/Login/register_submit.php` | — | — |
 
 _Note: endpoint usage is detected heuristically from `src/` and may require manual verification._
-
-## Dashboard map roadmap
-Potential improvements for future iterations of the dashboard map:
-- Geocoding + cached `lat/lng` in DB for address-level accuracy (no more city-only markers).
-- Filters/layers (status, type, active vs planned, capacity ranges).
-- City-level aggregation badges instead of full clustering.
-- Hover highlight of connections (kitchen -> client) and quick isolate controls.
-- Legend as a control panel (toggles, filters, status switches).
-- Distance tools (range from kitchen to clients, nearest-kitchen highlight).
-- Capacity/utilization overlays (heatmap or choropleth by area).
-- Time view (snapshot by date, or simple timeline for changes).
-- Quick search + auto-zoom to entity.
-- Export current map view (PNG) + shareable link with filters.

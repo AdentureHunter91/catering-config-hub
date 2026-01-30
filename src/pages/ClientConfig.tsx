@@ -83,6 +83,12 @@ import {
   ClientContact,
 } from "@/api/clientContacts";
 
+import {
+  getClientVisibilityConfig,
+  updateClientVisibilityConfig,
+  ClientVisibilityConfig,
+} from "@/api/clientVisibilityConfig";
+
 
 type ContractItem = {
   id: number;
@@ -116,6 +122,7 @@ const ClientConfig = () => {
   const [clientDepartmentDiets, setClientDepartmentDiets] = useState<ClientDepartmentDiet[]>([]);
   const [clientMealTypes, setClientMealTypes] = useState([]);
   const [contacts, setContacts] = useState<ClientContact[]>([]);
+  const [clientVisibilityConfig, setClientVisibilityConfig] = useState<ClientVisibilityConfig[]>([]);
 
 
   const [loading, setLoading] = useState(true);
@@ -142,8 +149,9 @@ const ClientConfig = () => {
       getClientDepartmentDiets(clientId),
       getClientMealTypes(clientId),
       getClientContacts(clientId),
+      getClientVisibilityConfig(clientId),
     ])
-        .then(([client, kontrakty, deps, cDeps, dts, cDts, cddList, cMealTypes, cContacts]) => {
+        .then(([client, kontrakty, deps, cDeps, dts, cDts, cddList, cMealTypes, cContacts, cVisibility]) => {
           setForm({
             id: client.id,
             short_name: client.short_name,
@@ -162,6 +170,7 @@ const ClientConfig = () => {
           setClientDepartmentDiets(cddList ?? []);
           setClientMealTypes(cMealTypes ?? []);
           setContacts(cContacts ?? []);
+          setClientVisibilityConfig(cVisibility ?? []);
         })
         .finally(() => setLoading(false));
   }, [id, isNew]);
@@ -639,6 +648,41 @@ const ClientConfig = () => {
       );
     } catch (e) {
       console.error("Błąd zapisu posiłku klienta", e);
+    }
+  };
+
+  // ------------------------------
+  // WIDOCZNOŚĆ PANELI — HANDLERY
+  // ------------------------------
+
+  const handleToggleVisibility = async (row: ClientVisibilityConfig) => {
+    if (!form.id) return;
+
+    const nextActive: 0 | 1 = row.is_active === 1 ? 0 : 1;
+
+    setClientVisibilityConfig((prev) =>
+      prev.map((item) =>
+        item.visibility_name === row.visibility_name
+          ? { ...item, is_active: nextActive }
+          : item
+      )
+    );
+
+    try {
+      await updateClientVisibilityConfig({
+        client_id: form.id,
+        visibility_name: row.visibility_name,
+        is_active: nextActive,
+      });
+    } catch (e) {
+      console.error("Błąd zapisu widoczności panelu klienta", e);
+      setClientVisibilityConfig((prev) =>
+        prev.map((item) =>
+          item.visibility_name === row.visibility_name
+            ? { ...item, is_active: row.is_active }
+            : item
+        )
+      );
     }
   };
 
@@ -1538,6 +1582,78 @@ const ClientConfig = () => {
           </div>
         </Card>
 
+        {/* Sekcja: Widoczność paneli klienta */}
+        {!isNew && (
+          <Card className="mb-6">
+            <div className="border-b p-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                Widoczność paneli klienta
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Włączaj lub wyłączaj panele widoczne dla tego klienta.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Panel
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium text-foreground">
+                      Kod
+                    </th>
+                    <th className="px-6 py-3 text-center font-medium text-foreground">
+                      Widoczny
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {clientVisibilityConfig.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-6 py-4 text-sm text-muted-foreground"
+                      >
+                        Brak zdefiniowanych paneli do konfiguracji.
+                      </td>
+                    </tr>
+                  )}
+
+                  {clientVisibilityConfig.map((row) => {
+                    const label =
+                      row.visibility_label && row.visibility_label.trim().length > 0
+                        ? row.visibility_label
+                        : row.visibility_name;
+
+                    return (
+                      <tr
+                        key={row.visibility_name}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-foreground">
+                            {label}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-muted-foreground">
+                          {row.visibility_name}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Switch
+                            checked={row.is_active === 1}
+                            onCheckedChange={() => handleToggleVisibility(row)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
       </Layout>
   );

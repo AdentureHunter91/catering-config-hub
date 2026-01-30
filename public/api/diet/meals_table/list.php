@@ -36,7 +36,8 @@ SELECT
   v.kitchen_id,
 
   mv.exclusions_json,
-  mv.comment_text
+  mv.comment_text,
+  mv.extra_packaging_count
 FROM srv83804_client.v_meal_entries_picked_global v
 LEFT JOIN (
   SELECT
@@ -45,7 +46,8 @@ LEFT JOIN (
     department_id,
     diet_id,
     MAX(exclusions_json) AS exclusions_json,
-    MAX(comment_text) AS comment_text
+    MAX(comment_text) AS comment_text,
+    MAX(extra_packaging_count) AS extra_packaging_count
   FROM srv83804_client.meal_variants
   GROUP BY client_id, meal_date, department_id, diet_id
 ) mv
