@@ -51,6 +51,8 @@
 | `/api/client_diets/delete.php` | — | src/api/clientDiets.ts |
 | `/api/client_diets/list.php` | — | src/api/clientDiets.ts, src/components/MealsPickedGlobalTable.tsx, src/components/MealsPickedGlobalTotalsTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/client_diets/update.php` | — | src/api/clientDiets.ts |
+| `/api/client_visibility_config/list.php` | — | src/api/clientVisibilityConfig.ts |
+| `/api/client_visibility_config/update.php` | — | src/api/clientVisibilityConfig.ts |
 | `/api/contracts/delete.php` | — | src/api/contracts.ts, src/api/kitchenPeriods.ts |
 | `/api/contracts/departments/list.php` | — | src/api/clientDepartments.ts, src/api/contractDepartments.ts, src/api/departments.ts, src/components/MealsPickedGlobalTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/contracts/departments/update.php` | — | src/api/clientDepartments.ts, src/api/contractDepartments.ts |
