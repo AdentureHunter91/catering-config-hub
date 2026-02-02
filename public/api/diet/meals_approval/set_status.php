@@ -12,6 +12,8 @@ $in = json_decode($raw, true);
 
 $afterId = (int)($in["after_id"] ?? 0);
 $action  = (string)($in["action"] ?? ""); // "approve" | "reject"
+$user = requireLogin($pdo);
+$userId = (int)($user["id"] ?? 0);
 
 if ($afterId <= 0) {
     jsonResponse(null, false, "INVALID_AFTER_ID", 400);
@@ -32,13 +34,15 @@ if ($targetStatus === null) {
  */
 $stmt = $pdo->prepare("
     UPDATE srv83804_client.meal_entries
-    SET status = ?
+    SET status = ?,
+        cutoff_decision_by = ?,
+        cutoff_decision_at = NOW()
     WHERE id = ?
       AND is_after_cutoff = 1
       AND status = 'pending_approval'
     LIMIT 1
 ");
-$stmt->execute([$targetStatus, $afterId]);
+$stmt->execute([$targetStatus, $userId > 0 ? $userId : null, $afterId]);
 
 if ($stmt->rowCount() !== 1) {
     // nic nie zmieniono: albo nie istnieje, albo już nie pending
@@ -47,7 +51,7 @@ if ($stmt->rowCount() !== 1) {
 
 // zwróć świeże dane (status + updated_at)
 $stmt2 = $pdo->prepare("
-    SELECT id, status, updated_at
+    SELECT id, status, updated_at, cutoff_decision_by, cutoff_decision_at
     FROM srv83804_client.meal_entries
     WHERE id = ?
     LIMIT 1

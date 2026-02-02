@@ -294,6 +294,9 @@ type AfterCutoffApiRow = {
     updated_at: string;
     cutoff_at: string | null;
     minutes_after_cutoff: number | null;
+    cutoff_decision_by?: number | null;
+    cutoff_decision_at?: string | null;
+    cutoff_decision_user?: string | null;
 
     after_id: number;
     before_id: number | null;
@@ -1006,6 +1009,12 @@ const MealsApproval = () => {
                                     const busy = actionBusy[r.after_id];
                                     const disableApprove = !canAct || !!busy;
                                     const disableReject = !canAct || !!busy;
+                                    const decisionUser = (r.cutoff_decision_user || "").trim();
+                                    const decisionAt = r.cutoff_decision_at;
+                                    const decisionTitle =
+                                        (r.status === "approved" || r.status === "rejected") && (decisionUser || decisionAt)
+                                            ? `Decyzja: ${decisionUser || "—"} | ${decisionAt || "—"}`
+                                            : undefined;
 
                                     return (
                                         <tr key={r.after_id} className="border-b last:border-0">
@@ -1049,9 +1058,12 @@ const MealsApproval = () => {
                                             </td>
 
                                             <td className="py-3 text-sm whitespace-nowrap">
-                          <span className={cn("px-2 py-1 rounded text-xs font-medium", statusBadgeClass(r.status))}>
-                            {statusLabel(r.status)}
-                          </span>
+                                                <span
+                                                    className={cn("px-2 py-1 rounded text-xs font-medium", statusBadgeClass(r.status))}
+                                                    title={decisionTitle}
+                                                >
+                                                    {statusLabel(r.status)}
+                                                </span>
                                             </td>
 
                                             <td className="py-3 text-right whitespace-nowrap">

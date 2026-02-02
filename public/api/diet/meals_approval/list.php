@@ -39,6 +39,8 @@ WITH base AS (
     a.updated_at,
     a.cutoff_at,
     TIMESTAMPDIFF(MINUTE, a.cutoff_at, a.updated_at) AS minutes_after_cutoff,
+    a.cutoff_decision_by,
+    a.cutoff_decision_at,
 
     a.id AS after_id,
     p.id AS before_id
@@ -137,6 +139,8 @@ SELECT
   updated_at,
   cutoff_at,
   minutes_after_cutoff,
+  cutoff_decision_by,
+  cutoff_decision_at,
 
   after_id,
   before_id,
@@ -151,5 +155,32 @@ ORDER BY meal_date DESC, updated_at DESC, after_id DESC
 
 $stmt = $pdo->query($sql);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// resolve decision user names from contracts.users
+$decisionUserIds = array_values(array_unique(array_filter(array_map(
+    fn($r) => (int)($r['cutoff_decision_by'] ?? 0),
+    $rows
+), fn($id) => $id > 0)));
+
+$decisionUsers = [];
+if (count($decisionUserIds) > 0) {
+    $placeholders = implode(',', array_fill(0, count($decisionUserIds), '?'));
+    $uStmt = $pdo->prepare("
+        SELECT id, first_name, last_name, email
+        FROM srv83804_contracts.users
+        WHERE id IN ($placeholders)
+    ");
+    $uStmt->execute($decisionUserIds);
+    foreach ($uStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
+        $name = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+        $decisionUsers[(int)$u['id']] = $name !== '' ? $name : ($u['email'] ?? ('#' . $u['id']));
+    }
+}
+
+foreach ($rows as &$r) {
+    $uid = (int)($r['cutoff_decision_by'] ?? 0);
+    $r['cutoff_decision_user'] = $uid > 0 ? ($decisionUsers[$uid] ?? ('#' . $uid)) : null;
+}
+unset($r);
 
 jsonResponse($rows);
