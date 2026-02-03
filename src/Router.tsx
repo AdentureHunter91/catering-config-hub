@@ -42,6 +42,8 @@ import MealsApproval from "./pages/MealsApproval";
 import ProductCategories from "./pages/ProductCategories";
 import ProductsConfig from "./pages/ProductsConfig";
 import NutritionDatabaseUpload from "./pages/NutritionDatabaseUpload";
+import NotificationsConfig from "./pages/NotificationsConfig";
+import NotificationsHistory from "./pages/NotificationsHistory";
 
 
 export default function Router() {
@@ -351,6 +353,26 @@ export default function Router() {
                     <RequireLogin>
                         <RequireAccess page="config.products">
                             <NutritionDatabaseUpload />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route
+                path="/settings/notifications"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.page_access">
+                            <NotificationsConfig />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route
+                path="/settings/notifications-history"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.page_access">
+                            <NotificationsHistory />
                         </RequireAccess>
                     </RequireLogin>
                 }

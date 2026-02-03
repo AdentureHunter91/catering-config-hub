@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   ShoppingCart,
@@ -13,12 +13,17 @@ import {
   FileText,
   Package,
   ChevronRight,
+  BellRing,
+  Check,
+  CheckCheck,
+  History,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { buildAuthUrl } from "@/api/apiBase";
 import { useAccessContext } from "@/auth/AccessContext";
 import { usePageAccess } from "@/auth/usePageAccess";
+import { listNotifications, markNotificationsRead, NotificationRow } from "@/api/notifications";
 
 interface LayoutProps {
   children: ReactNode;
@@ -41,12 +46,17 @@ type MenuItem = {
 
 const Layout = ({ children, pageKey }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { access, me } = useAccessContext();
   const { canView, canEdit } = usePageAccess(pageKey || "");
 
   // Dropdowny
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [loadingNotifications, setLoadingNotifications] = useState<boolean>(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
 
   // Rola (opcjonalnie — do wyświetlania obok nazwiska)
   const role = me?.roles?.join(", ") || "Użytkownik";
@@ -54,7 +64,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
   // Zamknij menu przy kliknięciu poza
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setOpenMenu(null);
       }
     };
@@ -134,6 +144,12 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
       pageKey: "config.page_access",
       icon: Shield,
     },
+    {
+      label: "Powiadomienia",
+      path: "/settings/notifications",
+      pageKey: "config.page_access",
+      icon: Shield,
+    },
     { label: "Dziennik zdarzeń", path: "/audit", pageKey: "config.audit", icon: FileText },
   ];
 
@@ -149,6 +165,68 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
       );
 
   const [expandedSubmenu, setExpandedSubmenu] = useState<string | null>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      setNotificationError(null);
+      const res = await listNotifications({ status: "open", unreadOnly: true, limit: 200 });
+      const rows = res.rows || [];
+      setNotifications(rows);
+      setUnreadCount(rows.length);
+    } catch {
+      setNotifications([]);
+      setUnreadCount(0);
+      setNotificationError("Nie udało się pobrać powiadomień.");
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchNotifications();
+    const id = window.setInterval(fetchNotifications, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const notificationLabel = (n: NotificationRow) => {
+    if (n.type === "diet_meal_approval_pending") return "Korekty po czasie";
+    return "Powiadomienie";
+  };
+
+  const notificationSubtitle = (n: NotificationRow) => {
+    const kitchen = n.kitchen_short_name || n.kitchen_name || "Kuchnia —";
+    const client = n.client_short_name || n.client_full_name || `Klient #${n.client_id}`;
+    return `${kitchen} • ${client} • ${n.meal_date}`;
+  };
+
+  const formatWhen = (value: string) => {
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    if (notifications.length === 0) return;
+    try {
+      const ids = notifications.map((n) => n.id);
+      await markNotificationsRead(ids);
+      await fetchNotifications();
+    } catch {
+      setNotificationError("Nie udało się oznaczyć wszystkich jako przeczytane.");
+    }
+  };
+
+  const markOneNotificationRead = async (id: number) => {
+    try {
+      await markNotificationsRead([id]);
+      await fetchNotifications();
+    } catch {
+      setNotificationError("Nie udało się oznaczyć powiadomienia jako przeczytane.");
+    }
+  };
 
   const renderDropdownItems = (items: MenuItem[]) => {
     const visible = items.filter((i) => access[i.pageKey]?.view);
@@ -204,14 +282,14 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
       <div className="min-h-screen bg-background">
         {/* === TOP NAV === */}
         <header className="sticky top-0 z-[1200] w-full border-b bg-card shadow-sm">
-          <div className="flex h-16 items-center px-6">
+          <div className="flex h-16 items-center px-6" ref={headerRef}>
             {/* LOGO */}
             <Link to="/dashboard" className="font-bold text-xl mr-10">
               CateringHub
             </Link>
 
             {/* === LEWE MENU === */}
-            <nav className="flex gap-4 items-center" ref={menuRef}>
+            <nav className="flex gap-4 items-center">
               {/* DASHBOARD */}
               <Link to="/dashboard" className={navLinkClass(location.pathname.startsWith("/dashboard"))}>
                 <Home className="h-4 w-4" />
@@ -249,8 +327,113 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
               </Dropdown>
             </nav>
 
-            {/* === PRAWA CZĘŚĆ (UŻYTKOWNIK) === */}
-            <div className="ml-auto relative">
+            {/* === PRAWA CZĘŚĆ (POWIADOMIENIA + UŻYTKOWNIK) === */}
+            <div className="ml-auto relative flex items-center gap-4">
+              <div className="relative">
+                <button
+                  onClick={() => setOpenMenu(openMenu === "notifications" ? null : "notifications")}
+                  className={cn(
+                    "relative flex items-center justify-center px-2 py-2",
+                    "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Powiadomienia"
+                >
+                  <BellRing className="h-6 w-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1 text-[11px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {openMenu === "notifications" && (
+                  <div
+                    data-open={true}
+                    className={cn(
+                      "absolute right-0 mt-3 w-[360px] bg-card shadow-lg rounded-md p-2 z-[1300]",
+                      dropdownAnimation
+                    )}
+                  >
+                    <div className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between">
+                      <span>Powiadomienia</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                          title="Historia powiadomień"
+                          aria-label="Historia powiadomień"
+                          onClick={() => {
+                            setOpenMenu(null);
+                            navigate("/settings/notifications-history");
+                          }}
+                        >
+                          <History className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="text-xs text-primary hover:underline"
+                          onClick={() => void fetchNotifications()}
+                          disabled={loadingNotifications}
+                        >
+                          Odśwież
+                        </button>
+                        <button
+                          className="inline-flex items-center justify-center text-primary hover:text-primary/80"
+                          onClick={() => void markAllNotificationsRead()}
+                          disabled={loadingNotifications || notifications.length === 0}
+                          title="Oznacz wszystkie jako przeczytane"
+                          aria-label="Oznacz wszystkie jako przeczytane"
+                        >
+                          <CheckCheck className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {loadingNotifications ? (
+                      <div className="px-3 py-4 text-sm text-muted-foreground">Ładowanie…</div>
+                    ) : notificationError ? (
+                      <div className="px-3 py-4 text-sm text-rose-600">{notificationError}</div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-muted-foreground">Brak nowych powiadomień</div>
+                    ) : (
+                      <div className="max-h-80 overflow-auto">
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className="flex items-start justify-between gap-3 rounded-md px-3 py-2 hover:bg-secondary"
+                          >
+                            <button
+                              className="flex-1 text-left"
+                              onClick={() => {
+                                setOpenMenu(null);
+                                navigate("/dietetyka/akceptacja-posilkow");
+                              }}
+                            >
+                              <div className="text-sm font-medium text-foreground">
+                                {notificationLabel(n)} ({n.count})
+                              </div>
+                              <div className="text-xs text-muted-foreground">{notificationSubtitle(n)}</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                Ostatnia zmiana: {formatWhen(n.last_at)}
+                              </div>
+                            </button>
+                            <button
+                              className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full border bg-background text-primary hover:bg-secondary"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void markOneNotificationRead(n.id);
+                              }}
+                              title="Oznacz jako przeczytane"
+                              aria-label="Oznacz jako przeczytane"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                   onClick={() => setOpenMenu(openMenu === "user" ? null : "user")}
                   className="flex items-center gap-3"

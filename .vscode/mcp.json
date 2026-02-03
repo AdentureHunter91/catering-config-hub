@@ -8,14 +8,14 @@
       "cwd": "${workspaceFolder}"
     },
     "playwright": {
-      "command": "npx",
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
       "args": [
         "-y",
-        "@playwright/mcp@0.0.18",
-        "--isolated",
+        "@playwright/mcp@0.0.62",
         "--storage-state",
         ".auth/storageState.json"
-      ]
+      ],
+      "cwd": "${workspaceFolder}"
     },
     "docs": {
       "command": "C:\\Users\\lukasz.graczyk\\.local\\bin\\uvx.exe",

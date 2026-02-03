@@ -22,33 +22,6 @@
 - DB connection is configured in `public/api/db.php` (PDO MySQL).
 - Credentials are not documented here; they come from the server config.
 
-## Panels (UI)
-- `/dashboard` â€” szybki podglÄ…d danych operacyjnych (mapa/metryki), skrĂłt do najwaĹĽniejszych informacji; plik: [src/pages/Dashboard.tsx](src/pages/Dashboard.tsx).
-- `/kontrakty` â€” lista kontraktĂłw oraz nawigacja do tworzenia/edycji konfiguracji kontraktu; plik: [src/pages/ContractsList.tsx](src/pages/ContractsList.tsx).
-- `/kontrakty/nowy`, `/kontrakty/:id` â€” formularz konfiguracji kontraktu (diety, posiĹ‚ki, kuchnie, ceny, okresy); plik: [src/pages/ContractConfig.tsx](src/pages/ContractConfig.tsx).
-- `/klienci` â€” lista klientĂłw oraz przejĹ›cie do edycji danych i powiÄ…zaĹ„; plik: [src/pages/ClientsList.tsx](src/pages/ClientsList.tsx).
-- `/klienci/nowy`, `/klienci/:id` â€” konfiguracja klienta (dane, diety, oddziaĹ‚y, widocznoĹ›ci); plik: [src/pages/ClientConfig.tsx](src/pages/ClientConfig.tsx).
-- `/kuchnie` â€” lista kuchni i wejĹ›cie do konfiguracji; plik: [src/pages/KitchensList.tsx](src/pages/KitchensList.tsx).
-- `/kuchnie/:id` â€” konfiguracja kuchni (ustawienia, jakoĹ›Ä‡, cele miesiÄ™czne); plik: [src/pages/KitchenConfig.tsx](src/pages/KitchenConfig.tsx).
-- `/oddzialy` â€” globalna lista oddziaĹ‚Ăłw; plik: [src/pages/DepartmentsList.tsx](src/pages/DepartmentsList.tsx).
-- `/oddzialy/:id` â€” edycja definicji oddziaĹ‚u; plik: [src/pages/DepartmentConfig.tsx](src/pages/DepartmentConfig.tsx).
-- `/diety` â€” globalna lista diet; plik: [src/pages/DietsList.tsx](src/pages/DietsList.tsx).
-- `/diety/:id` â€” edycja definicji diety; plik: [src/pages/DietConfig.tsx](src/pages/DietConfig.tsx).
-- `/posilki` â€” typy posiĹ‚kĂłw; lista i zarzÄ…dzanie; plik: [src/pages/MealTypesList.tsx](src/pages/MealTypesList.tsx).
-- `/posilki/:id` â€” edycja definicji typu posiĹ‚ku; plik: [src/pages/MealTypeConfig.tsx](src/pages/MealTypeConfig.tsx).
-- `/uzytkownicy` â€” uĹĽytkownicy systemu, przypisy rĂłl; plik: [src/pages/UsersList.tsx](src/pages/UsersList.tsx).
-- `/uzytkownicy/:id` â€” edycja danych uĹĽytkownika i rĂłl; plik: [src/pages/UserConfig.tsx](src/pages/UserConfig.tsx).
-- `/role/:id` â€” konfiguracja rĂłl i powiÄ…zanych uprawnieĹ„; plik: [src/pages/RoleConfig.tsx](src/pages/RoleConfig.tsx).
-- `/uprawnienia` â€” lista uprawnieĹ„ i edycja; plik: [src/pages/PermissionsList.tsx](src/pages/PermissionsList.tsx).
-- `/uprawnienia/:id` â€” edycja pojedynczego uprawnienia; plik: [src/pages/PermissionConfig.tsx](src/pages/PermissionConfig.tsx).
-- `/dostep-stron` â€” mapowanie dostÄ™pu do stron (page access); plik: [src/pages/PageAccessList.tsx](src/pages/PageAccessList.tsx).
-- `/dostep-stron/:id` â€” konfiguracja pojedynczego wpisu dostÄ™pu; plik: [src/pages/PageAccessConfig.tsx](src/pages/PageAccessConfig.tsx).
-- `/audit` â€” przeglÄ…d logĂłw audytu zmian z filtrowaniem; plik: [src/pages/AuditLog.tsx](src/pages/AuditLog.tsx).
-- `/settings/productCategories` â€” kategorie i podkategorie produktĂłw; plik: [src/pages/ProductCategories.tsx](src/pages/ProductCategories.tsx).
-- `/settings/products` â€” produkty i warianty (EAN itp.); plik: [src/pages/ProductsConfig.tsx](src/pages/ProductsConfig.tsx).
-- `/settings/nutritionDatabase` â€” import i przeglÄ…d bazy ĹĽywieniowej; plik: [src/pages/NutritionDatabaseUpload.tsx](src/pages/NutritionDatabaseUpload.tsx).
-- `/dietetyka/akceptacja-posilkow` â€” korekty po czasie: akceptacja/odrzucenie + tabela iloĹ›ci posiĹ‚kĂłw; plik: [src/pages/MealsApproval.tsx](src/pages/MealsApproval.tsx).
-
 ## API endpoints
 | Endpoint | Description | Called from |
 |---|---|---|
@@ -103,6 +76,7 @@
 | `/api/contracts/prices/get_contract_meal_prices.php` | — | src/pages/ContractConfig.tsx |
 | `/api/contracts/prices/save_contract_meal_prices.php` | — | src/pages/ContractConfig.tsx |
 | `/api/contracts/save.php` | — | src/api/clients.ts, src/api/contracts.ts |
+| `/api/cron/notifications.php` | — | — |
 | `/api/dashboard/map_data.php` | — | src/api/dashboardMap.ts |
 | `/api/db.php` | — | — |
 | `/api/departments/delete.php` | — | src/api/clientDepartments.ts, src/api/departments.ts |
@@ -126,6 +100,10 @@
 | `/api/meal_types/get.php` | — | src/api/mealTypes.ts |
 | `/api/meal_types/list.php` | — | src/api/contractDietMealTypes.ts, src/api/contractMealTypes.ts, src/api/mealTypes.ts, src/components/MealsPickedGlobalTable.tsx, src/components/MealsPickedGlobalTotalsTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/meal_types/save.php` | — | src/api/mealTypes.ts |
+| `/api/notifications/list.php` | — | src/api/notifications.ts |
+| `/api/notifications/mark_read.php` | — | src/api/notifications.ts |
+| `/api/notifications/role_settings/list.php` | — | src/api/notifications.ts |
+| `/api/notifications/role_settings/save.php` | — | src/api/notifications.ts |
 | `/api/nutrition_database/get.php` | — | src/api/nutritionDatabase.ts, src/api/products.ts, src/api/productVariants.ts, src/api/subproducts.ts |
 | `/api/nutrition_database/history.php` | — | src/api/nutritionDatabase.ts |
 | `/api/nutrition_database/list.php` | — | src/api/nutritionDatabase.ts, src/api/products.ts, src/api/productVariants.ts, src/api/subproducts.ts |

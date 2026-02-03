@@ -30,7 +30,8 @@ if ($isAllowedOrigin) {
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+$reqMethod = $_SERVER["REQUEST_METHOD"] ?? "CLI";
+if ($reqMethod === "OPTIONS") {
     http_response_code(200);
     exit;
 }
