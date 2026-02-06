@@ -53,7 +53,7 @@
 | `/api/client_diets/update.php` | — | src/api/clientDiets.ts |
 | `/api/client_visibility_config/list.php` | — | src/api/clientVisibilityConfig.ts |
 | `/api/client_visibility_config/update.php` | — | src/api/clientVisibilityConfig.ts |
-| `/api/contracts/delete.php` | — | src/api/contracts.ts, src/api/kitchenPeriods.ts |
+| `/api/contracts/delete.php` | — | src/api/contractPriceRules.ts, src/api/contracts.ts, src/api/kitchenPeriods.ts |
 | `/api/contracts/departments/list.php` | — | src/api/clientDepartments.ts, src/api/contractDepartments.ts, src/api/departments.ts, src/components/MealsPickedGlobalTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/contracts/departments/update.php` | — | src/api/clientDepartments.ts, src/api/contractDepartments.ts |
 | `/api/contracts/department_diet/list.php` | — | src/api/clientDepartmentDiets.ts |
@@ -69,13 +69,17 @@
 | `/api/contracts/kitchen_periods/get.php` | — | — |
 | `/api/contracts/kitchen_periods/list.php` | — | src/api/kitchenPeriods.ts |
 | `/api/contracts/kitchen_periods/update.php` | — | src/api/kitchenPeriods.ts |
-| `/api/contracts/list.php` | — | src/api/clients.ts, src/api/contractDepartments.ts, src/api/contractDietMealTypes.ts, src/api/contractDiets.ts, src/api/contractMealTypes.ts, src/api/contracts.ts, src/api/kitchenPeriods.ts, src/api/kitchensExtended.ts |
+| `/api/contracts/list.php` | — | src/api/clients.ts, src/api/contractDepartments.ts, src/api/contractDietMealTypes.ts, src/api/contractDiets.ts, src/api/contractMealTypes.ts, src/api/contractPriceRules.ts, src/api/contracts.ts, src/api/kitchenPeriods.ts |
 | `/api/contracts/list_kitchens.php` | — | src/api/kitchens.ts |
 | `/api/contracts/meal_types/list.php` | ŁADUJEMY bootstrap Z PUBLIC_HTML, a nie z PRIVATE_HTML | src/api/contractDietMealTypes.ts, src/api/contractMealTypes.ts, src/api/mealTypes.ts, src/components/MealsPickedGlobalTable.tsx, src/components/MealsPickedGlobalTotalsTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/contracts/meal_types/update.php` | — | src/api/contractDietMealTypes.ts, src/api/contractMealTypes.ts |
 | `/api/contracts/prices/get_contract_meal_prices.php` | — | src/pages/ContractConfig.tsx |
 | `/api/contracts/prices/save_contract_meal_prices.php` | — | src/pages/ContractConfig.tsx |
-| `/api/contracts/save.php` | — | src/api/clients.ts, src/api/contracts.ts |
+| `/api/contracts/price_rules/delete.php` | — | src/api/contractPriceRules.ts |
+| `/api/contracts/price_rules/list.php` | — | src/api/contractPriceRules.ts |
+| `/api/contracts/price_rules/save.php` | — | src/api/contractPriceRules.ts |
+| `/api/contracts/price_rules/variant_columns.php` | — | src/api/contractPriceRules.ts |
+| `/api/contracts/save.php` | — | src/api/clients.ts, src/api/contractPriceRules.ts, src/api/contracts.ts |
 | `/api/cron/notifications.php` | — | — |
 | `/api/dashboard/map_data.php` | — | src/api/dashboardMap.ts |
 | `/api/db.php` | — | — |

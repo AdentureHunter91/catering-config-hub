@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Save, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 import { getContract, saveContract } from "@/api/contracts";
@@ -64,6 +64,14 @@ import {
 
 import { toast } from "sonner";
 import { buildApiUrl } from "@/api/apiBase";
+import {
+  ContractPriceRuleRow,
+  VariantColumn,
+  deleteContractPriceRule,
+  getContractPriceRules,
+  getMealVariantColumns,
+  saveContractPriceRule,
+} from "@/api/contractPriceRules";
 
 
 // --- TYPY DANYCH ---
@@ -140,16 +148,20 @@ type ContractMealTypeRow = {
 type PriceColumn = {
   id: string;
   label: string;
-  department_ids: number[]; // max 1 element – jeden oddział na kolumnę
+  department_ids: number[]; // max 1 element  jeden oddział na kolumnę
 };
 
 type PriceRule = {
-  id: string;
+  id: string | number;
   name: string;
   mealTypeIds: number[];   // puste = wszystkie posiłki
   dietIds: number[];       // puste = wszystkie diety
   departmentIds: number[]; // puste = wszystkie oddziały
-  amount: number;          // rabat/dopłata (może być ujemny)
+  variantKey: string | null;
+  variantOperator: string | null;
+  variantValue: string | null;
+  useDateRange: boolean;
+  amount: number | string; // rabat/dopłata (może być ujemny)
   valid_from: string | null;
   valid_to: string | null;
 };
@@ -205,7 +217,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
   useEffect(() => {
-    if (pricesLoaded) return;            // ✅ nie nadpisuj jak już wczytaliśmy z backendu
+    if (pricesLoaded) return;            //  nie nadpisuj jak już wczytaliśmy z backendu
     if (contractDepartments.length === 0) return;
 
     const deps = contractDepartments
@@ -234,6 +246,8 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   >({});
 
   const [priceRules, setPriceRules] = useState<PriceRule[]>([]);
+  const [dirtyRuleIds, setDirtyRuleIds] = useState<Set<string>>(new Set());
+  const [variantColumns, setVariantColumns] = useState<VariantColumn[]>([]);
 
   const loadPrices = async (contractId: number) => {
     const res = await fetch(
@@ -260,8 +274,39 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
     setPricesLoaded(true);
   };
 
+  const normalizeRuleFromApi = (row: ContractPriceRuleRow): PriceRule => ({
+    id: row.id,
+    name: row.name ?? "",
+    mealTypeIds: row.client_meal_type_id ? [row.client_meal_type_id] : [],
+    dietIds: row.client_diet_id ? [row.client_diet_id] : [],
+    departmentIds: row.client_department_id ? [row.client_department_id] : [],
+    variantKey: row.variant_key ?? null,
+    variantOperator: row.variant_operator ?? null,
+    variantValue: row.variant_value ?? null,
+    useDateRange: row.use_date_range === 1,
+    amount: String(row.amount ?? 0),
+    valid_from: row.valid_from ?? null,
+    valid_to: row.valid_to ?? null,
+  });
 
-  // --- POBRANIE LISTY KLIENTÓW ---
+  const toRulePayload = (rule: PriceRule) => ({
+    id: typeof rule.id === "number" ? rule.id : undefined,
+    contract_id: form.id,
+    name: rule.name,
+    client_meal_type_id: rule.mealTypeIds[0] ?? null,
+    client_diet_id: rule.dietIds[0] ?? null,
+    client_department_id: rule.departmentIds[0] ?? null,
+    variant_key: rule.variantKey ?? null,
+    variant_operator: rule.variantKey ? (rule.variantOperator ?? null) : null,
+    variant_value: rule.variantKey ? (rule.variantValue ?? null) : null,
+    amount: Number(rule.amount),
+    use_date_range: rule.useDateRange ? 1 : 0,
+    valid_from: rule.useDateRange ? rule.valid_from : null,
+    valid_to: rule.useDateRange ? rule.valid_to : null,
+  });
+
+
+  // --- POBRANIE LISTY KLIENTW ---
 
   useEffect(() => {
     getClientsList()
@@ -269,6 +314,15 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         .catch((err) => {
           console.error("Błąd pobierania klientów", err);
           setClients([]);
+        });
+  }, []);
+
+  useEffect(() => {
+    getMealVariantColumns()
+        .then((list) => setVariantColumns(list ?? []))
+        .catch((err) => {
+          console.error("Błąd pobierania kolumn wariantów", err);
+          setVariantColumns([]);
         });
   }, []);
 
@@ -304,7 +358,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
       getContractDepartments(Number(id)),
       getContractDiets(Number(id)),
       getContractMealTypes(Number(id)),
-      getContractDietMealTypes(Number(id)), // ⬅️ NOWE
+      getContractDietMealTypes(Number(id)), // ⬸ NOWE
     ])
         .then(
             ([
@@ -314,7 +368,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                depList,
                dietList,
                mealTypeList,
-               dietMealMatrix, // ⬅️ NOWE
+               dietMealMatrix, // ⬸ NOWE
              ]) => {
               setForm({
                 id: contractData.id,
@@ -335,7 +389,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
               setContractDiets(dietList ?? []);
               setContractMealTypes(mealTypeList.data ?? []);
 
-              setDietMealLinks(dietMealMatrix ?? []); // ⬅️ NOWE
+              setDietMealLinks(dietMealMatrix ?? []); // ⬸ NOWE
             }
         )
         .catch((err) => {
@@ -351,9 +405,24 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 
     loadPrices(form.id).catch((e) => {
       console.error("Błąd pobierania cen", e);
-      // nie blokujemy UI, zostaną domyślne kolumny
+      // nie blokujemy UI, zostan domylne kolumny
     });
   }, [form.id, isNew, pricesLoaded]);
+
+  useEffect(() => {
+    if (isNew) return;
+    if (!form.id) return;
+
+    getContractPriceRules(form.id)
+        .then((rows) => {
+          setPriceRules(rows.map(normalizeRuleFromApi));
+          setDirtyRuleIds(new Set());
+        })
+        .catch((e) => {
+          console.error("Błąd pobierania reguł cenowych", e);
+          setPriceRules([]);
+        });
+  }, [form.id, isNew]);
 
   // --- HANDLERY FORMULARZA KONTRAKTU ---
 
@@ -369,7 +438,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
     navigate("/kontrakty");
   };
 
-  // --- OKRESY OBSŁUGI ---
+  // --- OKRESY OBSUGI ---
 
   const handleAddPeriod = async () => {
     const contractId = form.id;
@@ -566,10 +635,109 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
   };
 
 
-  // --- ZAPIS POJEDYNCZEJ REGUŁY (placeholder) ---
+  // --- ZAPIS POJEDYNCZEJ REGUY (placeholder) ---
 
-  const handleSavePriceRule = (rule: PriceRule) => {
-    console.log("Zapis reguły cenowej – TODO backend", rule);
+  const handleSavePriceRule = async (rule: PriceRule) => {
+    if (!form.id) {
+      toast.error("Najpierw zapisz kontrakt (żeby miał ID).");
+      return;
+    }
+
+    const amountNum = Number(rule.amount);
+    if (!Number.isFinite(amountNum)) {
+      toast.error("Kwota musi być liczbą (może być ujemna).");
+      return;
+    }
+
+    try {
+      const saved = await saveContractPriceRule(toRulePayload(rule));
+      const normalized = normalizeRuleFromApi(saved);
+
+      setPriceRules((prev) =>
+          prev.map((r) =>
+              String(r.id) === String(rule.id) ? normalized : r
+          )
+      );
+      setDirtyRuleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(rule.id));
+        next.delete(String(normalized.id));
+        return next;
+      });
+
+      toast.success("Reguła zapisana");
+    } catch (e: any) {
+      console.error("Błąd zapisu reguły cenowej", e);
+      toast.error(e?.message || "Błąd zapisu reguły cenowej");
+    }
+  };
+
+  const handleDeletePriceRule = async (rule: PriceRule) => {
+    try {
+      if (typeof rule.id === "number") {
+        await deleteContractPriceRule(rule.id);
+      }
+      setPriceRules((prev) => prev.filter((r) => String(r.id) !== String(rule.id)));
+      setDirtyRuleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(rule.id));
+        return next;
+      });
+    } catch (e) {
+      console.error("Błąd usuwania reguły cenowej", e);
+      toast.error("Błąd usuwania reguły cenowej");
+    }
+  };
+  const getVariantOperatorOptions = (type?: VariantColumn["data_type"]) => {
+    if (type === "number" || type === "date") {
+      return [
+        { value: "eq", label: "=" },
+        { value: "gt", label: ">" },
+        { value: "gte", label: ">=" },
+        { value: "lt", label: "<" },
+        { value: "lte", label: "<=" },
+      ];
+    }
+
+    return [
+      { value: "contains", label: "Zawiera" },
+      { value: "not_contains", label: "Nie zawiera" },
+      { value: "eq", label: "Równe" },
+      { value: "neq", label: "Różne" },
+    ];
+  };
+
+  const getVariantInputType = (type?: VariantColumn["data_type"]) => {
+    if (type === "number") return "number";
+    if (type === "date") return "date";
+    return "text";
+  };
+
+  const getRuleFormula = (
+    rule: PriceRule,
+    variantColumn?: VariantColumn,
+    operatorLabel?: string,
+  ) => {
+    const amountLabel = rule.amount === "" ? "kwota" : String(rule.amount);
+
+    if (rule.variantKey === "extra_packaging_count") {
+      return `Wzór: cena = cena_bazowa + (${amountLabel} * liczba_opakowań)`;
+    }
+    if (rule.variantKey) {
+      const variantLabel = variantColumn?.label ?? rule.variantKey;
+      const opLabel = operatorLabel ?? rule.variantOperator ?? "?";
+      const valLabel = rule.variantValue ?? "…";
+      return `Wzór: cena = cena_bazowa + (${amountLabel} * (${variantLabel} ${opLabel} ${valLabel}))`;
+    }
+    return `Wzór: cena = cena_bazowa + ${amountLabel}`;
+  };
+
+  const markRuleDirty = (ruleId: string | number) => {
+    setDirtyRuleIds((prev) => {
+      const next = new Set(prev);
+      next.add(String(ruleId));
+      return next;
+    });
   };
 
   // --- POMOCNICZE: sprawdzenie czy są niewycenione oddziały ---
@@ -589,7 +757,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
       .filter((d) => d.is_active === 1)
       .map((d) => d.client_department_id);
 
-  // --- MATRYCA DIETA × POSIŁEK ---
+  // --- MATRYCA DIETA  POSIEK ---
 
   const isMealEnabledForDiet = (dietId: number, mealTypeId: number): boolean => {
     const link = dietMealLinks.find(
@@ -597,7 +765,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
             l.client_diet_id === dietId &&
             l.client_meal_type_id === mealTypeId
     );
-    // jeśli backend nie zwrócił rekordu – traktujemy jak ON (domyślnie wszystko włączone)
+    // jeśli backend nie zwróci rekordu — traktujemy jak ON (domyślnie wszystko włączone)
     if (!link) return false;
     return link.is_active === 1;
   };
@@ -673,7 +841,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </p>
         </div>
 
-        {/* A – Dane kontraktu */}
+        {/* A  Dane kontraktu */}
         <Card className="mb-6">
           <div className="border-b p-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -705,7 +873,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                   <SelectContent>
                     {clients.map((c) => (
                         <SelectItem key={c.id} value={String(c.id)}>
-                          {c.short_name} – {c.full_name}
+                          {c.short_name}  {c.full_name}
                         </SelectItem>
                     ))}
                   </SelectContent>
@@ -778,7 +946,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                         wg konfiguracji klienta:{" "}
                         {
                             clients.find((c) => c.id === Number(form.client_id))
-                                ?.total_beds ?? "—"
+                                ?.total_beds ?? ""
                         }
                       </Badge>
                   )}
@@ -808,7 +976,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* B – Okresy obsługi przez kuchnie */}
+        {/* B  Okresy obsługi przez kuchnie */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
@@ -925,7 +1093,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* C – Oddziały w ramach kontraktu */}
+        {/* C  Oddziały w ramach kontraktu */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1017,7 +1185,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* D – Diety w ramach kontraktu */}
+        {/* D  Diety w ramach kontraktu */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1117,7 +1285,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* E – Posiłki (meal types) */}
+        {/* E  Posiłki (meal types) */}
         <Card className="mb-6">
           <div className="border-b p-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -1262,7 +1430,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* E.1 – Posiłki dostępne w dietach (matryca) */}
+        {/* E.1  Posiłki dostępne w dietach (matryca) */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1385,7 +1553,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
         </Card>
 
 
-        {/* F – Ceny posiłków */}
+        {/* F  Ceny posiłków */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
@@ -1566,7 +1734,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                     </tbody>
                 )}
 
-                {/* SZCZEGÓŁOWY (DIETY) */}
+                    {/* SZCZEGÓŁOWY (DIETY) */}
                 {priceViewMode === "detailed" && (
                     <tbody className="divide-y">
                     {contractMealTypes.map((mt) =>
@@ -1582,7 +1750,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                   >
                                     <td className="px-4 py-3 font-medium">
                                       {mt.custom_name ?? mt.global_name}
-                                      {" • "}
+                                      {"  "}
                                       <span className="text-muted-foreground">
                                 {diet.custom_name ?? diet.name}
                               </span>
@@ -1647,7 +1815,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
           </div>
         </Card>
 
-        {/* G – Reguły cenowe */}
+        {/* G  Reguły cenowe */}
         <Card className="mb-6">
           <div className="border-b p-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
@@ -1661,17 +1829,22 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                   const id = "rule_" + Math.random().toString(36).slice(2);
                   setPriceRules((prev) => [
                     ...prev,
-                    {
+                                        {
                       id,
                       name: "Nowa reguła",
                       mealTypeIds: [],
                       dietIds: [],
                       departmentIds: [],
+                      variantKey: null,
+                      variantOperator: null,
+                      variantValue: null,
+                      useDateRange: false,
                       amount: 0,
                       valid_from: null,
                       valid_to: null,
                     },
                   ]);
+                  markRuleDirty(id);
                 }}
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -1686,47 +1859,58 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                 </p>
             )}
 
-            {priceRules.map((rule) => (
+            {priceRules.map((rule) => {
+              const variantColumn = variantColumns.find((c) => c.key === rule.variantKey);
+              const operatorOptions = getVariantOperatorOptions(variantColumn?.data_type);
+              const inputType = getVariantInputType(variantColumn?.data_type);
+              const operatorValue = rule.variantOperator ?? operatorOptions[0]?.value ?? "contains";
+              const operatorLabel =
+                  operatorOptions.find((op) => op.value === operatorValue)?.label ?? operatorValue;
+              const isSaved = typeof rule.id === "number" && !dirtyRuleIds.has(String(rule.id));
+
+              return (
                 <Card key={rule.id} className="p-4 border bg-muted/30">
                   <div className="flex justify-between items-start gap-4">
                     <div className="w-full space-y-3">
                       <Input
                           value={rule.name}
                           className="font-medium"
-                          onChange={(e) =>
-                              setPriceRules((prev) =>
+                          onChange={(e) => {
+                            setPriceRules((prev) =>
                                   prev.map((r) =>
                                       r.id === rule.id
                                           ? { ...r, name: e.target.value }
                                           : r
                                   )
-                              )
-                          }
+                              );
+                            markRuleDirty(rule.id);
+                          }}
                       />
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Posiłki */}
                         <div>
-                          <Label className="text-sm">Posiłek</Label>
+                          <Label className="text-sm">Posiek</Label>
                           <Select
                               value={
                                 rule.mealTypeIds.length
                                     ? String(rule.mealTypeIds[0])
                                     : "all"
                               }
-                              onValueChange={(v) =>
-                                  setPriceRules((prev) =>
-                                      prev.map((r) =>
-                                          r.id === rule.id
-                                              ? {
-                                                ...r,
-                                                mealTypeIds:
-                                                    v === "all" ? [] : [Number(v)],
-                                              }
-                                              : r
-                                      )
-                                  )
-                              }
+                              onValueChange={(v) => {
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? {
+                                              ...r,
+                                              mealTypeIds:
+                                                  v === "all" ? [] : [Number(v)],
+                                            }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Wszystkie posiłki" />
@@ -1754,19 +1938,20 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                     ? String(rule.dietIds[0])
                                     : "all"
                               }
-                              onValueChange={(v) =>
-                                  setPriceRules((prev) =>
-                                      prev.map((r) =>
-                                          r.id === rule.id
-                                              ? {
-                                                ...r,
-                                                dietIds:
-                                                    v === "all" ? [] : [Number(v)],
-                                              }
-                                              : r
-                                      )
-                                  )
-                              }
+                              onValueChange={(v) => {
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? {
+                                              ...r,
+                                              dietIds:
+                                                  v === "all" ? [] : [Number(v)],
+                                            }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Wszystkie diety" />
@@ -1798,19 +1983,20 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                     ? String(rule.departmentIds[0])
                                     : "all"
                               }
-                              onValueChange={(v) =>
-                                  setPriceRules((prev) =>
-                                      prev.map((r) =>
-                                          r.id === rule.id
-                                              ? {
-                                                ...r,
-                                                departmentIds:
-                                                    v === "all" ? [] : [Number(v)],
-                                              }
-                                              : r
-                                      )
-                                  )
-                              }
+                              onValueChange={(v) => {
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? {
+                                              ...r,
+                                              departmentIds:
+                                                  v === "all" ? [] : [Number(v)],
+                                            }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Wszystkie oddziały" />
@@ -1832,9 +2018,101 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                         </div>
                       </div>
 
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label className="text-sm">Atrybut wariantu</Label>
+                          <Select
+                              value={rule.variantKey ?? "none"}
+                              onValueChange={(v) => {
+                                const nextKey = v === "none" ? null : v;
+                                const nextColumn = variantColumns.find((c) => c.key === nextKey);
+                                const nextOptions = getVariantOperatorOptions(nextColumn?.data_type);
+                                const nextOperator = nextKey ? (nextOptions[0]?.value ?? "contains") : null;
+
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? {
+                                              ...r,
+                                              variantKey: nextKey,
+                                              variantOperator: nextOperator,
+                                              variantValue: nextKey ? r.variantValue : null,
+                                            }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Brak" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Brak</SelectItem>
+                              {variantColumns.map((col) => (
+                                  <SelectItem key={col.key} value={col.key}>
+                                    {col.label}
+                                  </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm">Warunek</Label>
+                          <Select
+                              value={operatorValue}
+                              onValueChange={(v) => {
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? { ...r, variantOperator: v }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
+                              disabled={!rule.variantKey}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Warunek" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {operatorOptions.map((op) => (
+                                  <SelectItem key={op.value} value={op.value}>
+                                    {op.label}
+                                  </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm">Wartość</Label>
+                          <Input
+                              type={inputType}
+                              className="mt-1"
+                              value={rule.variantValue ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPriceRules((prev) =>
+                                    prev.map((r) =>
+                                        r.id === rule.id
+                                            ? { ...r, variantValue: val }
+                                            : r
+                                    )
+                                );
+                                markRuleDirty(rule.id);
+                              }}
+                              disabled={!rule.variantKey}
+                          />
+                        </div>
+                      </div>
+
                       <div className="mt-2">
                         <Label className="text-sm">
-                          Kwota (rabat/dopłata) [PLN]
+                          Kwota (rabat/dopata) [PLN]
                         </Label>
                         <Input
                             type="number"
@@ -1848,16 +2126,43 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                       r.id === rule.id
                                           ? {
                                             ...r,
-                                            amount:
-                                                val === "" ? 0 : Number(val),
+                                            amount: val,
                                           }
                                           : r
                                   )
                               );
+                              markRuleDirty(rule.id);
                             }}
                         />
                       </div>
 
+                                            <div className="flex items-center gap-2 mt-2">
+                        <Checkbox
+                            checked={rule.useDateRange}
+                            onCheckedChange={(val) => {
+                              const checked = val === true;
+                              setPriceRules((prev) =>
+                                  prev.map((r) =>
+                                      r.id === rule.id
+                                          ? {
+                                            ...r,
+                                            useDateRange: checked,
+                                            valid_from: checked ? r.valid_from : null,
+                                            valid_to: checked ? r.valid_to : null,
+                                          }
+                                          : r
+                                  )
+                              );
+                              markRuleDirty(rule.id);
+                            }}
+                        />
+                        <Label className="text-sm">Ogranicz do zakresu dat</Label>
+                        {!rule.useDateRange && (
+                          <span className="text-xs text-muted-foreground">Obowiązuje cały kontrakt</span>
+                        )}
+                      </div>
+
+                      {rule.useDateRange && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         <div>
                           <Label className="text-sm">Obowiązuje od</Label>
@@ -1874,6 +2179,7 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                             : r
                                     )
                                 );
+                                markRuleDirty(rule.id);
                               }}
                           />
                         </div>
@@ -1893,15 +2199,16 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                                             : r
                                     )
                                 );
+                                markRuleDirty(rule.id);
                               }}
                           />
                         </div>
                       </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-2 items-end">
                       <Button
-                          variant="outline"
                           size="sm"
                           className="gap-2"
                           onClick={() => handleSavePriceRule(rule)}
@@ -1909,22 +2216,38 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
                         <Save className="h-4 w-4" />
                         Zapisz regułę
                       </Button>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {isSaved ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              <span>Zapisana</span>
+                            </>
+                        ) : (
+                            <>
+                              <Circle className="h-4 w-4 text-amber-500" />
+                              <span>Niezapisana</span>
+                            </>
+                        )}
+                      </div>
 
                       <Button
                           variant="ghost"
                           className="text-destructive"
-                          onClick={() =>
-                              setPriceRules((prev) =>
-                                  prev.filter((r) => r.id !== rule.id)
-                              )
-                          }
+                          onClick={() => handleDeletePriceRule(rule)}
                       >
                         <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
                   </div>
+
+                  <div className="mt-3 flex items-end justify-end">
+                    <p className="text-sm text-muted-foreground text-right">
+                      {getRuleFormula(rule, variantColumn, operatorLabel)}
+                    </p>
+                  </div>
                 </Card>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </Layout>
@@ -1932,3 +2255,29 @@ const ContractConfig = ({ isNew = false }: ContractConfigProps) => {
 };
 
 export default ContractConfig;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

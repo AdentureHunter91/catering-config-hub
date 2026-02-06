@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS contract_price_rules (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  contract_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  client_meal_type_id INT NULL,
+  client_diet_id INT NULL,
+  client_department_id INT NULL,
+  variant_key VARCHAR(64) NULL,
+  variant_operator VARCHAR(20) NULL,
+  variant_value VARCHAR(255) NULL,
+  amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  use_date_range TINYINT(1) NOT NULL DEFAULT 0,
+  valid_from DATE NULL,
+  valid_to DATE NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  created_by INT NULL,
+  updated_by INT NULL,
+  KEY idx_contract (contract_id),
+  KEY idx_contract_scope (contract_id, client_meal_type_id, client_diet_id, client_department_id)
+);
