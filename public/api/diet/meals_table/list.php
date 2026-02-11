@@ -45,16 +45,18 @@ LEFT JOIN (
     meal_date,
     department_id,
     diet_id,
+    variant_label,
     MAX(exclusions_json) AS exclusions_json,
     MAX(comment_text) AS comment_text,
     MAX(extra_packaging_count) AS extra_packaging_count
   FROM srv83804_client.meal_variants
-  GROUP BY client_id, meal_date, department_id, diet_id
+  GROUP BY client_id, meal_date, department_id, diet_id, variant_label
 ) mv
   ON mv.client_id = v.client_id
  AND mv.meal_date = v.meal_date
  AND mv.department_id = v.client_department_id
  AND mv.diet_id = v.client_diet_id
+ AND COALESCE(mv.variant_label, '') = COALESCE(v.variant_label, '')
 ORDER BY meal_date DESC, client_id, global_department_id, global_diet_id, global_meal_type_id, variant_label
 LIMIT :lim
 ";
