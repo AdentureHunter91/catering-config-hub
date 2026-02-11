@@ -46,6 +46,8 @@ import NotificationsConfig from "./pages/NotificationsConfig";
 import NotificationsHistory from "./pages/NotificationsHistory";
 import DietDashboard from "./pages/DietDashboard";
 import DietPlaceholder from "./pages/diet/DietPlaceholder";
+import RecipesList from "./pages/diet/RecipesList";
+import RecipeEditor from "./pages/diet/RecipeEditor";
 
 
 export default function Router() {
@@ -428,7 +430,9 @@ export default function Router() {
                     </RequireLogin>
                 }
             />
-            <Route path="/dietetyka/receptury" element={<RequireLogin><DietPlaceholder title="Receptury" /></RequireLogin>} />
+            <Route path="/dietetyka/receptury" element={<RequireLogin><RecipesList /></RequireLogin>} />
+            <Route path="/dietetyka/receptury/nowa" element={<RequireLogin><RecipeEditor /></RequireLogin>} />
+            <Route path="/dietetyka/receptury/:id" element={<RequireLogin><RecipeEditor /></RequireLogin>} />
             <Route path="/dietetyka/dania" element={<RequireLogin><DietPlaceholder title="Dania" /></RequireLogin>} />
             <Route path="/dietetyka/jadlospisy" element={<RequireLogin><DietPlaceholder title="Jadłospisy" /></RequireLogin>} />
             <Route path="/dietetyka/wydawki" element={<RequireLogin><DietPlaceholder title="Wydawki" /></RequireLogin>} />
