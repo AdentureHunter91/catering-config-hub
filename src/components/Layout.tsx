@@ -89,6 +89,7 @@ const Layout = ({ children, pageKey, noPadding }: LayoutProps) => {
   const dietItems: MenuItem[] = [
     { label: "Dashboard", path: "/dietetyka", pageKey: "diet.meals_approval", icon: Home },
     { label: "Zamówienia / Akceptacja", path: "/dietetyka/akceptacja-posilkow", pageKey: "diet.meals_approval", icon: UtensilsCrossed },
+    { label: "Diety", path: "/dietetyka/plany-diet", pageKey: "diet.meals_approval", icon: BookOpen },
     {
       label: "Produkty",
       path: "",
