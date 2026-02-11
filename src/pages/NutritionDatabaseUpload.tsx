@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Layout from "@/components/Layout";
+import DietLayout from "@/components/DietLayout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -227,7 +227,7 @@ const NutritionDatabaseUpload = () => {
   };
 
   return (
-    <Layout pageKey="config.products">
+    <DietLayout pageKey="config.products">
       <Breadcrumb
         items={[
           { label: "Konfiguracja systemu" },
@@ -469,7 +469,7 @@ const NutritionDatabaseUpload = () => {
           )}
         </Card>
       </div>
-    </Layout>
+    </DietLayout>
   );
 };
 
