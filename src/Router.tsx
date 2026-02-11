@@ -44,6 +44,8 @@ import ProductsConfig from "./pages/ProductsConfig";
 import NutritionDatabaseUpload from "./pages/NutritionDatabaseUpload";
 import NotificationsConfig from "./pages/NotificationsConfig";
 import NotificationsHistory from "./pages/NotificationsHistory";
+import DietDashboard from "./pages/DietDashboard";
+import DietPlaceholder from "./pages/diet/DietPlaceholder";
 
 
 export default function Router() {
@@ -380,7 +382,14 @@ export default function Router() {
 
 
             {/* --- DIETETYKA ---*/}
-            {/* Przegląd i akceptacja posiłków */}
+            <Route
+                path="/dietetyka"
+                element={
+                    <RequireLogin>
+                        <DietDashboard />
+                    </RequireLogin>
+                }
+            />
             <Route
                 path="/dietetyka/akceptacja-posilkow"
                 element={
@@ -389,6 +398,22 @@ export default function Router() {
                     </RequireLogin>
                 }
             />
+            <Route
+                path="/dietetyka/produkty"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.products">
+                            <DietPlaceholder title="Produkty" />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route path="/dietetyka/receptury" element={<RequireLogin><DietPlaceholder title="Receptury" /></RequireLogin>} />
+            <Route path="/dietetyka/dania" element={<RequireLogin><DietPlaceholder title="Dania" /></RequireLogin>} />
+            <Route path="/dietetyka/jadlospisy" element={<RequireLogin><DietPlaceholder title="Jadłospisy" /></RequireLogin>} />
+            <Route path="/dietetyka/wydawki" element={<RequireLogin><DietPlaceholder title="Wydawki" /></RequireLogin>} />
+            <Route path="/dietetyka/produkcja" element={<RequireLogin><DietPlaceholder title="Produkcja" /></RequireLogin>} />
+            <Route path="/dietetyka/raporty" element={<RequireLogin><DietPlaceholder title="Raporty" /></RequireLogin>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
