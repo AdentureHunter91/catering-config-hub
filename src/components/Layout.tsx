@@ -28,6 +28,7 @@ import { listNotifications, markNotificationsRead, NotificationRow } from "@/api
 interface LayoutProps {
   children: ReactNode;
   pageKey?: string;
+  noPadding?: boolean;
 }
 
 type SubMenuItem = {
@@ -44,7 +45,7 @@ type MenuItem = {
   submenu?: SubMenuItem[];
 };
 
-const Layout = ({ children, pageKey }: LayoutProps) => {
+const Layout = ({ children, pageKey, noPadding }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { access, me } = useAccessContext();
@@ -475,7 +476,7 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
         </header>
 
         {/* === TREŚĆ STRONY === */}
-        <main className={cn("mx-auto max-w-[1600px] p-6", readOnlyClass)}>{children}</main>
+        <main className={cn(noPadding ? "" : "mx-auto max-w-[1600px] p-6", readOnlyClass)}>{children}</main>
       </div>
   );
 };
