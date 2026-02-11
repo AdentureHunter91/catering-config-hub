@@ -11,28 +11,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
-    server: {
-      host: "127.0.0.1",     // <- zamiast "::" (prościej lokalnie)
-      port: 8080,
-      strictPort: true,
-      hmr: {
-        host: "127.0.0.1",
-        port: 8080,
-        clientPort: 8080,
-      },
-      proxy: {
-        "/api": {
-          target: "http://127.0.0.1:8000",
-          changeOrigin: true,
-          secure: false,
-        },
-        "/Login": {
-          target: "http://127.0.0.1:8000",
-          changeOrigin: true,
-          secure: false,
-        },
-      },
-    },
     plugins: [
       react(),
       mode === "development" && componentTagger(),
