@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +131,8 @@ const deviationBg = (dev: number) => {
 };
 
 export default function DietDashboard() {
+  const navigate = useNavigate();
+
   return (
     <DietLayout>
       <h1 className="text-2xl font-bold mb-6">Dashboard Dietetyczny</h1>
@@ -146,12 +149,10 @@ export default function DietDashboard() {
                 <button
                   key={s.filter}
                   className={cn(
-                    "rounded-lg p-4 text-left transition-transform hover:scale-[1.02]",
+                    "rounded-lg p-4 text-left transition-transform hover:scale-[1.02] cursor-pointer",
                     s.color
                   )}
-                  onClick={() => {
-                    /* navigate to menus with filter */
-                  }}
+                  onClick={() => navigate(`/dietetyka/jadlospisy?status=${s.filter}`)}
                 >
                   <div className="text-2xl font-bold">{s.count}</div>
                   <div className="text-sm">{s.label}</div>
@@ -303,19 +304,19 @@ export default function DietDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" onClick={() => navigate("/dietetyka/jadlospisy?action=new")}>
                 <Plus className="h-5 w-5" />
                 <span className="text-xs">Nowy jadłospis</span>
               </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" onClick={() => navigate("/dietetyka/jadlospisy?action=copy")}>
                 <Copy className="h-5 w-5" />
                 <span className="text-xs">Skopiuj menu</span>
               </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" onClick={() => navigate("/dietetyka/wydawki?action=generate")}>
                 <ClipboardList className="h-5 w-5" />
                 <span className="text-xs">Wygeneruj wydawkę</span>
               </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2 relative">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2 relative" onClick={() => navigate("/dietetyka/jadlospisy?status=pending")}>
                 <FileCheck className="h-5 w-5" />
                 <span className="text-xs">Zatwierdzenia oczekujące</span>
                 <Badge className="absolute -top-2 -right-2 text-[10px] px-1.5 py-0.5">3</Badge>
