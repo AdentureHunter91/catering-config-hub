@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Layout from "@/components/Layout";
+import DietLayout from "@/components/DietLayout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -824,7 +824,7 @@ const MealsApproval = () => {
     ]);
 
     return (
-        <Layout pageKey="diet.meals_approval">
+        <DietLayout pageKey="diet.meals_approval">
             <Breadcrumb items={[{ label: "Dietetyka" }, { label: "Zamówienia i akceptacja" }]} />
 
             {/* Header + refresh select (TOP RIGHT) */}
@@ -1149,7 +1149,7 @@ const MealsApproval = () => {
             )}
 
 
-        </Layout>
+        </DietLayout>
     );
 };
 

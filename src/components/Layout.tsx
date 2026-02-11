@@ -86,15 +86,15 @@ const Layout = ({ children, pageKey }: LayoutProps) => {
 
   // ---- PODMENU (DIETETYKA) ----
   const dietItems: MenuItem[] = [
-    {
-      label: "Zamówienia / Akceptacja",
-      path: "/dietetyka/akceptacja-posilkow",
-      pageKey: "diet.meals_approval",
-      icon: UtensilsCrossed,
-    },
-    // tu w przyszłości dopniesz kolejne:
-    // { label: "Jadłospisy", path: "/dietetyka/jadlospisy", pageKey: "diet.menus", icon: BookOpen },
-    // { label: "Diety kontraktowe", path: "/dietetyka/diety", pageKey: "diet.contract_diets", icon: BookOpen },
+    { label: "Dashboard", path: "/dietetyka", pageKey: "diet.meals_approval", icon: Home },
+    { label: "Zamówienia / Akceptacja", path: "/dietetyka/akceptacja-posilkow", pageKey: "diet.meals_approval", icon: UtensilsCrossed },
+    { label: "Produkty", path: "/dietetyka/produkty", pageKey: "config.products", icon: Package },
+    { label: "Receptury", path: "/dietetyka/receptury", pageKey: "diet.meals_approval", icon: BookOpen },
+    { label: "Dania", path: "/dietetyka/dania", pageKey: "diet.meals_approval", icon: UtensilsCrossed },
+    { label: "Jadłospisy", path: "/dietetyka/jadlospisy", pageKey: "diet.meals_approval", icon: BookOpen },
+    { label: "Wydawki", path: "/dietetyka/wydawki", pageKey: "diet.meals_approval", icon: FileText },
+    { label: "Produkcja", path: "/dietetyka/produkcja", pageKey: "diet.meals_approval", icon: Building2 },
+    { label: "Raporty", path: "/dietetyka/raporty", pageKey: "diet.meals_approval", icon: FileText },
   ];
 
   // ---- PODMENU (USTAWIENIA) ----
