@@ -134,7 +134,7 @@ export default function DietDashboard() {
   const navigate = useNavigate();
 
   return (
-    <DietLayout>
+    <DietLayout pageKey="diet.meals_approval">
       <h1 className="text-2xl font-bold mb-6">Dashboard Dietetyczny</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -205,7 +205,7 @@ export default function DietDashboard() {
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <TooltipProvider delayDuration={200}>
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-xs table-fixed">
                 <thead>
                   <tr>
                     <th className="p-1 text-left font-medium text-muted-foreground w-28" />
