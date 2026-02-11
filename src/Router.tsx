@@ -399,11 +399,31 @@ export default function Router() {
                 }
             />
             <Route
-                path="/dietetyka/produkty"
+                path="/dietetyka/produkty/kategorie"
                 element={
                     <RequireLogin>
                         <RequireAccess page="config.products">
-                            <DietPlaceholder title="Produkty" />
+                            <ProductCategories />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route
+                path="/dietetyka/produkty/konfiguracja"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.products">
+                            <ProductsConfig />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route
+                path="/dietetyka/produkty/baza-izz"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.products">
+                            <NutritionDatabaseUpload />
                         </RequireAccess>
                     </RequireLogin>
                 }
