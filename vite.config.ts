@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    server: {
+      port: 8080,
+    },
     plugins: [
       react(),
       mode === "development" && componentTagger(),
