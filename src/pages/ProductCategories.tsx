@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import Layout from "@/components/Layout";
+import DietLayout from "@/components/DietLayout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -358,7 +358,7 @@ const ProductCategories = () => {
 
   if (loading) {
     return (
-      <Layout pageKey="config.products">
+      <DietLayout pageKey="config.products">
         <Breadcrumb
           items={[
             { label: "Konfiguracja systemu" },
@@ -368,12 +368,12 @@ const ProductCategories = () => {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </Layout>
+      </DietLayout>
     );
   }
 
   return (
-    <Layout pageKey="config.products">
+    <DietLayout pageKey="config.products">
       <Breadcrumb
         items={[
           { label: "Konfiguracja systemu" },
@@ -833,7 +833,7 @@ const ProductCategories = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Layout>
+    </DietLayout>
   );
 };
 
