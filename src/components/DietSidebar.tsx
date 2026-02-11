@@ -16,6 +16,7 @@ import {
   FolderTree,
   Settings2,
   Database,
+  Apple,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ type SidebarItem = {
 const dietMenuItems: SidebarItem[] = [
   { label: "Dashboard", path: "/dietetyka", icon: LayoutDashboard },
   { label: "Zamówienia", path: "/dietetyka/akceptacja-posilkow", icon: ClipboardCheck },
+  { label: "Diety", path: "/dietetyka/plany-diet", icon: Apple },
   {
     label: "Produkty",
     path: "/dietetyka/produkty",

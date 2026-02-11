@@ -50,6 +50,9 @@ import RecipesList from "./pages/diet/RecipesList";
 import RecipeEditor from "./pages/diet/RecipeEditor";
 import DishesList from "./pages/diet/DishesList";
 import DishEditor from "./pages/diet/DishEditor";
+import DietPlansList from "./pages/diet/DietPlansList";
+import DietPlanEditor from "./pages/diet/DietPlanEditor";
+import DietPlanDiff from "./pages/diet/DietPlanDiff";
 
 
 export default function Router() {
@@ -438,6 +441,10 @@ export default function Router() {
             <Route path="/dietetyka/dania" element={<RequireLogin><DishesList /></RequireLogin>} />
             <Route path="/dietetyka/dania/nowe" element={<RequireLogin><DishEditor /></RequireLogin>} />
             <Route path="/dietetyka/dania/:id" element={<RequireLogin><DishEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet" element={<RequireLogin><DietPlansList /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/nowy" element={<RequireLogin><DietPlanEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/:id" element={<RequireLogin><DietPlanEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/:id/diff" element={<RequireLogin><DietPlanDiff /></RequireLogin>} />
             <Route path="/dietetyka/jadlospisy" element={<RequireLogin><DietPlaceholder title="Jadłospisy" /></RequireLogin>} />
             <Route path="/dietetyka/wydawki" element={<RequireLogin><DietPlaceholder title="Wydawki" /></RequireLogin>} />
             <Route path="/dietetyka/produkcja" element={<RequireLogin><DietPlaceholder title="Produkcja" /></RequireLogin>} />
