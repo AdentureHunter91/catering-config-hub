@@ -57,7 +57,7 @@ import MenuPackagesList from "./pages/diet/MenuPackagesList";
 import MenuEditor from "./pages/diet/MenuEditor";
 import DailyOperationalMenu from "./pages/diet/DailyOperationalMenu";
 import Dispatches from "./pages/diet/Dispatches";
-
+import ProductionPlanning from "./pages/diet/ProductionPlanning";
 
 export default function Router() {
     return (
@@ -453,7 +453,7 @@ export default function Router() {
             <Route path="/dietetyka/jadlospisy/:id/edytor" element={<RequireLogin><MenuEditor /></RequireLogin>} />
             <Route path="/dietetyka/jadlospisy/:id/dzienny" element={<RequireLogin><DailyOperationalMenu /></RequireLogin>} />
             <Route path="/dietetyka/wydawki" element={<RequireLogin><Dispatches /></RequireLogin>} />
-            <Route path="/dietetyka/produkcja" element={<RequireLogin><DietPlaceholder title="Produkcja" /></RequireLogin>} />
+            <Route path="/dietetyka/produkcja" element={<RequireLogin><ProductionPlanning /></RequireLogin>} />
             <Route path="/dietetyka/raporty" element={<RequireLogin><DietPlaceholder title="Raporty" /></RequireLogin>} />
 
             {/* 404 */}
