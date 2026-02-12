@@ -456,6 +456,7 @@ export default function Router() {
             <Route path="/dietetyka/wydawki" element={<RequireLogin><Dispatches /></RequireLogin>} />
             <Route path="/dietetyka/produkcja" element={<RequireLogin><ProductionPlanning /></RequireLogin>} />
             <Route path="/dietetyka/raporty" element={<RequireLogin><Reports /></RequireLogin>} />
+            <Route path="/dietetyka/raporty/:reportType" element={<RequireLogin><Reports /></RequireLogin>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

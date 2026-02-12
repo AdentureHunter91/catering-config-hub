@@ -46,7 +46,17 @@ const dietMenuItems: SidebarItem[] = [
   { label: "Jadłospisy", path: "/dietetyka/jadlospisy", icon: CalendarDays },
   { label: "Wydawki", path: "/dietetyka/wydawki", icon: Truck },
   { label: "Produkcja", path: "/dietetyka/produkcja", icon: Factory },
-  { label: "Raporty", path: "/dietetyka/raporty", icon: BarChart3 },
+  {
+    label: "Raporty",
+    path: "/dietetyka/raporty",
+    icon: BarChart3,
+    submenu: [
+      { label: "Odżywczy", path: "/dietetyka/raporty/odzywczy", icon: BarChart3 },
+      { label: "Kosztowy", path: "/dietetyka/raporty/kosztowy", icon: BarChart3 },
+      { label: "Alergenów", path: "/dietetyka/raporty/alergeny", icon: BarChart3 },
+      { label: "Odpadów", path: "/dietetyka/raporty/odpady", icon: BarChart3 },
+    ],
+  },
 ];
 
 export default function DietSidebar() {
