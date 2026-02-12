@@ -49,7 +49,7 @@ export default function MenuPackagesList() {
   };
 
   return (
-    <DietLayout>
+    <DietLayout pageKey="diet.meals_approval">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Jadłospisy — Pakiety menu</h1>
         <Button onClick={() => { setWizardOpen(true); setWizardStep(1); }}>
