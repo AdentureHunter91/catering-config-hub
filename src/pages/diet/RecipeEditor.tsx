@@ -51,6 +51,31 @@ const ALLERGEN_ICONS: Record<string, string> = {
   Skorupiaki: "🦐", Sezam: "⚪",
 };
 
+const COOKING_METHODS = [
+  "Gotowanie", "Pieczenie", "Smażenie", "Grillowanie", "Duszenie",
+  "Sous vide", "Blanszowanie", "Wędzenie", "Marynowanie", "Fermentacja",
+  "Bez obróbki termicznej",
+] as const;
+
+interface CookingParam {
+  id: string;
+  method: string;
+  temp: number | null;
+  processTime: number;
+  workTime: number;
+  lossPercent: number;
+}
+
+// Mock allergens per product referenceId
+const PRODUCT_ALLERGENS: Record<number, string[]> = {
+  101: [], 102: [], 103: [], 104: ["Seler"], 105: ["Gluten"], 106: [],
+  107: [], 108: [], 109: [], 110: ["Jaja"], 111: ["Gluten"], 112: [],
+  113: [], 114: ["Seler"], 115: ["Laktoza"], 116: [], 117: ["Laktoza"],
+  118: ["Gluten"], 119: ["Laktoza"], 120: [], 121: [], 122: ["Laktoza"],
+  123: [], 124: [], 125: [], 126: [], 127: [], 128: [], 129: [], 130: [],
+  131: [], 132: [],
+};
+
 export default function RecipeEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -61,10 +86,15 @@ export default function RecipeEditor() {
   const [category, setCategory] = useState<RecipeCategory>(existing?.category || "main_course");
   const [status, setStatus] = useState<RecipeStatus>(existing?.status || "draft");
   const [portionWeight, setPortionWeight] = useState(existing?.portionWeight || 350);
-  const [cookingMethod, setCookingMethod] = useState(existing?.cookingMethod || "");
-  const [cookingTemp, setCookingTemp] = useState(existing?.cookingTemp || 0);
-  const [cookingTime, setCookingTime] = useState(existing?.cookingTime || 0);
-  const [lossCoefficient, setLossCoefficient] = useState(existing?.lossCoefficient || 0);
+  const initParams: CookingParam[] = existing ? [{
+    id: "p1",
+    method: existing.cookingMethod,
+    temp: existing.cookingTemp,
+    processTime: existing.cookingTime || 0,
+    workTime: Math.round((existing.cookingTime || 0) * 0.15),
+    lossPercent: existing.lossCoefficient,
+  }] : [];
+  const [cookingParams, setCookingParams] = useState<CookingParam[]>(initParams);
   const [notes, setNotes] = useState(existing?.notes || "");
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(existing?.ingredients || []);
   const [activeTab, setActiveTab] = useState("official");
@@ -266,27 +296,63 @@ export default function RecipeEditor() {
           {/* COOKING PARAMS */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Parametry przygotowania</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <Label className="text-xs">Metoda gotowania</Label>
-                  <Input value={cookingMethod} onChange={(e) => setCookingMethod(e.target.value)} placeholder="np. Gotowanie" />
-                </div>
-                <div>
-                  <Label className="text-xs">Temperatura (°C)</Label>
-                  <Input type="number" value={cookingTemp || ""} onChange={(e) => setCookingTemp(Number(e.target.value))} />
-                </div>
-                <div>
-                  <Label className="text-xs">Czas (min)</Label>
-                  <Input type="number" value={cookingTime || ""} onChange={(e) => setCookingTime(Number(e.target.value))} />
-                </div>
-                <div>
-                  <Label className="text-xs">Wsp. strat (%)</Label>
-                  <Input type="number" value={lossCoefficient} onChange={(e) => setLossCoefficient(Number(e.target.value))} />
-                </div>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Parametry przygotowania</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setCookingParams(prev => [...prev, {
+                  id: `cp-${Date.now()}`, method: "", temp: null, processTime: 0, workTime: 0, lossPercent: 0,
+                }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Dodaj etap
+                </Button>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {cookingParams.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-3">Brak etapów — kliknij „Dodaj etap"</p>
+              )}
+              {cookingParams.map((cp, i) => (
+                <div key={cp.id} className="border rounded-md p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Etap {i + 1}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => setCookingParams(prev => prev.filter(p => p.id !== cp.id))}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div className="col-span-2 md:col-span-1">
+                      <Label className="text-xs">Metoda</Label>
+                      <Select value={cp.method} onValueChange={(v) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, method: v } : p))}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz…" /></SelectTrigger>
+                        <SelectContent>
+                          {COOKING_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Temp. (°C)</Label>
+                      <Input type="number" className="h-8 text-xs" value={cp.temp ?? ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, temp: e.target.value ? Number(e.target.value) : null } : p))} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Czas procesu (min)</Label>
+                      <Input type="number" className="h-8 text-xs" value={cp.processTime || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, processTime: Number(e.target.value) } : p))} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Czas pracy (min)</Label>
+                      <Input type="number" className="h-8 text-xs" value={cp.workTime || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, workTime: Number(e.target.value) } : p))} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Straty (%)</Label>
+                      <Input type="number" className="h-8 text-xs" value={cp.lossPercent || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, lossPercent: Number(e.target.value) } : p))} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {cookingParams.length > 0 && (
+                <div className="flex gap-4 text-xs text-muted-foreground pt-1 border-t">
+                  <span>Łączny czas procesu: <strong>{cookingParams.reduce((s, p) => s + p.processTime, 0)} min</strong></span>
+                  <span>Łączny czas pracy: <strong>{cookingParams.reduce((s, p) => s + p.workTime, 0)} min</strong></span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -444,20 +510,24 @@ interface IngredientsTableProps {
 }
 
 function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, totals, showGross }: IngredientsTableProps) {
+  const getIngAllergens = (ing: RecipeIngredient): string[] => {
+    return PRODUCT_ALLERGENS[ing.referenceId] || [];
+  };
+
   return (
     <div className="border rounded-lg overflow-auto">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-8">#</TableHead>
-            <TableHead className="min-w-[200px]">Składnik</TableHead>
-            <TableHead className="w-20 text-right">Ilość</TableHead>
+            <TableHead className="min-w-[240px]">Składnik</TableHead>
+            <TableHead className="w-24 text-right">Ilość</TableHead>
             <TableHead className="w-16">Jedn.</TableHead>
-            <TableHead className="w-20 text-right">Straty %</TableHead>
-            {showGross && <TableHead className="w-20 text-right">Brutto</TableHead>}
-            <TableHead className="w-16 text-right">Kcal</TableHead>
-            <TableHead className="w-16 text-right">Białko</TableHead>
-            <TableHead className="w-20 text-right">Koszt</TableHead>
+            <TableHead className="w-24 text-right">Straty %</TableHead>
+            {showGross && <TableHead className="w-24 text-right">Brutto</TableHead>}
+            <TableHead className="w-20 text-right">Kcal</TableHead>
+            <TableHead className="w-20 text-right">Białko</TableHead>
+            <TableHead className="w-24 text-right">Koszt</TableHead>
             <TableHead className="w-24" />
           </TableRow>
         </TableHeader>
@@ -469,78 +539,82 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
               </TableCell>
             </TableRow>
           ) : (
-            ingredients.map((ing, idx) => (
-              <TableRow
-                key={ing.id}
-                className={cn(
-                  ing.type === "recipe" && "bg-primary/5 border-l-2 border-l-primary"
-                )}
-              >
-                <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    {ing.type === "recipe" && <span className="text-primary font-medium">→</span>}
+            ingredients.map((ing, idx) => {
+              const ingAllergens = getIngAllergens(ing);
+              return (
+                <TableRow
+                  key={ing.id}
+                  className={cn(
+                    ing.type === "recipe" && "bg-primary/5 border-l-2 border-l-primary"
+                  )}
+                >
+                  <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {ing.type === "recipe" && <span className="text-primary font-medium">→</span>}
+                      <span className="text-xs truncate">{ing.name || "Wyszukaj składnik…"}</span>
+                      {ingAllergens.length > 0 && (
+                        <div className="flex gap-0.5 shrink-0">
+                          {ingAllergens.map(a => (
+                            <span key={a} className="text-xs" title={a}>{ALLERGEN_ICONS[a] || "⚠️"}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Input
-                      value={ing.name}
-                      onChange={() => {}}
-                      className="h-7 text-xs border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-                      placeholder="Wyszukaj składnik…"
-                      readOnly
+                      type="number"
+                      value={ing.quantity}
+                      onChange={(e) => onUpdate(ing.id, "quantity", Number(e.target.value))}
+                      className="h-7 text-xs text-right w-full"
                     />
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    value={ing.quantity}
-                    onChange={(e) => onUpdate(ing.id, "quantity", Number(e.target.value))}
-                    className="h-7 text-xs text-right w-full"
-                  />
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{ing.unit}</TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    value={ing.wastePercent}
-                    onChange={(e) => onUpdate(ing.id, "wastePercent", Number(e.target.value))}
-                    className="h-7 text-xs text-right w-full"
-                  />
-                </TableCell>
-                {showGross && (
-                  <TableCell className="text-right text-xs">{ing.grossWeight.toFixed(0)}g</TableCell>
-                )}
-                <TableCell className="text-right text-xs tabular-nums">{ing.kcal}</TableCell>
-                <TableCell className="text-right text-xs tabular-nums">{ing.protein}g</TableCell>
-                <TableCell className="text-right text-xs tabular-nums">{ing.cost.toFixed(2)}</TableCell>
-                <TableCell>
-                  <div className="flex gap-0.5">
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-6 w-6"
-                      disabled={idx === 0}
-                      onClick={() => onMove(idx, -1)}
-                    >
-                      <ArrowUp className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-6 w-6"
-                      disabled={idx === ingredients.length - 1}
-                      onClick={() => onMove(idx, 1)}
-                    >
-                      <ArrowDown className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      onClick={() => onRemove(ing.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{ing.unit}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={ing.wastePercent}
+                      onChange={(e) => onUpdate(ing.id, "wastePercent", Number(e.target.value))}
+                      className="h-7 text-xs text-right w-full"
+                    />
+                  </TableCell>
+                  {showGross && (
+                    <TableCell className="text-right text-xs">{ing.grossWeight.toFixed(0)}g</TableCell>
+                  )}
+                  <TableCell className="text-right text-xs tabular-nums">{ing.kcal}</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">{ing.protein}g</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">{ing.cost.toFixed(2)} zł</TableCell>
+                  <TableCell>
+                    <div className="flex gap-0.5">
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-6 w-6"
+                        disabled={idx === 0}
+                        onClick={() => onMove(idx, -1)}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-6 w-6"
+                        disabled={idx === ingredients.length - 1}
+                        onClick={() => onMove(idx, 1)}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => onRemove(ing.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
 
           {/* TOTALS ROW */}
@@ -554,7 +628,7 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
               {showGross && <TableCell className="text-right text-xs">{totals.grossWeight.toFixed(0)}g</TableCell>}
               <TableCell className="text-right text-xs font-bold">{totals.kcal.toFixed(0)}</TableCell>
               <TableCell className="text-right text-xs font-bold">{totals.protein.toFixed(1)}g</TableCell>
-              <TableCell className="text-right text-xs font-bold">{totals.cost.toFixed(2)}</TableCell>
+              <TableCell className="text-right text-xs font-bold">{totals.cost.toFixed(2)} zł</TableCell>
               <TableCell />
             </TableRow>
           )}
