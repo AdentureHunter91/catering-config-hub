@@ -70,7 +70,7 @@ export default function DailyOperationalMenu() {
   }, 0);
 
   return (
-    <DietLayout>
+    <DietLayout pageKey="diet.meals_approval">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
