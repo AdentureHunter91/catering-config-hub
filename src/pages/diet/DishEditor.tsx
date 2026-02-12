@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/collapsible";
 import {
   Save, ArrowLeft, Plus, Trash2, ChevronDown, FileText, AlertTriangle,
-  Check, HelpCircle, X as XIcon,
+  Check, HelpCircle, X as XIcon, Clock, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,22 @@ const ALLERGEN_ICONS: Record<string, string> = {
   Orzechy: "🥜", Seler: "🥬", Soja: "🫘", Musztarda: "🟡",
   Skorupiaki: "🦐", Sezam: "⚪",
 };
+
+const DISH_PRODUCTION_METHODS = [
+  "Gotowanie", "Pieczenie", "Smażenie", "Grillowanie", "Duszenie",
+  "Sous vide", "Blanszowanie", "Wędzenie", "Marynowanie", "Fermentacja",
+  "Bez obróbki termicznej",
+  "Pakowanie", "Porcjowanie", "Chłodzenie", "Montaż dania", "Dekoracja",
+] as const;
+
+interface DishProductionStage {
+  id: string;
+  method: string;
+  processTime: number;
+  workTime: number;
+  fromRecipe: boolean;
+  recipeName?: string;
+}
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   auto: <Check className="h-3.5 w-3.5 text-emerald-600" />,
@@ -77,6 +93,14 @@ export default function DishEditor() {
   );
   const [productionActive, setProductionActive] = useState(existing?.productionVersionActive || false);
   const [allergens, setAllergens] = useState<AllergenEntry[]>(existing?.allergens || []);
+
+  // Mock production stages from recipes
+  const initStages: DishProductionStage[] = existing ? [
+    { id: "rs-1", method: "Gotowanie", processTime: 120, workTime: 10, fromRecipe: true, recipeName: composition[0]?.name || "Receptura" },
+    { id: "rs-2", method: "Smażenie", processTime: 8, workTime: 8, fromRecipe: true, recipeName: composition[1]?.name || "Receptura" },
+  ] : [];
+  const [productionStages, setProductionStages] = useState<DishProductionStage[]>(initStages);
+  const [openStages, setOpenStages] = useState(false);
 
   // Collapsible states
   const [openExclusions, setOpenExclusions] = useState(true);
@@ -450,6 +474,91 @@ export default function DishEditor() {
                   ) : (
                     <p className="text-xs text-muted-foreground">Włącz toggle, aby edytować wersję produkcyjną.</p>
                   )}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          {/* PRODUCTION STAGES */}
+          <Collapsible open={openStages} onOpenChange={setOpenStages}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="flex items-center gap-2"><Clock className="h-4 w-4" /> Etapy produkcji</span>
+                    <div className="flex items-center gap-2">
+                      {productionStages.length > 0 && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {productionStages.reduce((s, p) => s + p.workTime, 0)} min pracy
+                        </Badge>
+                      )}
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", openStages && "rotate-180")} />
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-3">
+                  {productionStages.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">Brak etapów — dodaj lub pobierz z receptur</p>
+                  )}
+                  {productionStages.map((stage, i) => (
+                    <div key={stage.id} className={cn("border rounded-md p-3 space-y-2", stage.fromRecipe && "border-l-2 border-l-primary bg-primary/5")}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-muted-foreground">Etap {i + 1}</span>
+                          {stage.fromRecipe && (
+                            <Badge variant="outline" className="text-[10px] gap-1">
+                              <Wrench className="h-2.5 w-2.5" /> z receptury: {stage.recipeName}
+                            </Badge>
+                          )}
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => setProductionStages(prev => prev.filter(p => p.id !== stage.id))}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs">Metoda / Czynność</Label>
+                          <Select value={stage.method} onValueChange={(v) => setProductionStages(prev => prev.map(p => p.id === stage.id ? { ...p, method: v } : p))}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz…" /></SelectTrigger>
+                            <SelectContent>
+                              {DISH_PRODUCTION_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Czas procesu (min)</Label>
+                          <Input type="number" className="h-8 text-xs" value={stage.processTime || ""} onChange={(e) => setProductionStages(prev => prev.map(p => p.id === stage.id ? { ...p, processTime: Number(e.target.value) } : p))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Czas pracy (min)</Label>
+                          <Input type="number" className="h-8 text-xs" value={stage.workTime || ""} onChange={(e) => setProductionStages(prev => prev.map(p => p.id === stage.id ? { ...p, workTime: Number(e.target.value) } : p))} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProductionStages(prev => [...prev, {
+                      id: `ds-${Date.now()}`, method: "", processTime: 0, workTime: 0, fromRecipe: false,
+                    }])}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Dodaj etap
+                    </Button>
+                  </div>
+
+                  {productionStages.length > 0 && (
+                    <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                      <span>Łączny czas procesu: <strong>{productionStages.reduce((s, p) => s + p.processTime, 0)} min</strong></span>
+                      <span>Łączny czas pracy: <strong>{productionStages.reduce((s, p) => s + p.workTime, 0)} min</strong></span>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2 p-2 bg-muted/50 border rounded text-xs text-muted-foreground">
+                    <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>Etapy z receptur są importowane automatycznie. Dodaj własne etapy (np. Pakowanie, Porcjowanie) specyficzne dla dania.</span>
+                  </div>
                 </CardContent>
               </CollapsibleContent>
             </Card>
