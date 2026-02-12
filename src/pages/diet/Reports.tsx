@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -108,7 +109,37 @@ const allergenColors: Record<string, string> = {
 
 /* ─── Component ─── */
 export default function Reports() {
-  const [activeReport, setActiveReport] = useState<ReportType>("hub");
+  const { reportType } = useParams<{ reportType?: string }>();
+  const navigate = useNavigate();
+
+  const routeMap: Record<string, ReportType> = {
+    odzywczy: "nutrition",
+    kosztowy: "cost",
+    alergeny: "allergens",
+    odpady: "waste",
+  };
+  const reverseMap: Record<string, string> = {
+    nutrition: "odzywczy",
+    cost: "kosztowy",
+    allergens: "alergeny",
+    waste: "odpady",
+  };
+
+  const initialReport: ReportType = reportType ? (routeMap[reportType] || "hub") : "hub";
+  const [activeReport, setActiveReport] = useState<ReportType>(initialReport);
+
+  useEffect(() => {
+    const mapped = reportType ? (routeMap[reportType] || "hub") : "hub";
+    setActiveReport(mapped);
+  }, [reportType]);
+
+  const goToReport = (type: ReportType) => {
+    if (type === "hub") {
+      navigate("/dietetyka/raporty");
+    } else {
+      navigate(`/dietetyka/raporty/${reverseMap[type]}`);
+    }
+  };
   const [selectedClient, setSelectedClient] = useState(clients[0]);
   const [selectedDiet, setSelectedDiet] = useState("Wszystkie");
   const [selectedMeal, setSelectedMeal] = useState("Wszystkie");
@@ -183,7 +214,7 @@ export default function Reports() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><BarChart3 className="h-6 w-6" />Raporty</h1>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {reportCards.map(rc => (
-              <Card key={rc.type} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => setActiveReport(rc.type)}>
+              <Card key={rc.type} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => goToReport(rc.type)}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div className={`${rc.color}`}>{rc.icon}</div>
@@ -208,7 +239,7 @@ export default function Reports() {
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setActiveReport("hub")}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => goToReport("hub")}><ArrowLeft className="h-4 w-4" /></Button>
           <h1 className="text-2xl font-bold">{reportTitle}</h1>
         </div>
 
