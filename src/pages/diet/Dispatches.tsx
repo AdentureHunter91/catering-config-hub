@@ -39,7 +39,11 @@ import {
   Leaf,
   Package,
   Cookie,
+  Settings2,
+  Plus,
+  Trash2,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { format, addDays, startOfWeek } from "date-fns";
 import { pl } from "date-fns/locale";
 
@@ -54,6 +58,27 @@ interface DispatchProduct {
   portions: number;
   cost: number;
 }
+
+interface LeadTimeRule {
+  id: string;
+  group: string;
+  leadHours: number;
+  note: string;
+}
+
+const PRODUCT_GROUPS = [
+  "Mięso", "Ryby", "Nabiał", "Warzywa", "Owoce", "Warzywa mrożone",
+  "Pieczywo", "Pieczywo GF", "Produkty suche", "Przyprawy", "Tłuszcze",
+  "Mrożonki", "Przetwory", "Napoje",
+];
+
+const DEFAULT_LEAD_RULES: LeadTimeRule[] = [
+  { id: "lr1", group: "Mrożonki", leadHours: 24, note: "Wyciągnąć do rozmrożenia min. 24h przed produkcją" },
+  { id: "lr2", group: "Mięso", leadHours: 24, note: "Rozmrożenie w chłodni" },
+  { id: "lr3", group: "Ryby", leadHours: 24, note: "Rozmrożenie w chłodni" },
+  { id: "lr4", group: "Warzywa mrożone", leadHours: 12, note: "Wyciągnąć wieczorem dnia poprzedniego" },
+  { id: "lr5", group: "Pieczywo", leadHours: 2, note: "Dostawa poranna" },
+];
 
 interface Tranche {
   id: string;
@@ -180,6 +205,27 @@ export default function Dispatches() {
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(2026, 1, 10), { weekStartsOn: 1 }));
   const [previewDispatch, setPreviewDispatch] = useState<Dispatch | null>(null);
   const [activeTranche, setActiveTranche] = useState(0);
+  const [leadRules, setLeadRules] = useState<LeadTimeRule[]>(DEFAULT_LEAD_RULES);
+
+  const addLeadRule = () => {
+    const usedGroups = leadRules.map(r => r.group);
+    const available = PRODUCT_GROUPS.filter(g => !usedGroups.includes(g));
+    if (available.length === 0) return;
+    setLeadRules(prev => [...prev, { id: `lr_${Date.now()}`, group: available[0], leadHours: 0, note: "" }]);
+  };
+
+  const updateLeadRule = (id: string, field: keyof LeadTimeRule, value: string | number) => {
+    setLeadRules(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const removeLeadRule = (id: string) => {
+    setLeadRules(prev => prev.filter(r => r.id !== id));
+  };
+
+  const formatLeadTime = (hours: number) => {
+    if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    return `${hours}h`;
+  };
 
   const dispatch = mockDispatches[0];
   const currentTranche = dispatch.tranches[activeTranche];
@@ -247,6 +293,7 @@ export default function Dispatches() {
           <TabsList>
             <TabsTrigger value="preview" className="gap-1"><Eye className="h-4 w-4" />Podgląd wydawki</TabsTrigger>
             <TabsTrigger value="calendar" className="gap-1"><Calendar className="h-4 w-4" />Kalendarz</TabsTrigger>
+            <TabsTrigger value="leadtime" className="gap-1"><Settings2 className="h-4 w-4" />Czasy wyprzedzenia</TabsTrigger>
             <TabsTrigger value="history" className="gap-1"><List className="h-4 w-4" />Historia</TabsTrigger>
           </TabsList>
 
@@ -431,6 +478,125 @@ export default function Dispatches() {
               <span className="flex items-center gap-1"><Timer className="h-3.5 w-3.5 text-amber-500" />Do wygenerowania</span>
               <span className="flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-red-500" />Spóźniona</span>
             </div>
+          </TabsContent>
+
+          {/* ── TAB: Lead Time Config ── */}
+          <TabsContent value="leadtime" className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Czasy wyprzedzenia grup asortymentowych</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Określ ile godzin przed produkcją należy przygotować (wyciągnąć/zamówić) produkty z danej grupy.
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={addLeadRule} disabled={leadRules.length >= PRODUCT_GROUPS.length}>
+                    <Plus className="h-4 w-4 mr-1" />Dodaj grupę
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[220px]">Grupa asortymentowa</TableHead>
+                      <TableHead className="w-[140px]">Wyprzedzenie (h)</TableHead>
+                      <TableHead className="w-[100px]">Przeliczenie</TableHead>
+                      <TableHead>Uwagi / instrukcja</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leadRules.map(rule => (
+                      <TableRow key={rule.id}>
+                        <TableCell>
+                          <Select value={rule.group} onValueChange={v => updateLeadRule(rule.id, "group", v)}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {PRODUCT_GROUPS.filter(g => g === rule.group || !leadRules.some(r => r.group === g)).map(g => (
+                                <SelectItem key={g} value={g}>{g}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-9 w-28"
+                            value={rule.leadHours}
+                            onChange={e => updateLeadRule(rule.id, "leadHours", Number(e.target.value))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {formatLeadTime(rule.leadHours)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-9"
+                            placeholder="Np. rozmrożenie w chłodni..."
+                            value={rule.note}
+                            onChange={e => updateLeadRule(rule.id, "note", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLeadRule(rule.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {leadRules.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          Brak zdefiniowanych reguł. Kliknij "Dodaj grupę" aby rozpocząć.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {leadRules.length > 0 && (
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setLeadRules(DEFAULT_LEAD_RULES)}>
+                      <RefreshCw className="h-4 w-4 mr-1" />Przywróć domyślne
+                    </Button>
+                    <Button size="sm">Zapisz konfigurację</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Summary preview */}
+            {leadRules.length > 0 && (
+              <Card className="bg-muted/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Podgląd harmonogramu przygotowania (dla produkcji 12.02.2026)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1.5">
+                    {[...leadRules].sort((a, b) => b.leadHours - a.leadHours).map(rule => {
+                      const prodDate = new Date(2026, 1, 12, 6, 0);
+                      const prepDate = new Date(prodDate.getTime() - rule.leadHours * 60 * 60 * 1000);
+                      return (
+                        <div key={rule.id} className="flex items-center gap-3 text-sm">
+                          <Badge variant="secondary" className="w-44 justify-center font-medium">{rule.group}</Badge>
+                          <span className="text-muted-foreground">wyciągnąć do</span>
+                          <span className="font-mono font-medium">
+                            {format(prepDate, "dd.MM HH:mm")}
+                          </span>
+                          <span className="text-muted-foreground">({formatLeadTime(rule.leadHours)} przed)</span>
+                          {rule.note && <span className="text-xs text-muted-foreground italic ml-2">— {rule.note}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ── TAB 3: History ── */}
