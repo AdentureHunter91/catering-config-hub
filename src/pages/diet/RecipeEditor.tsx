@@ -324,7 +324,17 @@ export default function RecipeEditor() {
                 return (
                 <div key={cp.id} className="border rounded-md p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Etap {i + 1}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-medium text-muted-foreground">Etap {i + 1}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={i === 0}
+                        onClick={() => setCookingParams(prev => { const n = [...prev]; [n[i], n[i-1]] = [n[i-1], n[i]]; return n; })}>
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={i === cookingParams.length - 1}
+                        onClick={() => setCookingParams(prev => { const n = [...prev]; [n[i], n[i+1]] = [n[i+1], n[i]]; return n; })}>
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
                       onClick={() => setCookingParams(prev => prev.filter(p => p.id !== cp.id))}>
                       <Trash2 className="h-3 w-3" />
