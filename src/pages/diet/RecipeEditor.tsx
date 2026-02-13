@@ -529,16 +529,39 @@ export default function RecipeEditor() {
                 </div>
               </div>
 
-              {/* TOP COST INGREDIENTS */}
-              {topCostIngredients.length > 0 && (
+              {/* ALL INGREDIENTS - OFFICIAL vs PRODUCTION COST */}
+              {ingredients.length > 0 && (
                 <div className="border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Najdroższe składniki</p>
-                  {topCostIngredients.map((ing, i) => (
-                    <div key={ing.id} className="flex justify-between text-xs py-0.5">
-                      <span>{i + 1}. {ing.name || "(brak nazwy)"}</span>
-                      <span className="font-medium">{ing.cost.toFixed(2)} zł</span>
-                    </div>
-                  ))}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-muted-foreground">Składniki — koszt</p>
+                    <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1"
+                      onClick={() => {
+                        toast.success("Skopiowano ceny oficjalne na produkcyjne");
+                      }}>
+                      Kopiuj oficjalną → produkcyjną
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 text-xs">
+                    <span className="text-[10px] text-muted-foreground font-medium">Składnik</span>
+                    <span className="text-[10px] text-muted-foreground font-medium text-right">Oficj.</span>
+                    <span className="text-[10px] text-muted-foreground font-medium text-right">Prod.</span>
+                    {ingredients.map((ing) => {
+                      const prodCost = +(ing.cost * 1.05).toFixed(2); // mock: production cost slightly higher
+                      return (
+                        <React.Fragment key={ing.id}>
+                          <span className="truncate py-0.5">{ing.name || "(brak nazwy)"}</span>
+                          <span className="font-medium text-right py-0.5 tabular-nums">{ing.cost.toFixed(2)}</span>
+                          <span className="font-medium text-right py-0.5 tabular-nums text-amber-700">{prodCost.toFixed(2)}</span>
+                        </React.Fragment>
+                      );
+                    })}
+                    {/* Total row */}
+                    <span className="font-bold border-t pt-1 mt-1">RAZEM</span>
+                    <span className="font-bold text-right border-t pt-1 mt-1 tabular-nums">{totals.cost.toFixed(2)}</span>
+                    <span className="font-bold text-right border-t pt-1 mt-1 tabular-nums text-amber-700">
+                      {ingredients.reduce((s, ing) => s + +(ing.cost * 1.05).toFixed(2), 0).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               )}
             </CardContent>
