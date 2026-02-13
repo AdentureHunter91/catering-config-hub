@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Input } from "@/components/ui/input";
@@ -52,10 +52,17 @@ const ALLERGEN_ICONS: Record<string, string> = {
 };
 
 const COOKING_METHODS = [
-  "Gotowanie", "Pieczenie", "Smażenie", "Grillowanie", "Duszenie",
-  "Sous vide", "Blanszowanie", "Wędzenie", "Marynowanie", "Fermentacja",
-  "Bez obróbki termicznej",
-] as const;
+  // Obróbka wstępna
+  { group: "Obróbka wstępna", items: ["Obieranie", "Krojenie", "Szatkowanie", "Mielenie", "Ucieranie", "Siekanie", "Mycie", "Namaczanie"] },
+  // Obróbka termiczna
+  { group: "Obróbka termiczna", items: ["Gotowanie", "Pieczenie", "Smażenie", "Grillowanie", "Duszenie", "Sous vide", "Blanszowanie", "Wędzenie", "Podgrzewanie"] },
+  // Inne procesy
+  { group: "Inne procesy", items: ["Marynowanie", "Fermentacja", "Chłodzenie", "Mrożenie", "Mieszanie", "Emulgowanie", "Przecieranie", "Filtrowanie", "Bez obróbki"] },
+];
+
+const ALL_METHODS = COOKING_METHODS.flatMap(g => g.items);
+
+type StageInput = { type: "ingredient"; id: string } | { type: "stage"; id: string };
 
 interface CookingParam {
   id: string;
@@ -64,6 +71,7 @@ interface CookingParam {
   processTime: number;
   workTime: number;
   lossPercent: number;
+  inputs: StageInput[];
 }
 
 // Mock allergens per product referenceId
@@ -93,6 +101,7 @@ export default function RecipeEditor() {
     processTime: existing.cookingTime || 0,
     workTime: Math.round((existing.cookingTime || 0) * 0.15),
     lossPercent: existing.lossCoefficient,
+    inputs: existing.ingredients.length > 0 ? [{ type: "ingredient" as const, id: existing.ingredients[0].id }] : [],
   }] : [];
   const [cookingParams, setCookingParams] = useState<CookingParam[]>(initParams);
   const [notes, setNotes] = useState(existing?.notes || "");
@@ -298,8 +307,8 @@ export default function RecipeEditor() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Parametry przygotowania</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setCookingParams(prev => [...prev, {
-                  id: `cp-${Date.now()}`, method: "", temp: null, processTime: 0, workTime: 0, lossPercent: 0,
+              <Button variant="outline" size="sm" onClick={() => setCookingParams(prev => [...prev, {
+                  id: `cp-${Date.now()}`, method: "", temp: null, processTime: 0, workTime: 0, lossPercent: 0, inputs: [],
                 }])}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Dodaj etap
                 </Button>
@@ -309,7 +318,10 @@ export default function RecipeEditor() {
               {cookingParams.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-3">Brak etapów — kliknij „Dodaj etap"</p>
               )}
-              {cookingParams.map((cp, i) => (
+              {cookingParams.map((cp, i) => {
+                // Build available "previous stage outputs"
+                const previousStages = cookingParams.slice(0, i);
+                return (
                 <div key={cp.id} className="border rounded-md p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Etap {i + 1}</span>
@@ -324,7 +336,14 @@ export default function RecipeEditor() {
                       <Select value={cp.method} onValueChange={(v) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, method: v } : p))}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz…" /></SelectTrigger>
                         <SelectContent>
-                          {COOKING_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                          {COOKING_METHODS.map(group => (
+                            <React.Fragment key={group.group}>
+                              <SelectItem value={`__group_${group.group}`} disabled className="text-xs font-semibold text-muted-foreground pointer-events-none">
+                                {group.group}
+                              </SelectItem>
+                              {group.items.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                            </React.Fragment>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -345,8 +364,72 @@ export default function RecipeEditor() {
                       <Input type="number" className="h-8 text-xs" value={cp.lossPercent || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, lossPercent: Number(e.target.value) } : p))} />
                     </div>
                   </div>
+
+                  {/* INPUTS: ingredients or previous stage outputs */}
+                  <div>
+                    <Label className="text-xs">Dotyczy (składniki / wynikowe z etapów)</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {cp.inputs.map((input, ii) => {
+                        const label = input.type === "ingredient"
+                          ? ingredients.find(ing => ing.id === input.id)?.name || "(składnik)"
+                          : `Wynik etapu ${cookingParams.findIndex(s => s.id === input.id) + 1}`;
+                        return (
+                          <Badge key={ii} variant="secondary" className="gap-1 text-xs pr-1">
+                            {input.type === "stage" && <span className="text-primary">↩</span>}
+                            {label}
+                            <button className="ml-0.5 hover:text-destructive" onClick={() =>
+                              setCookingParams(prev => prev.map(p => p.id === cp.id
+                                ? { ...p, inputs: p.inputs.filter((_, idx) => idx !== ii) }
+                                : p
+                              ))
+                            }>×</button>
+                          </Badge>
+                        );
+                      })}
+                      {/* Add input dropdown */}
+                      <Select value="none" onValueChange={(v) => {
+                        if (v === "none") return;
+                        const [type, refId] = v.split("::");
+                        const newInput: StageInput = { type: type as "ingredient" | "stage", id: refId };
+                        // Don't add duplicates
+                        if (cp.inputs.some(inp => inp.type === newInput.type && inp.id === newInput.id)) return;
+                        setCookingParams(prev => prev.map(p => p.id === cp.id
+                          ? { ...p, inputs: [...p.inputs, newInput] }
+                          : p
+                        ));
+                      }}>
+                        <SelectTrigger className="h-7 text-xs w-auto min-w-[140px] border-dashed">
+                          <SelectValue placeholder="+ Dodaj…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" disabled className="text-xs text-muted-foreground">+ Dodaj element…</SelectItem>
+                          {ingredients.length > 0 && (
+                            <SelectItem value="__grp_ing" disabled className="text-xs font-semibold text-muted-foreground pointer-events-none">
+                              Składniki
+                            </SelectItem>
+                          )}
+                          {ingredients.map(ing => (
+                            <SelectItem key={ing.id} value={`ingredient::${ing.id}`} className="text-xs">
+                              {ing.name || `Składnik #${ing.sortOrder}`}
+                            </SelectItem>
+                          ))}
+                          {previousStages.length > 0 && (
+                            <SelectItem value="__grp_stg" disabled className="text-xs font-semibold text-muted-foreground pointer-events-none">
+                              Wynikowe z etapów
+                            </SelectItem>
+                          )}
+                          {previousStages.map((ps, pi) => (
+                            <SelectItem key={ps.id} value={`stage::${ps.id}`} className="text-xs">
+                              ↩ Wynik etapu {pi + 1}{ps.method ? ` (${ps.method})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
               {cookingParams.length > 0 && (
                 <div className="flex gap-4 text-xs text-muted-foreground pt-1 border-t">
                   <span>Łączny czas procesu: <strong>{cookingParams.reduce((s, p) => s + p.processTime, 0)} min</strong></span>
