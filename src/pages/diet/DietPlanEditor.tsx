@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Input } from "@/components/ui/input";
+import { getMealTypes, MealType } from "@/api/mealTypes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,11 @@ export default function DietPlanEditor() {
   const [openSubstitutions, setOpenSubstitutions] = useState(true);
   const [openClients, setOpenClients] = useState(false);
   const [mealStructureUnlocked, setMealStructureUnlocked] = useState(false);
+  const [availableMealTypes, setAvailableMealTypes] = useState<MealType[]>([]);
+
+  useEffect(() => {
+    getMealTypes().then(setAvailableMealTypes).catch(console.error);
+  }, []);
 
   const isDerived = dietType === "derived";
   const baseDiet = isDerived && baseDietId !== "none" ? MOCK_DIET_PLANS.find((d) => d.id === Number(baseDietId)) : undefined;
@@ -228,7 +234,12 @@ export default function DietPlanEditor() {
                         <TableRow key={slot.id} className={cn(isDerived && !mealStructureUnlocked && "opacity-60")}>
                           <TableCell>
                             {editable ? (
-                              <Input value={slot.name} className="h-7 text-sm" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, name: e.target.value } : s))} />
+                              <Select value={slot.name} onValueChange={(v) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, name: v } : s))}>
+                                <SelectTrigger className="h-7 text-sm"><SelectValue placeholder="Wybierz posiłek" /></SelectTrigger>
+                                <SelectContent>
+                                  {availableMealTypes.map((mt) => <SelectItem key={mt.id} value={mt.name}>{mt.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                             ) : (
                               <span className="font-medium text-sm">{slot.name}</span>
                             )}
@@ -319,9 +330,9 @@ export default function DietPlanEditor() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Składnik</TableHead>
-                        <TableHead className="w-20 text-right">Min</TableHead>
-                        <TableHead className="w-20 text-right">Max</TableHead>
-                        <TableHead className="w-24">% kcal</TableHead>
+                        <TableHead className="w-28 text-right">Min</TableHead>
+                        <TableHead className="w-28 text-right">Max</TableHead>
+                        <TableHead className="w-32">% kcal</TableHead>
                         {isDerived && <TableHead className="w-32">Źródło</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -333,14 +344,14 @@ export default function DietPlanEditor() {
                           <TableCell className={cn("text-sm", isSub ? "pl-8 text-muted-foreground" : "font-medium")}>{g.nutrient.trim()} ({g.unit})</TableCell>
                           <TableCell>
                             <Input
-                              type="number" value={g.min ?? ""} className="h-7 text-xs text-right w-full"
+                              type="number" value={g.min ?? ""} className="h-7 text-sm text-right w-full"
                               disabled={isDerived && g.source === "inherited"}
                               onChange={(e) => setNutritionGoals((prev) => prev.map((n) => n.nutrient === g.nutrient ? { ...n, min: e.target.value ? Number(e.target.value) : null } : n))}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
-                              type="number" value={g.max ?? ""} className="h-7 text-xs text-right w-full"
+                              type="number" value={g.max ?? ""} className="h-7 text-sm text-right w-full"
                               disabled={isDerived && g.source === "inherited"}
                               onChange={(e) => setNutritionGoals((prev) => prev.map((n) => n.nutrient === g.nutrient ? { ...n, max: e.target.value ? Number(e.target.value) : null } : n))}
                             />
