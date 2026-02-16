@@ -37,7 +37,11 @@ export interface MenuCellDish {
   kcal: number;
   protein: number;
   fat: number;
+  saturatedFat: number;
   carbs: number;
+  sugars: number;
+  salt: number;
+  fiber: number;
   cost: number;
   allergenIcons: string[];
   variant?: string;

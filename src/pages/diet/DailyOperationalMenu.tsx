@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,7 @@ import { mockMenuPackages } from "@/data/mockMenuPackages";
 import { DEFAULT_MEAL_SLOTS } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
 import MenuCellContent from "@/components/MenuCellContent";
+import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
 
 const DAY_NAMES_FULL = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
 
@@ -30,12 +30,6 @@ function getColumnSlots() {
 
 const columnSlots = getColumnSlots();
 
-const portionCounts: Record<string, number> = {
-  STANDARD: 45,
-  GF: 8,
-  DIABETIC: 12,
-  RENAL: 4,
-};
 
 export default function DailyOperationalMenu() {
   const { id } = useParams();
@@ -60,14 +54,6 @@ export default function DailyOperationalMenu() {
     return baseCell?.dish?.id !== cell?.dish?.id;
   };
 
-  const totalPortions = Object.values(portionCounts).reduce((a, b) => a + b, 0);
-  const totalCost = pkg.dietPlans.reduce((sum, diet) => {
-    const portions = portionCounts[diet.dietCode] ?? 0;
-    const dayCost = diet.weeks[0]?.cells
-      .filter((c) => c.dayIndex === selectedDay)
-      .reduce((s, c) => s + (c.dish?.cost ?? 0), 0) ?? 0;
-    return sum + dayCost * (portions / 8);
-  }, 0);
 
   const isDetailed = detailLevel === "detailed";
 
@@ -162,13 +148,11 @@ export default function DailyOperationalMenu() {
                   </thead>
                   <tbody>
                     {pkg.dietPlans.map((diet, dietIdx) => {
-                      const portions = portionCounts[diet.dietCode] ?? 0;
                       return (
                         <tr key={diet.dietId} className="border-b hover:bg-muted/20">
                           <td className="p-2">
                             <div className="font-medium text-sm">{diet.dietCode}</div>
                             <div className="text-[10px] text-muted-foreground">{diet.dietName}</div>
-                            <Badge variant="outline" className="text-[10px] mt-0.5">{portions > 0 ? `${portions} porcji` : "? porcji"}</Badge>
                           </td>
                           {columnSlots.map((col) => {
                             const cell = getCell(dietIdx, col.id);
@@ -192,6 +176,18 @@ export default function DailyOperationalMenu() {
                         </tr>
                       );
                     })}
+                    {/* Nutrition summary row – one cell per diet */}
+                    <tr className="border-t-2 bg-muted/40">
+                      <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
+                      {/* Summary spans all slot columns – show for the base diet */}
+                      <td colSpan={columnSlots.length} className="p-2 border-l">
+                        {(() => {
+                          const baseDishes = columnSlots.map((col) => getCell(0, col.id)?.dish ?? null);
+                          const summary = computeDayNutrition(baseDishes);
+                          return <NutritionSummaryCell summary={summary} />;
+                        })()}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               ) : (
@@ -200,16 +196,12 @@ export default function DailyOperationalMenu() {
                   <thead>
                     <tr className="border-b bg-muted/30">
                       <th className="p-2 text-left w-24 font-medium text-muted-foreground">Posiłek</th>
-                      {pkg.dietPlans.map((diet) => {
-                        const portions = portionCounts[diet.dietCode] ?? 0;
-                        return (
-                          <th key={diet.dietId} className="p-2 text-center font-medium text-muted-foreground">
-                            <div>{diet.dietCode}</div>
-                            <div className="text-[10px] text-muted-foreground/60">{diet.dietName}</div>
-                            <Badge variant="outline" className="text-[10px] mt-0.5">{portions > 0 ? `${portions} porcji` : "? porcji"}</Badge>
-                          </th>
-                        );
-                      })}
+                      {pkg.dietPlans.map((diet) => (
+                        <th key={diet.dietId} className="p-2 text-center font-medium text-muted-foreground">
+                          <div>{diet.dietCode}</div>
+                          <div className="text-[10px] text-muted-foreground/60">{diet.dietName}</div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -240,6 +232,19 @@ export default function DailyOperationalMenu() {
                         })}
                       </tr>
                     ))}
+                    {/* Nutrition summary row per diet */}
+                    <tr className="border-t-2 bg-muted/40">
+                      <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
+                      {pkg.dietPlans.map((diet, dietIdx) => {
+                        const dayDishes = columnSlots.map((col) => getCell(dietIdx, col.id)?.dish ?? null);
+                        const summary = computeDayNutrition(dayDishes);
+                        return (
+                          <td key={diet.dietId} className="p-1.5 border-l">
+                            <NutritionSummaryCell summary={summary} />
+                          </td>
+                        );
+                      })}
+                    </tr>
                   </tbody>
                 </table>
               )}
@@ -253,16 +258,8 @@ export default function DailyOperationalMenu() {
             <h3 className="font-medium text-sm mb-2">Podsumowanie dnia</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Łączna liczba porcji:</span>
-                <span className="ml-2 font-mono font-medium">{totalPortions}</span>
-              </div>
-              <div>
                 <span className="text-muted-foreground">Liczba diet:</span>
                 <span className="ml-2 font-mono font-medium">{pkg.dietPlans.length}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Koszt dnia (est.):</span>
-                <span className="ml-2 font-mono font-medium">{totalCost.toFixed(2)} PLN</span>
               </div>
               <div className="flex items-center gap-1">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
