@@ -93,7 +93,22 @@ export default function DishEditor() {
   );
   const [portionUnit, setPortionUnit] = useState("g");
   const [productionActive, setProductionActive] = useState(existing?.productionVersionActive || false);
-  const [allergens, setAllergens] = useState<AllergenEntry[]>(existing?.allergens || []);
+
+  // Allergens auto-computed from composition (recipes/products)
+  const allergens = useMemo(() => {
+    const allergenMap = new Map<string, string>();
+    composition.forEach((item) => {
+      // In real app, allergens would come from recipe/product data
+      // For now, derive from existing dish data or mock
+      const source = MOCK_DISHES.find((d) => d.id === Number(id));
+      if (source) {
+        source.allergens.forEach((a) => {
+          if (a.status !== "free") allergenMap.set(a.name, a.icon);
+        });
+      }
+    });
+    return Array.from(allergenMap.entries()).map(([name, icon]) => ({ name, icon }));
+  }, [composition, id]);
 
   // Mock production stages from recipes
   const initStages: DishProductionStage[] = existing ? [
@@ -584,49 +599,18 @@ export default function DishEditor() {
             <CardHeader className="pb-3"><CardTitle className="text-sm">Alergeny</CardTitle></CardHeader>
             <CardContent>
               {allergens.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Brak alergenów</p>
+                <p className="text-xs text-muted-foreground">Brak alergenów w składnikach</p>
               ) : (
-                <div className="border rounded overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Alergen</TableHead>
-                        <TableHead className="text-xs w-32">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allergens.map((a) => (
-                        <TableRow key={a.name}>
-                          <TableCell className="text-sm">
-                            <span className="mr-1.5">{a.icon}</span>{a.name}
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={a.status}
-                              onValueChange={(v) =>
-                                setAllergens((prev) =>
-                                  prev.map((al) =>
-                                    al.name === a.name ? { ...al, status: v as AllergenEntry["status"] } : al
-                                  )
-                                )
-                              }
-                            >
-                              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="contains">Zawiera</SelectItem>
-                                <SelectItem value="may_contain">Może zawierać</SelectItem>
-                                <SelectItem value="free">Wolny</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-wrap gap-2">
+                  {allergens.map((a) => (
+                    <Badge key={a.name} variant="secondary" className="text-xs gap-1">
+                      <span>{a.icon}</span>{a.name}
+                    </Badge>
+                  ))}
                 </div>
               )}
               <p className="text-[10px] text-muted-foreground mt-2">
-                Auto-generowane z receptur/składników. Możliwość ręcznego nadpisania.
+                Automatycznie na podstawie receptur i składników.
               </p>
             </CardContent>
           </Card>
@@ -649,7 +633,7 @@ export default function DishEditor() {
               <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
                 <div className="flex justify-between"><span>Receptury / produkty</span><span className="font-medium">{composition.length}</span></div>
                 <div className="flex justify-between"><span>Warianty</span><span className="font-medium">{variantCount}</span></div>
-                <div className="flex justify-between"><span>Alergeny</span><span className="font-medium">{allergens.filter((a) => a.status !== "free").length}</span></div>
+                <div className="flex justify-between"><span>Alergeny</span><span className="font-medium">{allergens.length}</span></div>
               </div>
             </CardContent>
           </Card>
