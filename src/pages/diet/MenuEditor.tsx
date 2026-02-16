@@ -3,22 +3,30 @@ import { useParams } from "react-router-dom";
 import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, RotateCcw, Eye, List,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, RotateCcw, Eye, List, Tag, Plus, X,
 } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
-import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
+import { DEFAULT_MEAL_SLOTS, PREDEFINED_TAGS, type MenuCellDish, type MenuPackageTag } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
 import MenuCellContent from "@/components/MenuCellContent";
 import MenuCellEditorDialog from "@/components/MenuCellEditorDialog";
 
-const DAY_NAMES = ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"];
+function getDayNames(cycleDays: number): string[] {
+  if (cycleDays <= 7) return ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"].slice(0, cycleDays);
+  return Array.from({ length: cycleDays }, (_, i) => `Dz. ${i + 1}`);
+}
 
 function getFlatSlots() {
   const flat: { id: string; label: string; parent?: string }[] = [];
@@ -39,6 +47,8 @@ const flatSlots = getFlatSlots();
 export default function MenuEditor() {
   const { id } = useParams();
   const pkg = mockMenuPackages.find((p) => p.id === Number(id)) ?? mockMenuPackages[0];
+  const cycleDays = Number(pkg.cycle) || 7;
+  const DAY_NAMES = getDayNames(cycleDays);
 
   const [selectedDietIdx, setSelectedDietIdx] = useState(0);
   const [weekIdx, setWeekIdx] = useState(0);
@@ -49,6 +59,12 @@ export default function MenuEditor() {
   const [nutritionView, setNutritionView] = useState<"day" | "week">("day");
   const [detailLevel, setDetailLevel] = useState<"general" | "detailed">("general");
   const [transposed, setTransposed] = useState(false);
+
+  // Tags
+  const [allTags, setAllTags] = useState<MenuPackageTag[]>(PREDEFINED_TAGS);
+  const [pkgTags, setPkgTags] = useState<string[]>(pkg.tags);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [newTagLabel, setNewTagLabel] = useState("");
 
   const diet = pkg.dietPlans[selectedDietIdx];
   const week = diet?.weeks[weekIdx];
@@ -97,6 +113,15 @@ export default function MenuEditor() {
     // In real app: update cell dishes in state
   };
 
+  const addNewTag = () => {
+    if (!newTagLabel.trim()) return;
+    const newId = newTagLabel.toLowerCase().replace(/\s+/g, "_");
+    const tag: MenuPackageTag = { id: newId, label: newTagLabel.trim(), color: "bg-slate-100 text-slate-800 border-slate-300" };
+    setAllTags((prev) => [...prev, tag]);
+    setPkgTags((prev) => [...prev, newId]);
+    setNewTagLabel("");
+  };
+
   const totalWeeks = diet?.weeks.length ?? 1;
   const isDetailed = detailLevel === "detailed";
 
@@ -114,6 +139,23 @@ export default function MenuEditor() {
           <div>
             <h1 className="text-xl font-bold">{pkg.name}</h1>
             <p className="text-sm text-muted-foreground">{pkg.clientName} • {pkg.periodFrom} — {pkg.periodTo}</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              {pkgTags.map((tagId) => {
+                const t = allTags.find((t) => t.id === tagId);
+                return t ? (
+                  <Badge key={tagId} variant="outline" className={cn("text-[10px] border", t.color)}>
+                    {t.label}
+                    <button className="ml-1 hover:text-destructive" onClick={() => setPkgTags((prev) => prev.filter((id) => id !== tagId))}>
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ) : null;
+              })}
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setTagDialogOpen(true)}>
+                <Plus className="h-3 w-3" /> Tag
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm"><Save className="h-4 w-4 mr-1" /> Zapisz</Button>
@@ -388,6 +430,48 @@ export default function MenuEditor() {
           onSave={handleEditorSave}
         />
       )}
+
+      {/* Tag management dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Zarządzaj tagami</DialogTitle>
+            <DialogDescription>Dodaj lub usuń tagi jadłospisu.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {allTags.map((tag) => {
+                const active = pkgTags.includes(tag.id);
+                return (
+                  <Badge
+                    key={tag.id}
+                    variant="outline"
+                    className={cn("cursor-pointer text-xs transition-all border", active ? tag.color + " border-2" : "hover:bg-muted")}
+                    onClick={() => setPkgTags((prev) => active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id])}
+                  >
+                    {tag.label} {active && "✓"}
+                  </Badge>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nowy tag..."
+                value={newTagLabel}
+                onChange={(e) => setNewTagLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addNewTag()}
+                className="h-8 text-sm"
+              />
+              <Button size="sm" className="h-8" onClick={addNewTag} disabled={!newTagLabel.trim()}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTagDialogOpen(false)}>Gotowe</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DietLayout>
   );
 }
