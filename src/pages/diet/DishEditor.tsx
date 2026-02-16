@@ -91,6 +91,7 @@ export default function DishEditor() {
   const [portionTemplates, setPortionTemplates] = useState<PortionTemplate[]>(
     existing?.portionTemplates || [{ id: "p-base", name: "Standard dorosły", grams: 350, coefficient: 1.0, mode: "base" }]
   );
+  const [portionUnit, setPortionUnit] = useState("g");
   const [productionActive, setProductionActive] = useState(existing?.productionVersionActive || false);
   const [allergens, setAllergens] = useState<AllergenEntry[]>(existing?.allergens || []);
 
@@ -214,9 +215,20 @@ export default function DishEditor() {
                 <Label>Opis</Label>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Krótki opis dania…" />
               </div>
-              <div className="w-40">
-                <Label>Porcja standardowa (g)</Label>
-                <Input type="number" value={standardPortion} onChange={(e) => setStandardPortion(Number(e.target.value))} />
+              <div className="w-52">
+                <Label>Porcja standardowa</Label>
+                <div className="flex gap-1">
+                  <Input type="number" value={standardPortion} onChange={(e) => setStandardPortion(Number(e.target.value))} className="flex-1" />
+                  <Select value={portionUnit} onValueChange={setPortionUnit}>
+                    <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="ml">ml</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="l">l</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -233,7 +245,6 @@ export default function DishEditor() {
                       <TableHead className="w-24 text-right">Porcja (g)</TableHead>
                       <TableHead className="w-28">Rola</TableHead>
                       <TableHead className="w-16 text-right">Kcal</TableHead>
-                      <TableHead className="w-16 text-right">Białko</TableHead>
                       <TableHead className="w-20 text-right">Koszt</TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
@@ -241,7 +252,7 @@ export default function DishEditor() {
                   <TableBody>
                     {composition.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
                           Brak składowych — kliknij „Dodaj recepturę"
                         </TableCell>
                       </TableRow>
@@ -261,7 +272,6 @@ export default function DishEditor() {
                             <Badge variant="secondary" className="text-xs">{COMPOSITION_ROLE_LABELS[c.role]}</Badge>
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">{c.kcal}</TableCell>
-                          <TableCell className="text-right text-sm tabular-nums">{c.protein}g</TableCell>
                           <TableCell className="text-right text-sm tabular-nums">{c.cost.toFixed(2)} zł</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeComposition(c.id)}>
@@ -277,7 +287,6 @@ export default function DishEditor() {
                         <TableCell />
                         <TableCell />
                         <TableCell className="text-right text-xs font-bold">{totals.kcal}</TableCell>
-                        <TableCell className="text-right text-xs font-bold">{totals.protein}g</TableCell>
                         <TableCell className="text-right text-xs font-bold">{totals.cost.toFixed(2)} zł</TableCell>
                         <TableCell />
                       </TableRow>
@@ -365,66 +374,15 @@ export default function DishEditor() {
             </Card>
           </Collapsible>
 
-          {/* VARIANT DIMENSION 2: PORTION SIZES */}
-          <Collapsible open={openPortions} onOpenChange={setOpenPortions}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    <span>Wymiar 2: Rozmiary porcji</span>
-                    <ChevronDown className={cn("h-4 w-4 transition-transform", openPortions && "rotate-180")} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <div className="border rounded-lg overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Nazwa szablonu</TableHead>
-                          <TableHead className="text-xs text-right">Gramatura</TableHead>
-                          <TableHead className="text-xs text-right">Współczynnik</TableHead>
-                          <TableHead className="text-xs">Tryb</TableHead>
-                          <TableHead className="w-12" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {portionTemplates.map((pt) => (
-                          <TableRow key={pt.id}>
-                            <TableCell className="text-sm">{pt.name}</TableCell>
-                            <TableCell className="text-right text-sm">{pt.grams}g</TableCell>
-                            <TableCell className="text-right text-sm">{pt.coefficient.toFixed(2)}×</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-[10px]">{MODE_LABEL[pt.mode]}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              {pt.mode !== "base" && (
-                                <Button
-                                  variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                  onClick={() => setPortionTemplates((prev) => prev.filter((p) => p.id !== pt.id))}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Dodaj szablon porcji
-                  </Button>
-
-                  <div className="flex items-start gap-2 mt-3 p-2 bg-muted/50 border rounded text-xs text-muted-foreground">
-                    <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>Możliwe jest nie tylko skalowanie porcji, ale także zmiana proporcji składników/receptur — do rozszerzenia.</span>
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          {/* INFO: PORTION SIZES MOVED TO MEAL PLANS */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Wymiar 2: Rozmiary porcji</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Rozmiary porcji definiowane są w jadłospisach — dla każdego posiłku osobno.</p>
+            </CardContent>
+          </Card>
 
           {/* VARIANT DIMENSION 3: OFFICIAL vs PRODUCTION */}
           <Collapsible open={openProduction} onOpenChange={setOpenProduction}>
@@ -584,11 +542,15 @@ export default function DishEditor() {
                   <span className="text-muted-foreground">Tłuszcz</span>
                   <span className="font-bold">{totals.fat}g</span>
                 </div>
-                <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span className="text-muted-foreground">Węglowodany</span>
-                  <span className="font-bold">{totals.carbs}g</span>
-                </div>
-              </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Węglowodany</span>
+                   <span className="font-bold">{totals.carbs}g</span>
+                 </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Sól</span>
+                   <span className="font-bold">0g</span>
+                 </div>
+               </div>
 
               {/* PIE */}
               <div className="flex items-center gap-4">
