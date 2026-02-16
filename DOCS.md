@@ -104,6 +104,9 @@
 | `/api/meal_types/get.php` | — | src/api/mealTypes.ts |
 | `/api/meal_types/list.php` | — | src/api/contractDietMealTypes.ts, src/api/contractMealTypes.ts, src/api/mealTypes.ts, src/components/MealsPickedGlobalTable.tsx, src/components/MealsPickedGlobalTotalsTable.tsx, src/pages/MealsApproval.tsx |
 | `/api/meal_types/save.php` | — | src/api/mealTypes.ts |
+| `/api/measurement_units/delete.php` | — | src/api/measurementUnits.ts |
+| `/api/measurement_units/list.php` | — | src/api/measurementUnits.ts |
+| `/api/measurement_units/save.php` | — | src/api/measurementUnits.ts |
 | `/api/notifications/list.php` | — | src/api/notifications.ts |
 | `/api/notifications/mark_read.php` | — | src/api/notifications.ts |
 | `/api/notifications/role_settings/list.php` | — | src/api/notifications.ts |
