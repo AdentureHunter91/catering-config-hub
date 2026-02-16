@@ -310,7 +310,23 @@ export default function DishEditor() {
                           </TableCell>
                           <TableCell className="text-right text-sm">{c.portionGrams}g</TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-xs">{COMPOSITION_ROLE_LABELS[c.role]}</Badge>
+                            <Select
+                              value={c.role}
+                              onValueChange={(v) =>
+                                setComposition((prev) =>
+                                  prev.map((item) =>
+                                    item.id === c.id ? { ...item, role: v as CompositionRole } : item
+                                  )
+                                )
+                              }
+                            >
+                              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(COMPOSITION_ROLE_LABELS).map(([k, v]) => (
+                                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">{c.kcal}</TableCell>
                           <TableCell className="text-right text-sm tabular-nums">{c.cost.toFixed(2)} zł</TableCell>
