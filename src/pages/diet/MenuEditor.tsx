@@ -298,43 +298,38 @@ export default function MenuEditor() {
                             <div>{slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}{slot.label}</div>
                           </th>
                         ))}
+                        <th className="p-2 text-center font-medium text-muted-foreground border-l-2">Σ</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleDays.map(({ name: dayName, idx: dayIdx }) => (
-                        <tr key={dayIdx} className="border-b hover:bg-muted/20">
-                          <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
-                          {flatSlots.map((slot) => {
-                            const cell = getCell(dayIdx, slot.id);
-                            const isInherited = cell?.inherited && !cell?.overridden;
-                            return (
-                              <td
-                                key={slot.id}
-                                className={cn(
-                                  "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
-                                  isInherited && "bg-muted/20",
-                                )}
-                                onClick={() => openPicker(dayIdx, slot.id)}
-                              >
-                                <MenuCellContent
-                                  dish={cell?.dish ?? null}
-                                  detailed={isDetailed}
-                                  isInherited={isInherited}
-                                  isOverridden={cell?.overridden}
-                                />
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      {/* Nutrition summary rows – one per visible day */}
                       {visibleDays.map(({ name: dayName, idx: dayIdx }) => {
                         const dayDishes = flatSlots.map((s) => getCell(dayIdx, s.id)?.dish ?? null);
                         const summary = computeDayNutrition(dayDishes);
                         return (
-                          <tr key={`sum-${dayIdx}`} className="border-t-2 bg-muted/40">
-                            <td className="p-2 font-semibold text-muted-foreground text-center text-[10px]">Σ {visibleDays.length > 1 ? dayName : ""}</td>
-                            <td colSpan={flatSlots.length} className="p-1.5 border-l">
+                          <tr key={dayIdx} className="border-b hover:bg-muted/20">
+                            <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
+                            {flatSlots.map((slot) => {
+                              const cell = getCell(dayIdx, slot.id);
+                              const isInherited = cell?.inherited && !cell?.overridden;
+                              return (
+                                <td
+                                  key={slot.id}
+                                  className={cn(
+                                    "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
+                                    isInherited && "bg-muted/20",
+                                  )}
+                                  onClick={() => openPicker(dayIdx, slot.id)}
+                                >
+                                  <MenuCellContent
+                                    dish={cell?.dish ?? null}
+                                    detailed={isDetailed}
+                                    isInherited={isInherited}
+                                    isOverridden={cell?.overridden}
+                                  />
+                                </td>
+                              );
+                            })}
+                            <td className="p-1.5 border-l-2 bg-muted/30">
                               <NutritionSummaryCell summary={summary} />
                             </td>
                           </tr>
