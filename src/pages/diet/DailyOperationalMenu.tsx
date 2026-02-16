@@ -144,10 +144,13 @@ export default function DailyOperationalMenu() {
                           {col.label}
                         </th>
                       ))}
+                      <th className="p-2 text-center font-medium text-muted-foreground border-l-2">Σ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pkg.dietPlans.map((diet, dietIdx) => {
+                      const dietDishes = columnSlots.map((col) => getCell(dietIdx, col.id)?.dish ?? null);
+                      const summary = computeDayNutrition(dietDishes);
                       return (
                         <tr key={diet.dietId} className="border-b hover:bg-muted/20">
                           <td className="p-2">
@@ -173,21 +176,12 @@ export default function DailyOperationalMenu() {
                               </td>
                             );
                           })}
+                          <td className="p-1.5 border-l-2 bg-muted/30">
+                            <NutritionSummaryCell summary={summary} />
+                          </td>
                         </tr>
                       );
                     })}
-                    {/* Nutrition summary row – one cell per diet */}
-                    <tr className="border-t-2 bg-muted/40">
-                      <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
-                      {/* Summary spans all slot columns – show for the base diet */}
-                      <td colSpan={columnSlots.length} className="p-2 border-l">
-                        {(() => {
-                          const baseDishes = columnSlots.map((col) => getCell(0, col.id)?.dish ?? null);
-                          const summary = computeDayNutrition(baseDishes);
-                          return <NutritionSummaryCell summary={summary} />;
-                        })()}
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               ) : (
