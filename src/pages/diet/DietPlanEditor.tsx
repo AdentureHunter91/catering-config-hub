@@ -260,7 +260,12 @@ export default function DietPlanEditor() {
                           </TableCell>
                           <TableCell>
                             {editable ? (
-                              <Input value={slot.itemCount} className="h-7 text-sm" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, itemCount: e.target.value } : s))} />
+                              <Select value={slot.itemCount} onValueChange={(v) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, itemCount: v } : s))}>
+                                <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5,6,7,8].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                             ) : (
                               <span className="text-sm">{slot.itemCount}</span>
                             )}

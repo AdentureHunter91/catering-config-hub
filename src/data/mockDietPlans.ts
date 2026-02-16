@@ -1,11 +1,11 @@
 import { DietPlan, MealSlot, NutritionGoal, DietExclusion, DietSubstitution, DietClientAssignment } from "@/types/dietPlan";
 
 const baseMeals: MealSlot[] = [
-  { id: "m1", name: "Śniadanie", kcalPct: 25, type: "Gorący/Zimny", itemCount: "3-5 elementów", sortOrder: 1, inherited: false, overridden: false },
-  { id: "m2", name: "II Śniadanie", kcalPct: 10, type: "Zimny", itemCount: "1-2 elementów", sortOrder: 2, inherited: false, overridden: false },
-  { id: "m3", name: "Obiad", kcalPct: 35, type: "Gorący", itemCount: "3 kursy", sortOrder: 3, inherited: false, overridden: false },
-  { id: "m4", name: "Podwieczorek", kcalPct: 10, type: "Zimny", itemCount: "1-2 elementów", sortOrder: 4, inherited: false, overridden: false },
-  { id: "m5", name: "Kolacja", kcalPct: 20, type: "Gorący/Zimny", itemCount: "2-3 kursy", sortOrder: 5, inherited: false, overridden: false },
+  { id: "m1", name: "Śniadanie", kcalPct: 25, type: "Gorący/Zimny", itemCount: "4", sortOrder: 1, inherited: false, overridden: false },
+  { id: "m2", name: "II Śniadanie", kcalPct: 10, type: "Zimny", itemCount: "2", sortOrder: 2, inherited: false, overridden: false },
+  { id: "m3", name: "Obiad", kcalPct: 35, type: "Gorący", itemCount: "3", sortOrder: 3, inherited: false, overridden: false },
+  { id: "m4", name: "Podwieczorek", kcalPct: 10, type: "Zimny", itemCount: "2", sortOrder: 4, inherited: false, overridden: false },
+  { id: "m5", name: "Kolacja", kcalPct: 20, type: "Gorący/Zimny", itemCount: "3", sortOrder: 5, inherited: false, overridden: false },
 ];
 
 const baseGoals: NutritionGoal[] = [
