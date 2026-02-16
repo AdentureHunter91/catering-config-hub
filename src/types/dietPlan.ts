@@ -16,9 +16,7 @@ export const DIET_PLAN_STATUS_COLORS: Record<DietPlanStatus, string> = {
 export interface MealSlot {
   id: string;
   name: string;
-  timeFrom: string;
-  timeTo: string;
-  defaultPortionGrams: string;
+  kcalPct: number;
   type: string;
   itemCount: string;
   sortOrder: number;
@@ -81,7 +79,6 @@ export interface DietPlan {
   baseDietCode: string | null;
   icon: string;
   status: DietPlanStatus;
-  kcalTarget: number;
   exclusionsSummary: string;
   clientCount: number;
   mealSlots: MealSlot[];
@@ -90,6 +87,7 @@ export interface DietPlan {
   substitutions: DietSubstitution[];
   clients: DietClientAssignment[];
   description: string;
+  recommendations: string;
   derivedDietIds: number[];
   createdAt: string;
   updatedAt: string;
