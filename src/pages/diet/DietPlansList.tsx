@@ -159,7 +159,7 @@ export default function DietPlansList() {
                 <TableHead>Kod</TableHead>
                 <TableHead>Typ</TableHead>
                 <TableHead>Relacja</TableHead>
-                <TableHead className="text-right">Kcal cel</TableHead>
+                <TableHead className="text-right">Kcal zakres</TableHead>
                 <TableHead>Wyłączenia</TableHead>
                 <TableHead className="text-center">Klienci</TableHead>
                 <TableHead>Status</TableHead>
@@ -207,7 +207,13 @@ export default function DietPlansList() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">{d.kcalTarget}</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">
+                      {(() => {
+                        const kcalGoal = d.nutritionGoals.find((g) => g.nutrient === "Kcal");
+                        if (!kcalGoal) return "—";
+                        return `${kcalGoal.min ?? "—"}–${kcalGoal.max ?? "—"}`;
+                      })()}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{d.exclusionsSummary}</TableCell>
                     <TableCell className="text-center">{d.clientCount}</TableCell>
                     <TableCell>

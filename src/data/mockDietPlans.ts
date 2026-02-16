@@ -1,18 +1,21 @@
 import { DietPlan, MealSlot, NutritionGoal, DietExclusion, DietSubstitution, DietClientAssignment } from "@/types/dietPlan";
 
 const baseMeals: MealSlot[] = [
-  { id: "m1", name: "Śniadanie", timeFrom: "06:00", timeTo: "08:00", defaultPortionGrams: "350g", type: "Gorący/Zimny", itemCount: "3-5 elementów", sortOrder: 1, inherited: false, overridden: false },
-  { id: "m2", name: "II Śniadanie", timeFrom: "09:30", timeTo: "10:30", defaultPortionGrams: "150g", type: "Zimny", itemCount: "1-2 elementów", sortOrder: 2, inherited: false, overridden: false },
-  { id: "m3", name: "Obiad", timeFrom: "11:30", timeTo: "13:30", defaultPortionGrams: "Zupa 250ml + Gł. 300g + Dod. 150g", type: "Gorący", itemCount: "3 kursy", sortOrder: 3, inherited: false, overridden: false },
-  { id: "m4", name: "Podwieczorek", timeFrom: "15:00", timeTo: "16:00", defaultPortionGrams: "150g", type: "Zimny", itemCount: "1-2 elementów", sortOrder: 4, inherited: false, overridden: false },
-  { id: "m5", name: "Kolacja", timeFrom: "17:00", timeTo: "19:00", defaultPortionGrams: "300g", type: "Gorący/Zimny", itemCount: "2-3 kursy", sortOrder: 5, inherited: false, overridden: false },
+  { id: "m1", name: "Śniadanie", kcalPct: 25, type: "Gorący/Zimny", itemCount: "3-5 elementów", sortOrder: 1, inherited: false, overridden: false },
+  { id: "m2", name: "II Śniadanie", kcalPct: 10, type: "Zimny", itemCount: "1-2 elementów", sortOrder: 2, inherited: false, overridden: false },
+  { id: "m3", name: "Obiad", kcalPct: 35, type: "Gorący", itemCount: "3 kursy", sortOrder: 3, inherited: false, overridden: false },
+  { id: "m4", name: "Podwieczorek", kcalPct: 10, type: "Zimny", itemCount: "1-2 elementów", sortOrder: 4, inherited: false, overridden: false },
+  { id: "m5", name: "Kolacja", kcalPct: 20, type: "Gorący/Zimny", itemCount: "2-3 kursy", sortOrder: 5, inherited: false, overridden: false },
 ];
 
 const baseGoals: NutritionGoal[] = [
   { nutrient: "Kcal", unit: "kcal", min: 1800, max: 2200, pctKcal: "—", source: "inherited" },
   { nutrient: "Białko", unit: "g", min: 45, max: 65, pctKcal: "15-20%", source: "inherited" },
   { nutrient: "Tłuszcz", unit: "g", min: 50, max: 75, pctKcal: "25-35%", source: "inherited" },
+  { nutrient: "  w tym nasycone", unit: "g", min: null, max: 22, pctKcal: "<10%", source: "inherited" },
+  { nutrient: "  w tym nienasycone", unit: "g", min: 30, max: null, pctKcal: "—", source: "inherited" },
   { nutrient: "Węglowodany", unit: "g", min: 225, max: 310, pctKcal: "50-60%", source: "inherited" },
+  { nutrient: "  w tym cukry proste", unit: "g", min: null, max: 50, pctKcal: "<10%", source: "inherited" },
   { nutrient: "Błonnik", unit: "g", min: 25, max: null, pctKcal: "—", source: "inherited" },
   { nutrient: "Sód", unit: "mg", min: null, max: 2300, pctKcal: "—", source: "inherited" },
 ];
@@ -26,7 +29,7 @@ const inheritedGoals = (overrides: Record<string, Partial<NutritionGoal>> = {}):
 export const MOCK_DIET_PLANS: DietPlan[] = [
   {
     id: 1, name: "Dieta Podstawowa", code: "STANDARD", type: "base", baseDietId: null, baseDietName: null, baseDietCode: null,
-    icon: "📋", status: "active", kcalTarget: 2000, exclusionsSummary: "—", clientCount: 8,
+    icon: "📋", status: "active", exclusionsSummary: "—", clientCount: 8,
     mealSlots: baseMeals, nutritionGoals: baseGoals,
     exclusions: [],
     substitutions: [],
@@ -36,12 +39,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 3, clientName: "DPS Słoneczny", assigned: true, dateFrom: "2025-03-01", dateTo: "", notes: "" },
     ],
     description: "Dieta standardowa, zbilansowana, przeznaczona dla osób dorosłych bez specjalnych wymagań żywieniowych.",
+    recommendations: "Regularne posiłki co 3-4 godziny. Nawodnienie min. 1.5l wody dziennie.",
     derivedDietIds: [2, 3, 4, 5, 6, 7, 8, 9],
     createdAt: "2024-06-01", updatedAt: "2025-09-01",
   },
   {
     id: 2, name: "Dieta Bezglutenowa", code: "GF", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🥗", status: "active", kcalTarget: 2000, exclusionsSummary: "Gluten", clientCount: 6,
+    icon: "🥗", status: "active", exclusionsSummary: "Gluten", clientCount: 6,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals(),
     exclusions: [
       { id: "ex1", category: "allergen", name: "Gluten", active: true, reason: "Celiakia / nietolerancja glutenu", fromBase: false },
@@ -57,12 +61,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 4, clientName: "Przedszkole Bajka", assigned: true, dateFrom: "2025-02-01", dateTo: "", notes: "" },
     ],
     description: "Dieta bezglutenowa, pochodna od Diety Podstawowej. Wyklucza produkty zawierające gluten.",
+    recommendations: "Weryfikować etykiety produktów. Unikać kontaminacji krzyżowej.",
     derivedDietIds: [],
     createdAt: "2024-08-01", updatedAt: "2025-09-05",
   },
   {
     id: 3, name: "Dieta Cukrzycowa", code: "DIABETIC", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "💊", status: "active", kcalTarget: 1800, exclusionsSummary: "Niski IG", clientCount: 5,
+    icon: "💊", status: "active", exclusionsSummary: "Niski IG", clientCount: 5,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals({ Kcal: { min: 1600, max: 1800, source: "overridden" }, Węglowodany: { min: 180, max: 250, pctKcal: "45-55%", source: "overridden" } }),
     exclusions: [
       { id: "ex2", category: "dish_category", name: "Bez potraw o wysokim IG", active: true, reason: "Kontrola glikemii", fromBase: false },
@@ -75,12 +80,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 1, clientName: "Szpital Miejski", assigned: true, dateFrom: "2025-01-01", dateTo: "", notes: "Oddział wew." },
     ],
     description: "Dieta cukrzycowa z ograniczonym indeksem glikemicznym. Pochodna od Diety Podstawowej.",
+    recommendations: "Monitorować poziom glukozy. Unikać cukrów prostych.",
     derivedDietIds: [],
     createdAt: "2024-09-01", updatedAt: "2025-08-20",
   },
   {
     id: 4, name: "Dieta Renalna", code: "RENAL", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🫘", status: "active", kcalTarget: 1800, exclusionsSummary: "Niski Na/K", clientCount: 3,
+    icon: "🫘", status: "active", exclusionsSummary: "Niski Na/K", clientCount: 3,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals({ Kcal: { min: 1600, max: 1800, source: "overridden" }, Sód: { max: 1500, source: "overridden" } }),
     exclusions: [
       { id: "ex3", category: "ingredient", name: "Produkty wysokosodowe", active: true, reason: "Niewydolność nerek", fromBase: false },
@@ -93,12 +99,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 1, clientName: "Szpital Miejski", assigned: true, dateFrom: "2025-04-01", dateTo: "", notes: "Oddział nefro" },
     ],
     description: "Dieta renalna z ograniczeniem sodu i potasu.",
+    recommendations: "Ograniczyć płyny wg zaleceń lekarza. Kontrola elektrolitów.",
     derivedDietIds: [],
     createdAt: "2025-01-01", updatedAt: "2025-07-15",
   },
   {
     id: 5, name: "Bez mleczarstwa", code: "DF", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🥛", status: "active", kcalTarget: 2000, exclusionsSummary: "Laktoza", clientCount: 4,
+    icon: "🥛", status: "active", exclusionsSummary: "Laktoza", clientCount: 4,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals(),
     exclusions: [
       { id: "ex5", category: "allergen", name: "Laktoza", active: true, reason: "Nietolerancja laktozy", fromBase: false },
@@ -113,12 +120,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
     ],
     clients: [],
     description: "Dieta bez produktów mleczarskich.",
+    recommendations: "Suplementacja wapnia i witaminy D.",
     derivedDietIds: [],
     createdAt: "2025-02-01", updatedAt: "2025-08-10",
   },
   {
     id: 6, name: "Wegetariańska", code: "VEG", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🍃", status: "active", kcalTarget: 2000, exclusionsSummary: "Mięso", clientCount: 3,
+    icon: "🍃", status: "active", exclusionsSummary: "Mięso", clientCount: 3,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals({ Białko: { min: 40, max: 60, pctKcal: "12-18%", source: "overridden" } }),
     exclusions: [
       { id: "ex6", category: "ingredient", name: "Mięso i drób", active: true, reason: "Dieta wegetariańska", fromBase: false },
@@ -130,12 +138,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
     ],
     clients: [],
     description: "Dieta wegetariańska z odpowiednimi zamiennikami białka.",
+    recommendations: "Dbać o różnorodność źródeł białka roślinnego. Suplementacja B12.",
     derivedDietIds: [],
     createdAt: "2025-03-01", updatedAt: "2025-07-20",
   },
   {
     id: 7, name: "Dieta miękka", code: "SOFT", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🧈", status: "active", kcalTarget: 2000, exclusionsSummary: "Tekstura", clientCount: 2,
+    icon: "🧈", status: "active", exclusionsSummary: "Tekstura", clientCount: 2,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals(),
     exclusions: [
       { id: "ex8", category: "dish_category", name: "Bez potraw twardych/chrupkich", active: true, reason: "Zaburzenia żucia/połykania", fromBase: false },
@@ -143,12 +152,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
     substitutions: [],
     clients: [],
     description: "Dieta miękka — zmieniona tekstura potraw, te same składniki co w bazowej.",
+    recommendations: "Potrawy miksowane lub krojone na drobne kawałki. Konsultacja z logopedą.",
     derivedDietIds: [],
     createdAt: "2025-04-01", updatedAt: "2025-06-15",
   },
   {
     id: 8, name: "Pediatryczna", code: "PED", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "🧒", status: "active", kcalTarget: 1200, exclusionsSummary: "60% porcji", clientCount: 4,
+    icon: "🧒", status: "active", exclusionsSummary: "60% porcji", clientCount: 4,
     mealSlots: inheritedMeals(), nutritionGoals: inheritedGoals({ Kcal: { min: 1000, max: 1400, source: "overridden" }, Białko: { min: 30, max: 45, pctKcal: "12-18%", source: "overridden" } }),
     exclusions: [
       { id: "ex9", category: "dish_category", name: "Bez potraw ostro przyprawionych", active: true, reason: "Dieta pediatryczna", fromBase: false },
@@ -161,12 +171,13 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 4, clientName: "Przedszkole Bajka", assigned: true, dateFrom: "2025-01-01", dateTo: "", notes: "" },
     ],
     description: "Dieta pediatryczna — 60% porcji standardowej, dostosowane cele kaloryczne.",
+    recommendations: "Posiłki atrakcyjne wizualnie. Unikać twardych orzechów u dzieci <5 lat.",
     derivedDietIds: [],
     createdAt: "2025-01-15", updatedAt: "2025-09-01",
   },
   {
     id: 9, name: "Płynna", code: "LIQUID", type: "derived", baseDietId: 1, baseDietName: "Dieta Podstawowa", baseDietCode: "STANDARD",
-    icon: "💧", status: "draft", kcalTarget: 1500, exclusionsSummary: "Tylko płyny", clientCount: 1,
+    icon: "💧", status: "draft", exclusionsSummary: "Tylko płyny", clientCount: 1,
     mealSlots: inheritedMeals(["m1", "m3", "m5"]),
     nutritionGoals: inheritedGoals({ Kcal: { min: 1200, max: 1600, source: "overridden" } }),
     exclusions: [
@@ -177,6 +188,7 @@ export const MOCK_DIET_PLANS: DietPlan[] = [
       { clientId: 1, clientName: "Szpital Miejski", assigned: true, dateFrom: "2025-06-01", dateTo: "2025-12-31", notes: "Oddział chirurgii" },
     ],
     description: "Dieta płynna — tylko zupy, koktajle, napoje. Inna struktura posiłków.",
+    recommendations: "Kontrola nawodnienia. Stopniowe przechodzenie na dietę stałą wg zaleceń.",
     derivedDietIds: [],
     createdAt: "2025-06-01", updatedAt: "2025-08-30",
   },

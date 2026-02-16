@@ -46,6 +46,7 @@ export default function DietPlanEditor() {
   const [code, setCode] = useState(existing?.code || "");
   const [status, setStatus] = useState<DietPlanStatus>(existing?.status || "draft");
   const [description, setDescription] = useState(existing?.description || "");
+  const [recommendations, setRecommendations] = useState(existing?.recommendations || "");
   const [dietType, setDietType] = useState<"base" | "derived">(existing?.type || "base");
   const [baseDietId, setBaseDietId] = useState<string>(existing?.baseDietId?.toString() || "none");
   const [mealSlots, setMealSlots] = useState<MealSlot[]>(existing?.mealSlots || []);
@@ -182,6 +183,10 @@ export default function DietPlanEditor() {
               <Label>Opis / Grupa docelowa</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Opis diety…" />
             </div>
+            <div>
+              <Label>Zalecenia</Label>
+              <Textarea value={recommendations} onChange={(e) => setRecommendations(e.target.value)} rows={2} placeholder="Zalecenia dotyczące diety…" />
+            </div>
           </CardContent>
         </Card>
 
@@ -210,22 +215,46 @@ export default function DietPlanEditor() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Posiłek</TableHead>
-                        <TableHead>Okno czasowe</TableHead>
-                        <TableHead>Domyślna porcja</TableHead>
+                        <TableHead className="w-24">% kcal</TableHead>
                         <TableHead>Typ</TableHead>
                         <TableHead>Liczba dań</TableHead>
                         {(!isDerived || mealStructureUnlocked) && <TableHead className="w-20" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mealSlots.map((slot, idx) => (
+                      {mealSlots.map((slot, idx) => {
+                        const editable = !isDerived || mealStructureUnlocked;
+                        return (
                         <TableRow key={slot.id} className={cn(isDerived && !mealStructureUnlocked && "opacity-60")}>
-                          <TableCell className="font-medium text-sm">{slot.name}</TableCell>
-                          <TableCell className="text-sm">{slot.timeFrom}–{slot.timeTo}</TableCell>
-                          <TableCell className="text-sm">{slot.defaultPortionGrams}</TableCell>
-                          <TableCell className="text-sm">{slot.type}</TableCell>
-                          <TableCell className="text-sm">{slot.itemCount}</TableCell>
-                          {(!isDerived || mealStructureUnlocked) && (
+                          <TableCell>
+                            {editable ? (
+                              <Input value={slot.name} className="h-7 text-sm" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, name: e.target.value } : s))} />
+                            ) : (
+                              <span className="font-medium text-sm">{slot.name}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editable ? (
+                              <Input type="number" value={slot.kcalPct} className="h-7 text-sm text-right w-full" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, kcalPct: Number(e.target.value) } : s))} />
+                            ) : (
+                              <span className="text-sm">{slot.kcalPct}%</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editable ? (
+                              <Input value={slot.type} className="h-7 text-sm" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, type: e.target.value } : s))} />
+                            ) : (
+                              <span className="text-sm">{slot.type}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {editable ? (
+                              <Input value={slot.itemCount} className="h-7 text-sm" onChange={(e) => setMealSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, itemCount: e.target.value } : s))} />
+                            ) : (
+                              <span className="text-sm">{slot.itemCount}</span>
+                            )}
+                          </TableCell>
+                          {editable && (
                             <TableCell>
                               <div className="flex gap-0.5">
                                 <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === 0}
@@ -248,9 +277,19 @@ export default function DietPlanEditor() {
                             </TableCell>
                           )}
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
+                  {/* % kcal total indicator */}
+                  {(!isDerived || mealStructureUnlocked) && (
+                    <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-t text-xs">
+                      <span className="text-muted-foreground">Suma % kcal:</span>
+                      <span className={cn("font-bold tabular-nums", mealSlots.reduce((s, m) => s + m.kcalPct, 0) === 100 ? "text-emerald-600" : "text-destructive")}>
+                        {mealSlots.reduce((s, m) => s + m.kcalPct, 0)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {(!isDerived || mealStructureUnlocked) && mealSlots.length < 8 && (
                   <Button variant="outline" size="sm" className="mt-2">
@@ -287,9 +326,11 @@ export default function DietPlanEditor() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {nutritionGoals.map((g) => (
-                        <TableRow key={g.nutrient}>
-                          <TableCell className="font-medium text-sm">{g.nutrient} ({g.unit})</TableCell>
+                      {nutritionGoals.map((g) => {
+                        const isSub = g.nutrient.startsWith("  ");
+                        return (
+                        <TableRow key={g.nutrient} className={cn(isSub && "bg-muted/20")}>
+                          <TableCell className={cn("text-sm", isSub ? "pl-8 text-muted-foreground" : "font-medium")}>{g.nutrient.trim()} ({g.unit})</TableCell>
                           <TableCell>
                             <Input
                               type="number" value={g.min ?? ""} className="h-7 text-xs text-right w-full"
@@ -317,7 +358,8 @@ export default function DietPlanEditor() {
                             </TableCell>
                           )}
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
