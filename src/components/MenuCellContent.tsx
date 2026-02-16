@@ -83,7 +83,7 @@ export default function MenuCellContent({
   isOverridden,
   diffFromBase,
 }: MenuCellContentProps) {
-  if (dishes.length === 0) {
+  if (!dishes || dishes.length === 0) {
     return (
       <div className="min-h-[48px] flex items-center justify-center text-muted-foreground/40 text-[10px]">
         —
