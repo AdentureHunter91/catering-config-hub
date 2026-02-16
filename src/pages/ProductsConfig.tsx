@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import Layout from "@/components/Layout";
+import DietLayout from "@/components/DietLayout";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -640,7 +640,7 @@ const ProductsConfig = () => {
   };
 
   return (
-    <Layout pageKey="config.products">
+    <DietLayout pageKey="config.products">
       <Breadcrumb
         items={[
           { label: "Konfiguracja systemu" },
@@ -1004,7 +1004,7 @@ const ProductsConfig = () => {
         categories={categories}
         onSave={() => loadData(true)}
       />
-    </Layout>
+    </DietLayout>
   );
 };
 

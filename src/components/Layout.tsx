@@ -89,13 +89,33 @@ const Layout = ({ children, pageKey, noPadding }: LayoutProps) => {
   const dietItems: MenuItem[] = [
     { label: "Dashboard", path: "/dietetyka", pageKey: "diet.meals_approval", icon: Home },
     { label: "Zamówienia / Akceptacja", path: "/dietetyka/akceptacja-posilkow", pageKey: "diet.meals_approval", icon: UtensilsCrossed },
-    { label: "Produkty", path: "/dietetyka/produkty", pageKey: "config.products", icon: Package },
+    { label: "Diety", path: "/dietetyka/plany-diet", pageKey: "diet.meals_approval", icon: BookOpen },
+    {
+      label: "Produkty",
+      path: "",
+      pageKey: "config.products",
+      icon: Package,
+      submenu: [
+        { label: "Kategorie", path: "/dietetyka/produkty/kategorie", pageKey: "config.products" },
+        { label: "Konfiguracja produktów", path: "/dietetyka/produkty/konfiguracja", pageKey: "config.products" },
+        { label: "Baza Instytutu Żywienia", path: "/dietetyka/produkty/baza-izz", pageKey: "config.products" },
+      ],
+    },
     { label: "Receptury", path: "/dietetyka/receptury", pageKey: "diet.meals_approval", icon: BookOpen },
     { label: "Dania", path: "/dietetyka/dania", pageKey: "diet.meals_approval", icon: UtensilsCrossed },
     { label: "Jadłospisy", path: "/dietetyka/jadlospisy", pageKey: "diet.meals_approval", icon: BookOpen },
     { label: "Wydawki", path: "/dietetyka/wydawki", pageKey: "diet.meals_approval", icon: FileText },
     { label: "Produkcja", path: "/dietetyka/produkcja", pageKey: "diet.meals_approval", icon: Building2 },
     { label: "Raporty", path: "/dietetyka/raporty", pageKey: "diet.meals_approval", icon: FileText },
+    {
+      label: "Ustawienia",
+      path: "",
+      pageKey: "diet.settings",
+      icon: Settings,
+      submenu: [
+        { label: "Jednostki miary", path: "/dietetyka/ustawienia/jednostki", pageKey: "diet.settings" },
+      ],
+    },
   ];
 
   // ---- PODMENU (USTAWIENIA) ----
@@ -120,17 +140,6 @@ const Layout = ({ children, pageKey, noPadding }: LayoutProps) => {
       path: "/posilki",
       pageKey: "config.meal_types",
       icon: UtensilsCrossed,
-    },
-    {
-      label: "Produkty",
-      path: "",
-      pageKey: "config.products",
-      icon: Package,
-      submenu: [
-        { label: "Kategorie", path: "/settings/productCategories", pageKey: "config.products" },
-        { label: "Konfiguracja produktów", path: "/settings/products", pageKey: "config.products" },
-        { label: "Baza Instytutu Żywienia", path: "/settings/nutritionDatabase", pageKey: "config.products" },
-      ],
     },
     { label: "Użytkownicy", path: "/uzytkownicy", pageKey: "config.users", icon: Users },
     {

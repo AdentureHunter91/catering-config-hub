@@ -46,7 +46,20 @@ import NotificationsConfig from "./pages/NotificationsConfig";
 import NotificationsHistory from "./pages/NotificationsHistory";
 import DietDashboard from "./pages/DietDashboard";
 import DietPlaceholder from "./pages/diet/DietPlaceholder";
-
+import RecipesList from "./pages/diet/RecipesList";
+import RecipeEditor from "./pages/diet/RecipeEditor";
+import DishesList from "./pages/diet/DishesList";
+import DishEditor from "./pages/diet/DishEditor";
+import DietPlansList from "./pages/diet/DietPlansList";
+import DietPlanEditor from "./pages/diet/DietPlanEditor";
+import DietPlanDiff from "./pages/diet/DietPlanDiff";
+import MenuPackagesList from "./pages/diet/MenuPackagesList";
+import MenuEditor from "./pages/diet/MenuEditor";
+import DailyOperationalMenu from "./pages/diet/DailyOperationalMenu";
+import Dispatches from "./pages/diet/Dispatches";
+import ProductionPlanning from "./pages/diet/ProductionPlanning";
+import Reports from "./pages/diet/Reports";
+import MeasurementUnitsSettings from "./pages/diet/MeasurementUnitsSettings";
 
 export default function Router() {
     return (
@@ -399,21 +412,53 @@ export default function Router() {
                 }
             />
             <Route
-                path="/dietetyka/produkty"
+                path="/dietetyka/produkty/kategorie"
                 element={
                     <RequireLogin>
                         <RequireAccess page="config.products">
-                            <DietPlaceholder title="Produkty" />
+                            <ProductCategories />
                         </RequireAccess>
                     </RequireLogin>
                 }
             />
-            <Route path="/dietetyka/receptury" element={<RequireLogin><DietPlaceholder title="Receptury" /></RequireLogin>} />
-            <Route path="/dietetyka/dania" element={<RequireLogin><DietPlaceholder title="Dania" /></RequireLogin>} />
-            <Route path="/dietetyka/jadlospisy" element={<RequireLogin><DietPlaceholder title="Jadłospisy" /></RequireLogin>} />
-            <Route path="/dietetyka/wydawki" element={<RequireLogin><DietPlaceholder title="Wydawki" /></RequireLogin>} />
-            <Route path="/dietetyka/produkcja" element={<RequireLogin><DietPlaceholder title="Produkcja" /></RequireLogin>} />
-            <Route path="/dietetyka/raporty" element={<RequireLogin><DietPlaceholder title="Raporty" /></RequireLogin>} />
+            <Route
+                path="/dietetyka/produkty/konfiguracja"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.products">
+                            <ProductsConfig />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route
+                path="/dietetyka/produkty/baza-izz"
+                element={
+                    <RequireLogin>
+                        <RequireAccess page="config.products">
+                            <NutritionDatabaseUpload />
+                        </RequireAccess>
+                    </RequireLogin>
+                }
+            />
+            <Route path="/dietetyka/receptury" element={<RequireLogin><RecipesList /></RequireLogin>} />
+            <Route path="/dietetyka/receptury/nowa" element={<RequireLogin><RecipeEditor /></RequireLogin>} />
+            <Route path="/dietetyka/receptury/:id" element={<RequireLogin><RecipeEditor /></RequireLogin>} />
+            <Route path="/dietetyka/dania" element={<RequireLogin><DishesList /></RequireLogin>} />
+            <Route path="/dietetyka/dania/nowe" element={<RequireLogin><DishEditor /></RequireLogin>} />
+            <Route path="/dietetyka/dania/:id" element={<RequireLogin><DishEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet" element={<RequireLogin><DietPlansList /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/nowy" element={<RequireLogin><DietPlanEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/:id" element={<RequireLogin><DietPlanEditor /></RequireLogin>} />
+            <Route path="/dietetyka/plany-diet/:id/diff" element={<RequireLogin><DietPlanDiff /></RequireLogin>} />
+            <Route path="/dietetyka/jadlospisy" element={<RequireLogin><MenuPackagesList /></RequireLogin>} />
+            <Route path="/dietetyka/jadlospisy/:id/edytor" element={<RequireLogin><MenuEditor /></RequireLogin>} />
+            <Route path="/dietetyka/jadlospisy/:id/dzienny" element={<RequireLogin><DailyOperationalMenu /></RequireLogin>} />
+            <Route path="/dietetyka/wydawki" element={<RequireLogin><Dispatches /></RequireLogin>} />
+            <Route path="/dietetyka/produkcja" element={<RequireLogin><ProductionPlanning /></RequireLogin>} />
+            <Route path="/dietetyka/raporty" element={<RequireLogin><Reports /></RequireLogin>} />
+            <Route path="/dietetyka/raporty/:reportType" element={<RequireLogin><Reports /></RequireLogin>} />
+            <Route path="/dietetyka/ustawienia/jednostki" element={<RequireLogin><MeasurementUnitsSettings /></RequireLogin>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
