@@ -104,6 +104,7 @@ export default function RecipeEditor() {
     inputs: existing.ingredients.length > 0 ? [{ type: "ingredient" as const, id: existing.ingredients[0].id }] : [],
   }] : [];
   const [cookingParams, setCookingParams] = useState<CookingParam[]>(initParams);
+  const [portionUnit, setPortionUnit] = useState("g");
   const [notes, setNotes] = useState(existing?.notes || "");
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(existing?.ingredients || []);
   const [activeTab, setActiveTab] = useState("official");
@@ -258,8 +259,19 @@ export default function RecipeEditor() {
               </Select>
             </div>
             <div>
-              <Label>Porcja (g)</Label>
-              <Input type="number" value={portionWeight} onChange={(e) => setPortionWeight(Number(e.target.value))} />
+              <Label>Wielkość porcji</Label>
+              <div className="flex gap-1">
+                <Input type="number" value={portionWeight} onChange={(e) => setPortionWeight(Number(e.target.value))} className="flex-1" />
+                <Select value={portionUnit} onValueChange={setPortionUnit}>
+                  <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="g">g</SelectItem>
+                    <SelectItem value="ml">ml</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="l">l</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -370,7 +382,7 @@ export default function RecipeEditor() {
                       <Input type="number" className="h-8 text-xs" value={cp.workTime || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, workTime: Number(e.target.value) } : p))} />
                     </div>
                     <div>
-                      <Label className="text-xs">Straty (%)</Label>
+                      <Label className="text-xs">Ubytek tech. (%)</Label>
                       <Input type="number" className="h-8 text-xs" value={cp.lossPercent || ""} onChange={(e) => setCookingParams(prev => prev.map(p => p.id === cp.id ? { ...p, lossPercent: Number(e.target.value) } : p))} />
                     </div>
                   </div>
@@ -474,18 +486,22 @@ export default function RecipeEditor() {
                   <span className="text-muted-foreground">Kcal</span>
                   <span className="font-bold">{totals.kcal.toFixed(0)}</span>
                 </div>
-                <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span className="text-muted-foreground">Białko</span>
-                  <span className="font-bold">{totals.protein.toFixed(1)}g</span>
-                </div>
-                <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span className="text-muted-foreground">Tłuszcz</span>
-                  <span className="font-bold">{totals.fat.toFixed(1)}g</span>
-                </div>
-                <div className="flex justify-between p-2 bg-muted/50 rounded">
-                  <span className="text-muted-foreground">Węglowodany</span>
-                  <span className="font-bold">{totals.carbs.toFixed(1)}g</span>
-                </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Białko</span>
+                   <span className="font-bold">{totals.protein.toFixed(1)}g</span>
+                 </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Tłuszcz</span>
+                   <span className="font-bold">{totals.fat.toFixed(1)}g</span>
+                 </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Węglowodany</span>
+                   <span className="font-bold">{totals.carbs.toFixed(1)}g</span>
+                 </div>
+                 <div className="flex justify-between p-2 bg-muted/50 rounded">
+                   <span className="text-muted-foreground">Sól</span>
+                   <span className="font-bold">0g</span>
+                 </div>
               </div>
 
               {/* PIE CHART - CSS based */}
@@ -639,10 +655,9 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
             <TableHead className="min-w-[240px]">Składnik</TableHead>
             <TableHead className="w-24 text-right">Ilość</TableHead>
             <TableHead className="w-16">Jedn.</TableHead>
-            <TableHead className="w-24 text-right">Straty %</TableHead>
+            <TableHead className="w-24 text-right">Ubytek tech. %</TableHead>
             {showGross && <TableHead className="w-24 text-right">Brutto</TableHead>}
             <TableHead className="w-20 text-right">Kcal</TableHead>
-            <TableHead className="w-20 text-right">Białko</TableHead>
             <TableHead className="w-24 text-right">Koszt</TableHead>
             <TableHead className="w-24" />
           </TableRow>
@@ -650,7 +665,7 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
         <TableBody>
           {ingredients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showGross ? 10 : 9} className="text-center text-muted-foreground py-6">
+              <TableCell colSpan={showGross ? 9 : 8} className="text-center text-muted-foreground py-6">
                 Brak składników — kliknij „Dodaj składnik"
               </TableCell>
             </TableRow>
@@ -699,7 +714,6 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
                     <TableCell className="text-right text-xs">{ing.grossWeight.toFixed(0)}g</TableCell>
                   )}
                   <TableCell className="text-right text-xs tabular-nums">{ing.kcal}</TableCell>
-                  <TableCell className="text-right text-xs tabular-nums">{ing.protein}g</TableCell>
                   <TableCell className="text-right text-xs tabular-nums">{ing.cost.toFixed(2)} zł</TableCell>
                   <TableCell>
                     <div className="flex gap-0.5">
@@ -743,7 +757,6 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
               <TableCell />
               {showGross && <TableCell className="text-right text-xs">{totals.grossWeight.toFixed(0)}g</TableCell>}
               <TableCell className="text-right text-xs font-bold">{totals.kcal.toFixed(0)}</TableCell>
-              <TableCell className="text-right text-xs font-bold">{totals.protein.toFixed(1)}g</TableCell>
               <TableCell className="text-right text-xs font-bold">{totals.cost.toFixed(2)} zł</TableCell>
               <TableCell />
             </TableRow>

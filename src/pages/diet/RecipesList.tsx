@@ -196,7 +196,6 @@ export default function RecipesList() {
               <TableHead>Kategoria</TableHead>
               <TableHead className="text-right">Porcja</TableHead>
               <TableHead className="text-right">Kcal</TableHead>
-              <TableHead className="text-right">Białko</TableHead>
               <TableHead className="text-right">Koszt</TableHead>
               <TableHead className="text-center">Składniki</TableHead>
               <TableHead>Alergeny</TableHead>
@@ -208,7 +207,7 @@ export default function RecipesList() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   Brak receptur spełniających kryteria
                 </TableCell>
               </TableRow>
@@ -233,7 +232,6 @@ export default function RecipesList() {
                   <TableCell>{RECIPE_CATEGORY_LABELS[r.category]}</TableCell>
                   <TableCell className="text-right">{r.portionWeight}g</TableCell>
                   <TableCell className="text-right">{r.kcalPerPortion}</TableCell>
-                  <TableCell className="text-right">{r.proteinPerPortion}g</TableCell>
                   <TableCell className="text-right">{r.costPerPortion.toFixed(2)} zł</TableCell>
                   <TableCell className="text-center">{r.ingredientCount}</TableCell>
                   <TableCell>

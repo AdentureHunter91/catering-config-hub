@@ -128,7 +128,6 @@ export default function DishesList() {
               <TableHead>Kategoria</TableHead>
               <TableHead className="text-right">Porcja</TableHead>
               <TableHead className="text-right">Kcal</TableHead>
-              <TableHead className="text-right">Białko</TableHead>
               <TableHead className="text-right">Koszt</TableHead>
               <TableHead>Warianty</TableHead>
               <TableHead>Receptury i produkty</TableHead>
@@ -141,7 +140,7 @@ export default function DishesList() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   Brak dań spełniających kryteria
                 </TableCell>
               </TableRow>
@@ -159,7 +158,6 @@ export default function DishesList() {
                   <TableCell className="text-sm">{DISH_CATEGORY_LABELS[d.category]}</TableCell>
                   <TableCell className="text-right">{d.standardPortion}g</TableCell>
                   <TableCell className="text-right">{d.kcalTotal}</TableCell>
-                  <TableCell className="text-right">{d.proteinTotal}g</TableCell>
                   <TableCell className="text-right">{d.costTotal.toFixed(2)} zł</TableCell>
                   <TableCell>
                     <TooltipProvider delayDuration={200}>
