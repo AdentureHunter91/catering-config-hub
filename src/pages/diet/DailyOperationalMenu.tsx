@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, CheckCircle, AlertTriangle, Eye, List, RotateCcw } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
-import { DEFAULT_MEAL_SLOTS } from "@/types/menuPackage";
+import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
 import MenuCellContent from "@/components/MenuCellContent";
 import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
@@ -30,7 +30,6 @@ function getColumnSlots() {
 
 const columnSlots = getColumnSlots();
 
-
 export default function DailyOperationalMenu() {
   const { id } = useParams();
   const pkg = mockMenuPackages.find((p) => p.id === Number(id)) ?? mockMenuPackages[0];
@@ -47,13 +46,16 @@ export default function DailyOperationalMenu() {
     return diet?.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId) ?? null;
   };
 
+  const getDishes = (dietIdx: number, slotId: string): MenuCellDish[] =>
+    getCell(dietIdx, slotId)?.dishes ?? [];
+
   const isDifferentFromBase = (dietIdx: number, slotId: string) => {
     if (!baseDiet || pkg.dietPlans[dietIdx].dietType === "base") return false;
-    const baseCell = baseDiet.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId);
-    const cell = getCell(dietIdx, slotId);
-    return baseCell?.dish?.id !== cell?.dish?.id;
+    const baseDishes = baseDiet.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId)?.dishes ?? [];
+    const cellDishes = getDishes(dietIdx, slotId);
+    if (baseDishes.length !== cellDishes.length) return true;
+    return baseDishes.some((bd, i) => bd.id !== cellDishes[i]?.id);
   };
-
 
   const isDetailed = detailLevel === "detailed";
 
@@ -98,32 +100,16 @@ export default function DailyOperationalMenu() {
 
           <div className="flex-1" />
 
-          {/* Detail level toggle */}
           <div className="flex items-center border rounded-md">
-            <Button
-              variant={detailLevel === "general" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-r-none h-8"
-              onClick={() => setDetailLevel("general")}
-            >
+            <Button variant={detailLevel === "general" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setDetailLevel("general")}>
               <Eye className="h-4 w-4 mr-1" /> Ogólny
             </Button>
-            <Button
-              variant={detailLevel === "detailed" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-l-none h-8"
-              onClick={() => setDetailLevel("detailed")}
-            >
+            <Button variant={detailLevel === "detailed" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setDetailLevel("detailed")}>
               <List className="h-4 w-4 mr-1" /> Szczegółowy
             </Button>
           </div>
 
-          {/* Transpose */}
-          <Button
-            variant={transposed ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTransposed((t) => !t)}
-          >
+          <Button variant={transposed ? "default" : "outline"} size="sm" onClick={() => setTransposed((t) => !t)}>
             <RotateCcw className="h-4 w-4 mr-1" /> Transponuj
           </Button>
         </div>
@@ -133,7 +119,6 @@ export default function DailyOperationalMenu() {
           <CardContent className="p-0 overflow-x-auto">
             <TooltipProvider>
               {!transposed ? (
-                /* Normal: rows=diets, cols=slots */
                 <table className="w-full text-xs table-fixed">
                   <thead>
                     <tr className="border-b bg-muted/30">
@@ -149,8 +134,8 @@ export default function DailyOperationalMenu() {
                   </thead>
                   <tbody>
                     {pkg.dietPlans.map((diet, dietIdx) => {
-                      const dietDishes = columnSlots.map((col) => getCell(dietIdx, col.id)?.dish ?? null);
-                      const summary = computeDayNutrition(dietDishes);
+                      const allDishes = columnSlots.flatMap((col) => getDishes(dietIdx, col.id));
+                      const summary = computeDayNutrition(allDishes);
                       return (
                         <tr key={diet.dietId} className="border-b hover:bg-muted/20">
                           <td className="p-2">
@@ -158,7 +143,6 @@ export default function DailyOperationalMenu() {
                             <div className="text-[10px] text-muted-foreground">{diet.dietName}</div>
                           </td>
                           {columnSlots.map((col) => {
-                            const cell = getCell(dietIdx, col.id);
                             const diffFromBase = isDifferentFromBase(dietIdx, col.id);
                             return (
                               <td
@@ -169,7 +153,7 @@ export default function DailyOperationalMenu() {
                                 )}
                               >
                                 <MenuCellContent
-                                  dish={cell?.dish ?? null}
+                                  dishes={getDishes(dietIdx, col.id)}
                                   detailed={isDetailed}
                                   diffFromBase={diffFromBase}
                                 />
@@ -185,7 +169,6 @@ export default function DailyOperationalMenu() {
                   </tbody>
                 </table>
               ) : (
-                /* Transposed: rows=slots, cols=diets */
                 <table className="w-full text-xs table-fixed">
                   <thead>
                     <tr className="border-b bg-muted/30">
@@ -206,7 +189,6 @@ export default function DailyOperationalMenu() {
                           {col.label}
                         </td>
                         {pkg.dietPlans.map((diet, dietIdx) => {
-                          const cell = getCell(dietIdx, col.id);
                           const diffFromBase = isDifferentFromBase(dietIdx, col.id);
                           return (
                             <td
@@ -217,7 +199,7 @@ export default function DailyOperationalMenu() {
                               )}
                             >
                               <MenuCellContent
-                                dish={cell?.dish ?? null}
+                                dishes={getDishes(dietIdx, col.id)}
                                 detailed={isDetailed}
                                 diffFromBase={diffFromBase}
                               />
@@ -226,12 +208,11 @@ export default function DailyOperationalMenu() {
                         })}
                       </tr>
                     ))}
-                    {/* Nutrition summary row per diet */}
                     <tr className="border-t-2 bg-muted/40">
                       <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
                       {pkg.dietPlans.map((diet, dietIdx) => {
-                        const dayDishes = columnSlots.map((col) => getCell(dietIdx, col.id)?.dish ?? null);
-                        const summary = computeDayNutrition(dayDishes);
+                        const allDishes = columnSlots.flatMap((col) => getDishes(dietIdx, col.id));
+                        const summary = computeDayNutrition(allDishes);
                         return (
                           <td key={diet.dietId} className="p-1.5 border-l">
                             <NutritionSummaryCell summary={summary} />

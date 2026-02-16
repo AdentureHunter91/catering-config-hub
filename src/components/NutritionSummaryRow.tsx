@@ -11,7 +11,7 @@ export interface DayNutritionSummary {
   fiber: number;
 }
 
-export function computeDayNutrition(dishes: (MenuCellDish | null)[]): DayNutritionSummary {
+export function computeDayNutrition(dishes: (MenuCellDish | null | undefined)[]): DayNutritionSummary {
   return dishes.reduce<DayNutritionSummary>(
     (acc, d) => {
       if (!d) return acc;

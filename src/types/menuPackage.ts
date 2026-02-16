@@ -45,14 +45,14 @@ export interface MenuCellDish {
   cost: number;
   allergenIcons: string[];
   variant?: string;
+  portionGrams: number;
   composition?: MenuCellCompositionItem[];
 }
 
 export interface MenuCell {
   dayIndex: number;
   mealSlotId: string;
-  dish: MenuCellDish | null;
-  alternatives: MenuCellDish[];
+  dishes: MenuCellDish[];
   inherited: boolean;
   overridden: boolean;
 }

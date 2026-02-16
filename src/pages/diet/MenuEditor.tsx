@@ -1,23 +1,22 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, Search, RotateCcw, Eye, List,
+  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, RotateCcw, Eye, List,
 } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
 import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
 import MenuCellContent from "@/components/MenuCellContent";
+import MenuCellEditorDialog from "@/components/MenuCellEditorDialog";
 
 const DAY_NAMES = ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"];
 
@@ -37,72 +36,6 @@ function getFlatSlots() {
 
 const flatSlots = getFlatSlots();
 
-const dishCatalog: MenuCellDish[] = [
-  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, saturatedFat: 2.5, carbs: 52, sugars: 18, salt: 0.3, fiber: 4.2, cost: 3.2, allergenIcons: ["🥛", "🌾"],
-    composition: [
-      { name: "Owsianka na mleku", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU", "MLK"] },
-      { name: "Mix owoców sezonowych", type: "recipe", portionLabel: "80g", allergenCodes: [] },
-    ] },
-  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, saturatedFat: 12, carbs: 4, sugars: 1, salt: 1.2, fiber: 0.5, cost: 4.1, allergenIcons: ["🥚", "🥛"],
-    composition: [
-      { name: "Jajecznica klasyczna", type: "recipe", portionLabel: "180g", allergenCodes: ["JAJ", "MLK"] },
-      { name: "Pieczywo pszenne", type: "product", portionLabel: "60g", allergenCodes: ["GLU"] },
-    ] },
-  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, saturatedFat: 2, carbs: 28, sugars: 8, salt: 1.5, fiber: 2, cost: 3.5, allergenIcons: ["🌾"],
-    composition: [
-      { name: "Zupa pomidorowa z makaronem", type: "recipe", portionLabel: "350ml", allergenCodes: ["GLU"] },
-    ] },
-  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, saturatedFat: 1.5, carbs: 22, sugars: 3, salt: 1.0, fiber: 3.5, cost: 4.0, allergenIcons: ["🥛"],
-    composition: [
-      { name: "Krem brokułowy", type: "recipe", portionLabel: "300ml", allergenCodes: ["MLK"] },
-    ] },
-  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, saturatedFat: 3.5, carbs: 62, sugars: 2, salt: 1.8, fiber: 1.5, cost: 8.5, allergenIcons: [],
-    composition: [
-      { name: "Udo drobiowe gotowane", type: "recipe", portionLabel: "140g", allergenCodes: [] },
-      { name: "Ryż biały", type: "recipe", portionLabel: "200g", allergenCodes: [] },
-      { name: "Sok owocowy", type: "product", portionLabel: "100ml", allergenCodes: [] },
-      { name: "Sos pieczeniowy", type: "recipe", portionLabel: "50ml", allergenCodes: ["GLU"] },
-    ] },
-  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, saturatedFat: 3, carbs: 54, sugars: 1, salt: 1.4, fiber: 3, cost: 9.2, allergenIcons: ["🐟"],
-    composition: [
-      { name: "Filet z dorsza pieczony", type: "recipe", portionLabel: "150g", allergenCodes: ["RYB"] },
-      { name: "Kasza gryczana", type: "recipe", portionLabel: "180g", allergenCodes: [] },
-    ] },
-  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, saturatedFat: 0.3, carbs: 6, sugars: 3, salt: 0.5, fiber: 2, cost: 1.5, allergenIcons: [],
-    composition: [
-      { name: "Surówka z kapusty białej", type: "recipe", portionLabel: "120g", allergenCodes: [] },
-    ] },
-  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, saturatedFat: 4, carbs: 72, sugars: 6, salt: 2.0, fiber: 3, cost: 6.0, allergenIcons: ["🌾"],
-    composition: [
-      { name: "Makaron penne", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU"] },
-      { name: "Sos bolognese", type: "recipe", portionLabel: "150g", allergenCodes: [] },
-    ] },
-  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, saturatedFat: 1, carbs: 24, sugars: 8, salt: 0.8, fiber: 3, cost: 3.8, allergenIcons: [],
-    composition: [
-      { name: "Krem z dyni", type: "recipe", portionLabel: "300ml", allergenCodes: [] },
-    ] },
-  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, saturatedFat: 7, carbs: 56, sugars: 3, salt: 1.6, fiber: 2, cost: 7.0, allergenIcons: ["🌾", "🥛"],
-    composition: [
-      { name: "Pierogi ruskie", type: "recipe", portionLabel: "250g", allergenCodes: ["GLU", "MLK"] },
-      { name: "Śmietana 18%", type: "product", portionLabel: "30ml", allergenCodes: ["MLK"] },
-    ] },
-  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, saturatedFat: 8, carbs: 28, sugars: 2, salt: 1.5, fiber: 2.5, cost: 3.0, allergenIcons: ["🌾", "🥛"],
-    composition: [
-      { name: "Pieczywo żytnie", type: "product", portionLabel: "80g", allergenCodes: ["GLU"] },
-      { name: "Ser żółty gouda", type: "product", portionLabel: "40g", allergenCodes: ["MLK"] },
-    ] },
-  { id: 16, name: "Sałatka grecka", kcal: 220, protein: 8, fat: 16, saturatedFat: 6, carbs: 12, sugars: 4, salt: 1.8, fiber: 2, cost: 5.5, allergenIcons: ["🥛"],
-    composition: [
-      { name: "Sałatka grecka", type: "recipe", portionLabel: "200g", allergenCodes: ["MLK"] },
-    ] },
-  { id: 17, name: "Kotlet schabowy", kcal: 580, protein: 30, fat: 32, saturatedFat: 10, carbs: 40, sugars: 2, salt: 2.2, fiber: 3, cost: 10.0, allergenIcons: ["🌾", "🥚"],
-    composition: [
-      { name: "Kotlet schabowy panierowany", type: "recipe", portionLabel: "180g", allergenCodes: ["GLU", "JAJ"] },
-      { name: "Ziemniaki gotowane", type: "recipe", portionLabel: "200g", allergenCodes: [] },
-      { name: "Surówka z buraka", type: "recipe", portionLabel: "100g", allergenCodes: [] },
-    ] },
-];
-
 export default function MenuEditor() {
   const { id } = useParams();
   const pkg = mockMenuPackages.find((p) => p.id === Number(id)) ?? mockMenuPackages[0];
@@ -111,9 +44,8 @@ export default function MenuEditor() {
   const [weekIdx, setWeekIdx] = useState(0);
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [selectedDay, setSelectedDay] = useState(0);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSlot, setPickerSlot] = useState<{ day: number; slotId: string } | null>(null);
-  const [pickerSearch, setPickerSearch] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorSlot, setEditorSlot] = useState<{ day: number; slotId: string } | null>(null);
   const [nutritionView, setNutritionView] = useState<"day" | "week">("day");
   const [detailLevel, setDetailLevel] = useState<"general" | "detailed">("general");
   const [transposed, setTransposed] = useState(false);
@@ -124,6 +56,9 @@ export default function MenuEditor() {
   const getCell = (dayIdx: number, slotId: string) =>
     week?.cells.find((c) => c.dayIndex === dayIdx && c.mealSlotId === slotId) ?? null;
 
+  const getDishes = (dayIdx: number, slotId: string): MenuCellDish[] =>
+    getCell(dayIdx, slotId)?.dishes ?? [];
+
   // Nutrition calculations
   const nutritionData = useMemo(() => {
     if (!week) return { kcal: 0, protein: 0, fat: 0, carbs: 0, cost: 0 };
@@ -131,12 +66,12 @@ export default function MenuEditor() {
     let kcal = 0, protein = 0, fat = 0, carbs = 0, cost = 0;
     for (const d of days) {
       for (const cell of week.cells.filter((c) => c.dayIndex === d)) {
-        if (cell.dish) {
-          kcal += cell.dish.kcal;
-          protein += cell.dish.protein;
-          fat += cell.dish.fat;
-          carbs += cell.dish.carbs;
-          cost += cell.dish.cost;
+        for (const dish of cell.dishes) {
+          kcal += dish.kcal;
+          protein += dish.protein;
+          fat += dish.fat;
+          carbs += dish.carbs;
+          cost += dish.cost;
         }
       }
     }
@@ -153,24 +88,23 @@ export default function MenuEditor() {
     return "bg-red-500";
   };
 
-  const openPicker = (day: number, slotId: string) => {
-    setPickerSlot({ day, slotId });
-    setPickerSearch("");
-    setPickerOpen(true);
+  const openEditor = (day: number, slotId: string) => {
+    setEditorSlot({ day, slotId });
+    setEditorOpen(true);
   };
 
-  const selectDish = (_dish: MenuCellDish) => {
-    setPickerOpen(false);
+  const handleEditorSave = (_dishes: MenuCellDish[]) => {
+    // In real app: update cell dishes in state
   };
-
-  const filteredDishes = dishCatalog.filter((d) =>
-    d.name.toLowerCase().includes(pickerSearch.toLowerCase())
-  );
 
   const totalWeeks = diet?.weeks.length ?? 1;
   const isDetailed = detailLevel === "detailed";
 
   const visibleDays = viewMode === "week" ? DAY_NAMES.map((n, i) => ({ name: n, idx: i })) : [{ name: DAY_NAMES[selectedDay], idx: selectedDay }];
+
+  // Collect all dishes for a day across all slots (for nutrition summary)
+  const getAllDishesForDay = (dayIdx: number): MenuCellDish[] =>
+    flatSlots.flatMap((s) => getDishes(dayIdx, s.id));
 
   return (
     <DietLayout pageKey="diet.meals_approval">
@@ -229,32 +163,16 @@ export default function MenuEditor() {
 
           <div className="flex-1" />
 
-          {/* Detail level toggle */}
           <div className="flex items-center border rounded-md">
-            <Button
-              variant={detailLevel === "general" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-r-none h-8"
-              onClick={() => setDetailLevel("general")}
-            >
+            <Button variant={detailLevel === "general" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setDetailLevel("general")}>
               <Eye className="h-4 w-4 mr-1" /> Ogólny
             </Button>
-            <Button
-              variant={detailLevel === "detailed" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-l-none h-8"
-              onClick={() => setDetailLevel("detailed")}
-            >
+            <Button variant={detailLevel === "detailed" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setDetailLevel("detailed")}>
               <List className="h-4 w-4 mr-1" /> Szczegółowy
             </Button>
           </div>
 
-          {/* Transpose */}
-          <Button
-            variant={transposed ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTransposed((t) => !t)}
-          >
+          <Button variant={transposed ? "default" : "outline"} size="sm" onClick={() => setTransposed((t) => !t)}>
             <RotateCcw className="h-4 w-4 mr-1" /> Transponuj
           </Button>
 
@@ -288,7 +206,6 @@ export default function MenuEditor() {
             <CardContent className="p-0 overflow-x-auto">
               <TooltipProvider>
                 {!transposed ? (
-                  /* Normal: rows=days, cols=slots */
                   <table className="w-full text-xs table-fixed">
                     <thead>
                       <tr className="border-b bg-muted/30">
@@ -303,8 +220,7 @@ export default function MenuEditor() {
                     </thead>
                     <tbody>
                       {visibleDays.map(({ name: dayName, idx: dayIdx }) => {
-                        const dayDishes = flatSlots.map((s) => getCell(dayIdx, s.id)?.dish ?? null);
-                        const summary = computeDayNutrition(dayDishes);
+                        const summary = computeDayNutrition(getAllDishesForDay(dayIdx));
                         return (
                           <tr key={dayIdx} className="border-b hover:bg-muted/20">
                             <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
@@ -318,10 +234,10 @@ export default function MenuEditor() {
                                     "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
                                     isInherited && "bg-muted/20",
                                   )}
-                                  onClick={() => openPicker(dayIdx, slot.id)}
+                                  onClick={() => openEditor(dayIdx, slot.id)}
                                 >
                                   <MenuCellContent
-                                    dish={cell?.dish ?? null}
+                                    dishes={cell?.dishes ?? []}
                                     detailed={isDetailed}
                                     isInherited={isInherited}
                                     isOverridden={cell?.overridden}
@@ -338,7 +254,6 @@ export default function MenuEditor() {
                     </tbody>
                   </table>
                 ) : (
-                  /* Transposed: rows=slots, cols=days */
                   <table className="w-full text-xs table-fixed">
                     <thead>
                       <tr className="border-b bg-muted/30">
@@ -365,10 +280,10 @@ export default function MenuEditor() {
                                   "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
                                   isInherited && "bg-muted/20",
                                 )}
-                                onClick={() => openPicker(dayIdx, slot.id)}
+                                onClick={() => openEditor(dayIdx, slot.id)}
                               >
                                 <MenuCellContent
-                                  dish={cell?.dish ?? null}
+                                  dishes={cell?.dishes ?? []}
                                   detailed={isDetailed}
                                   isInherited={isInherited}
                                   isOverridden={cell?.overridden}
@@ -378,12 +293,10 @@ export default function MenuEditor() {
                           })}
                         </tr>
                       ))}
-                      {/* Nutrition summary column */}
                       <tr className="border-t-2 bg-muted/40">
                         <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
                         {visibleDays.map(({ idx: dayIdx }) => {
-                          const dayDishes = flatSlots.map((s) => getCell(dayIdx, s.id)?.dish ?? null);
-                          const summary = computeDayNutrition(dayDishes);
+                          const summary = computeDayNutrition(getAllDishesForDay(dayIdx));
                           return (
                             <td key={`sum-${dayIdx}`} className="p-1.5 border-l">
                               <NutritionSummaryCell summary={summary} />
@@ -464,41 +377,17 @@ export default function MenuEditor() {
         </div>
       </div>
 
-      {/* Dish picker dialog */}
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Wybierz danie</DialogTitle>
-            <DialogDescription>
-              {pickerSlot && `${DAY_NAMES[pickerSlot.day]}, ${flatSlots.find((s) => s.id === pickerSlot.slotId)?.label ?? ""}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Szukaj dania..." value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} className="pl-9" />
-          </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-1">
-            {filteredDishes.map((dish) => (
-              <button
-                key={dish.id}
-                className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted text-left transition-colors"
-                onClick={() => selectDish(dish)}
-              >
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{dish.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {dish.kcal} kcal | B: {dish.protein}g | T: {dish.fat}g | W: {dish.carbs}g
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-mono">{dish.cost.toFixed(2)} PLN</div>
-                  <div className="flex gap-0.5">{dish.allergenIcons.map((a, i) => <span key={i} className="text-xs">{a}</span>)}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Cell editor dialog */}
+      {editorSlot && (
+        <MenuCellEditorDialog
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          dayLabel={DAY_NAMES[editorSlot.day]}
+          slotLabel={flatSlots.find((s) => s.id === editorSlot.slotId)?.label ?? ""}
+          initialDishes={getDishes(editorSlot.day, editorSlot.slotId)}
+          onSave={handleEditorSave}
+        />
+      )}
     </DietLayout>
   );
 }
