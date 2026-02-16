@@ -2,26 +2,24 @@ import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, Pencil, Search, X,
+  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, Search, RotateCcw, Eye, List,
 } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
 import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
+import MenuCellContent from "@/components/MenuCellContent";
 
 const DAY_NAMES = ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"];
 
-// Flatten meal slots for column headers
 function getFlatSlots() {
   const flat: { id: string; label: string; parent?: string }[] = [];
   for (const slot of DEFAULT_MEAL_SLOTS) {
@@ -39,19 +37,69 @@ function getFlatSlots() {
 const flatSlots = getFlatSlots();
 
 const dishCatalog: MenuCellDish[] = [
-  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, carbs: 52, cost: 3.2, allergenIcons: ["🥛", "🌾"] },
-  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, carbs: 4, cost: 4.1, allergenIcons: ["🥚", "🥛"] },
-  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, carbs: 28, cost: 3.5, allergenIcons: ["🌾"] },
-  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, carbs: 22, cost: 4.0, allergenIcons: ["🥛"] },
-  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, carbs: 62, cost: 8.5, allergenIcons: [] },
-  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, carbs: 54, cost: 9.2, allergenIcons: ["🐟"] },
-  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, carbs: 6, cost: 1.5, allergenIcons: [] },
-  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, carbs: 72, cost: 6.0, allergenIcons: ["🌾"] },
-  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, carbs: 24, cost: 3.8, allergenIcons: [] },
-  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, carbs: 56, cost: 7.0, allergenIcons: ["🌾", "🥛"] },
-  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, carbs: 28, cost: 3.0, allergenIcons: ["🌾", "🥛"] },
-  { id: 16, name: "Sałatka grecka", kcal: 220, protein: 8, fat: 16, carbs: 12, cost: 5.5, allergenIcons: ["🥛"] },
-  { id: 17, name: "Kotlet schabowy", kcal: 580, protein: 30, fat: 32, carbs: 40, cost: 10.0, allergenIcons: ["🌾", "🥚"] },
+  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, carbs: 52, cost: 3.2, allergenIcons: ["🥛", "🌾"],
+    composition: [
+      { name: "Owsianka na mleku", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU", "MLK"] },
+      { name: "Mix owoców sezonowych", type: "recipe", portionLabel: "80g", allergenCodes: [] },
+    ] },
+  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, carbs: 4, cost: 4.1, allergenIcons: ["🥚", "🥛"],
+    composition: [
+      { name: "Jajecznica klasyczna", type: "recipe", portionLabel: "180g", allergenCodes: ["JAJ", "MLK"] },
+      { name: "Pieczywo pszenne", type: "product", portionLabel: "60g", allergenCodes: ["GLU"] },
+    ] },
+  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, carbs: 28, cost: 3.5, allergenIcons: ["🌾"],
+    composition: [
+      { name: "Zupa pomidorowa z makaronem", type: "recipe", portionLabel: "350ml", allergenCodes: ["GLU"] },
+    ] },
+  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, carbs: 22, cost: 4.0, allergenIcons: ["🥛"],
+    composition: [
+      { name: "Krem brokułowy", type: "recipe", portionLabel: "300ml", allergenCodes: ["MLK"] },
+    ] },
+  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, carbs: 62, cost: 8.5, allergenIcons: [],
+    composition: [
+      { name: "Udo drobiowe gotowane", type: "recipe", portionLabel: "140g", allergenCodes: [] },
+      { name: "Ryż biały", type: "recipe", portionLabel: "200g", allergenCodes: [] },
+      { name: "Sok owocowy", type: "product", portionLabel: "100ml", allergenCodes: [] },
+      { name: "Sos pieczeniowy", type: "recipe", portionLabel: "50ml", allergenCodes: ["GLU"] },
+    ] },
+  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, carbs: 54, cost: 9.2, allergenIcons: ["🐟"],
+    composition: [
+      { name: "Filet z dorsza pieczony", type: "recipe", portionLabel: "150g", allergenCodes: ["RYB"] },
+      { name: "Kasza gryczana", type: "recipe", portionLabel: "180g", allergenCodes: [] },
+    ] },
+  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, carbs: 6, cost: 1.5, allergenIcons: [],
+    composition: [
+      { name: "Surówka z kapusty białej", type: "recipe", portionLabel: "120g", allergenCodes: [] },
+    ] },
+  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, carbs: 72, cost: 6.0, allergenIcons: ["🌾"],
+    composition: [
+      { name: "Makaron penne", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU"] },
+      { name: "Sos bolognese", type: "recipe", portionLabel: "150g", allergenCodes: [] },
+    ] },
+  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, carbs: 24, cost: 3.8, allergenIcons: [],
+    composition: [
+      { name: "Krem z dyni", type: "recipe", portionLabel: "300ml", allergenCodes: [] },
+    ] },
+  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, carbs: 56, cost: 7.0, allergenIcons: ["🌾", "🥛"],
+    composition: [
+      { name: "Pierogi ruskie", type: "recipe", portionLabel: "250g", allergenCodes: ["GLU", "MLK"] },
+      { name: "Śmietana 18%", type: "product", portionLabel: "30ml", allergenCodes: ["MLK"] },
+    ] },
+  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, carbs: 28, cost: 3.0, allergenIcons: ["🌾", "🥛"],
+    composition: [
+      { name: "Pieczywo żytnie", type: "product", portionLabel: "80g", allergenCodes: ["GLU"] },
+      { name: "Ser żółty gouda", type: "product", portionLabel: "40g", allergenCodes: ["MLK"] },
+    ] },
+  { id: 16, name: "Sałatka grecka", kcal: 220, protein: 8, fat: 16, carbs: 12, cost: 5.5, allergenIcons: ["🥛"],
+    composition: [
+      { name: "Sałatka grecka", type: "recipe", portionLabel: "200g", allergenCodes: ["MLK"] },
+    ] },
+  { id: 17, name: "Kotlet schabowy", kcal: 580, protein: 30, fat: 32, carbs: 40, cost: 10.0, allergenIcons: ["🌾", "🥚"],
+    composition: [
+      { name: "Kotlet schabowy panierowany", type: "recipe", portionLabel: "180g", allergenCodes: ["GLU", "JAJ"] },
+      { name: "Ziemniaki gotowane", type: "recipe", portionLabel: "200g", allergenCodes: [] },
+      { name: "Surówka z buraka", type: "recipe", portionLabel: "100g", allergenCodes: [] },
+    ] },
 ];
 
 export default function MenuEditor() {
@@ -66,6 +114,8 @@ export default function MenuEditor() {
   const [pickerSlot, setPickerSlot] = useState<{ day: number; slotId: string } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [nutritionView, setNutritionView] = useState<"day" | "week">("day");
+  const [detailLevel, setDetailLevel] = useState<"general" | "detailed">("general");
+  const [transposed, setTransposed] = useState(false);
 
   const diet = pkg.dietPlans[selectedDietIdx];
   const week = diet?.weeks[weekIdx];
@@ -108,8 +158,7 @@ export default function MenuEditor() {
     setPickerOpen(true);
   };
 
-  const selectDish = (dish: MenuCellDish) => {
-    // In real app this would update state properly
+  const selectDish = (_dish: MenuCellDish) => {
     setPickerOpen(false);
   };
 
@@ -118,6 +167,9 @@ export default function MenuEditor() {
   );
 
   const totalWeeks = diet?.weeks.length ?? 1;
+  const isDetailed = detailLevel === "detailed";
+
+  const visibleDays = viewMode === "week" ? DAY_NAMES.map((n, i) => ({ name: n, idx: i })) : [{ name: DAY_NAMES[selectedDay], idx: selectedDay }];
 
   return (
     <DietLayout pageKey="diet.meals_approval">
@@ -136,11 +188,8 @@ export default function MenuEditor() {
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-          {/* Diet selector */}
           <Select value={String(selectedDietIdx)} onValueChange={(v) => setSelectedDietIdx(Number(v))}>
-            <SelectTrigger className="w-64">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
             <SelectContent>
               {pkg.dietPlans.map((dp, idx) => (
                 <SelectItem key={dp.dietId} value={String(idx)}>
@@ -151,7 +200,6 @@ export default function MenuEditor() {
             </SelectContent>
           </Select>
 
-          {/* Week navigation */}
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekIdx(Math.max(0, weekIdx - 1))} disabled={weekIdx === 0}>
               <ChevronLeft className="h-4 w-4" />
@@ -162,7 +210,6 @@ export default function MenuEditor() {
             </Button>
           </div>
 
-          {/* View toggle */}
           <div className="flex items-center border rounded-md">
             <Button variant={viewMode === "week" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setViewMode("week")}>Tydzień</Button>
             <Button variant={viewMode === "day" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setViewMode("day")}>Dzień</Button>
@@ -181,7 +228,35 @@ export default function MenuEditor() {
 
           <div className="flex-1" />
 
-          {/* Copy menu */}
+          {/* Detail level toggle */}
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={detailLevel === "general" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-r-none h-8"
+              onClick={() => setDetailLevel("general")}
+            >
+              <Eye className="h-4 w-4 mr-1" /> Ogólny
+            </Button>
+            <Button
+              variant={detailLevel === "detailed" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-l-none h-8"
+              onClick={() => setDetailLevel("detailed")}
+            >
+              <List className="h-4 w-4 mr-1" /> Szczegółowy
+            </Button>
+          </div>
+
+          {/* Transpose */}
+          <Button
+            variant={transposed ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTransposed((t) => !t)}
+          >
+            <RotateCcw className="h-4 w-4 mr-1" /> Transponuj
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm"><Copy className="h-4 w-4 mr-1" /> Kopiuj menu</Button>
@@ -193,7 +268,6 @@ export default function MenuEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Bulk operations */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm"><Settings2 className="h-4 w-4 mr-1" /> Operacje</Button>
@@ -209,32 +283,28 @@ export default function MenuEditor() {
 
         {/* Main content */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-          {/* Grid */}
           <Card>
             <CardContent className="p-0 overflow-x-auto">
               <TooltipProvider>
-                <table className="w-full text-xs table-fixed">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
-                      <th className="p-2 text-left w-12 font-medium text-muted-foreground" />
-                      {flatSlots.map((slot) => (
-                        <th key={slot.id} className="p-2 text-center font-medium text-muted-foreground">
-                          <div>{slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}
-                            {slot.label}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(viewMode === "week" ? DAY_NAMES : [DAY_NAMES[selectedDay]]).map((dayName, rowIdx) => {
-                      const dayIdx = viewMode === "week" ? rowIdx : selectedDay;
-                      return (
+                {!transposed ? (
+                  /* Normal: rows=days, cols=slots */
+                  <table className="w-full text-xs table-fixed">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-2 text-left w-12 font-medium text-muted-foreground" />
+                        {flatSlots.map((slot) => (
+                          <th key={slot.id} className="p-2 text-center font-medium text-muted-foreground">
+                            <div>{slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}{slot.label}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleDays.map(({ name: dayName, idx: dayIdx }) => (
                         <tr key={dayIdx} className="border-b hover:bg-muted/20">
                           <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
                           {flatSlots.map((slot) => {
                             const cell = getCell(dayIdx, slot.id);
-                            const dish = cell?.dish;
                             const isInherited = cell?.inherited && !cell?.overridden;
                             return (
                               <td
@@ -245,39 +315,63 @@ export default function MenuEditor() {
                                 )}
                                 onClick={() => openPicker(dayIdx, slot.id)}
                               >
-                                {dish ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="space-y-0.5 min-h-[48px]">
-                                        <div className="text-[11px] font-medium leading-tight line-clamp-2">{dish.name}</div>
-                                        <div className="text-[10px] text-muted-foreground">{dish.kcal} kcal</div>
-                                        <div className="flex items-center gap-0.5">
-                                          {dish.allergenIcons.map((icon, i) => (
-                                            <span key={i} className="text-[10px]">{icon}</span>
-                                          ))}
-                                          {isInherited && <Link2 className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                          {cell?.overridden && <Pencil className="h-3 w-3 text-primary ml-auto" />}
-                                        </div>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="font-medium">{dish.name}</p>
-                                      <p className="text-xs">Kcal: {dish.kcal} | B: {dish.protein}g | T: {dish.fat}g | W: {dish.carbs}g</p>
-                                      <p className="text-xs">Koszt: {dish.cost.toFixed(2)} PLN</p>
-                                      {isInherited && <p className="text-xs text-muted-foreground mt-1">🔗 Odziedziczone z diety bazowej</p>}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  <div className="min-h-[48px] flex items-center justify-center text-muted-foreground/40 text-[10px]">—</div>
-                                )}
+                                <MenuCellContent
+                                  dish={cell?.dish ?? null}
+                                  detailed={isDetailed}
+                                  isInherited={isInherited}
+                                  isOverridden={cell?.overridden}
+                                />
                               </td>
                             );
                           })}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  /* Transposed: rows=slots, cols=days */
+                  <table className="w-full text-xs table-fixed">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-2 text-left w-24 font-medium text-muted-foreground">Posiłek</th>
+                        {visibleDays.map(({ name, idx }) => (
+                          <th key={idx} className="p-2 text-center font-medium text-muted-foreground">{name}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flatSlots.map((slot) => (
+                        <tr key={slot.id} className="border-b hover:bg-muted/20">
+                          <td className="p-2 font-medium text-muted-foreground">
+                            {slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}
+                            {slot.label}
+                          </td>
+                          {visibleDays.map(({ idx: dayIdx }) => {
+                            const cell = getCell(dayIdx, slot.id);
+                            const isInherited = cell?.inherited && !cell?.overridden;
+                            return (
+                              <td
+                                key={dayIdx}
+                                className={cn(
+                                  "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
+                                  isInherited && "bg-muted/20",
+                                )}
+                                onClick={() => openPicker(dayIdx, slot.id)}
+                              >
+                                <MenuCellContent
+                                  dish={cell?.dish ?? null}
+                                  detailed={isDetailed}
+                                  isInherited={isInherited}
+                                  isOverridden={cell?.overridden}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </TooltipProvider>
             </CardContent>
           </Card>

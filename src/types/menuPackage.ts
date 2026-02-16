@@ -24,6 +24,13 @@ export const CYCLE_LABELS: Record<CycleType, string> = {
   custom: "Niestandardowy",
 };
 
+export interface MenuCellCompositionItem {
+  name: string;
+  type: "recipe" | "product";
+  portionLabel: string;
+  allergenCodes: string[];
+}
+
 export interface MenuCellDish {
   id: number;
   name: string;
@@ -34,6 +41,7 @@ export interface MenuCellDish {
   cost: number;
   allergenIcons: string[];
   variant?: string;
+  composition?: MenuCellCompositionItem[];
 }
 
 export interface MenuCell {
