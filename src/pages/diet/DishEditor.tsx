@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import DietLayout from "@/components/DietLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,12 +19,20 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Save, ArrowLeft, Plus, Trash2, ChevronDown, FileText, AlertTriangle,
-  Check, HelpCircle, X as XIcon, Clock, Wrench,
+  Check, HelpCircle, X as XIcon, Clock, Wrench, Search, FlaskConical, Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MOCK_DISHES } from "@/data/mockDishes";
+import { MOCK_RECIPES } from "@/data/mockRecipes";
+import { getProducts, Product } from "@/api/products";
 import {
   Dish,
   DishCategory,
@@ -146,12 +155,15 @@ export default function DishEditor() {
 
   const variantCount = exclusions.filter((e) => e.enabled).length + portionTemplates.length;
 
-  const addComposition = useCallback(() => {
+  const { data: products = [] } = useQuery({ queryKey: ["products"], queryFn: () => getProducts() });
+  const availableRecipes = MOCK_RECIPES;
+
+  const addCompositionEmpty = useCallback(() => {
     setComposition((prev) => [
       ...prev,
       {
-        id: `new-${Date.now()}`, type: "recipe", referenceId: 0, name: "",
-        portionGrams: 0, role: "main", kcal: 0, protein: 0, fat: 0, carbs: 0, cost: 0,
+        id: `new-${Date.now()}`, type: "recipe" as const, referenceId: 0, name: "",
+        portionGrams: 0, role: "main" as CompositionRole, kcal: 0, protein: 0, fat: 0, carbs: 0, cost: 0,
       },
     ]);
   }, []);
@@ -275,12 +287,26 @@ export default function DishEditor() {
                       composition.map((c) => (
                         <TableRow key={c.id}>
                           <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="outline" className="text-[10px] shrink-0">
-                                {c.type === "recipe" ? "R" : "P"}
-                              </Badge>
-                              <span className="text-sm">{c.name || "—"}</span>
-                            </div>
+                            {c.referenceId === 0 ? (
+                              <DishCompositionCombobox
+                                products={products}
+                                recipes={availableRecipes}
+                                onSelect={(type, refId, itemName) => {
+                                  setComposition((prev) =>
+                                    prev.map((item) =>
+                                      item.id === c.id ? { ...item, type, referenceId: refId, name: itemName } : item
+                                    )
+                                  );
+                                }}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className="text-[10px] shrink-0">
+                                  {c.type === "recipe" ? "R" : "P"}
+                                </Badge>
+                                <span className="text-sm">{c.name || "—"}</span>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-right text-sm">{c.portionGrams}g</TableCell>
                           <TableCell>
@@ -309,7 +335,7 @@ export default function DishEditor() {
                   </TableBody>
                 </Table>
               </div>
-              <Button variant="outline" size="sm" className="mt-2" onClick={addComposition}>
+              <Button variant="outline" size="sm" className="mt-2" onClick={addCompositionEmpty}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Dodaj recepturę / produkt
               </Button>
             </CardContent>
@@ -640,5 +666,92 @@ export default function DishEditor() {
         </div>
       </div>
     </DietLayout>
+  );
+}
+
+// === DISH COMPOSITION COMBOBOX ===
+
+interface DishCompositionComboboxProps {
+  products: Product[];
+  recipes: { id: number; name: string; portionWeight: number }[];
+  onSelect: (type: "recipe" | "product", id: number, name: string) => void;
+}
+
+function DishCompositionCombobox({ products, recipes, onSelect }: DishCompositionComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredProducts = useMemo(() => {
+    if (!search) return products.slice(0, 20);
+    const q = search.toLowerCase();
+    return products.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 20);
+  }, [products, search]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!search) return recipes.slice(0, 10);
+    const q = search.toLowerCase();
+    return recipes.filter((r) => r.name.toLowerCase().includes(q)).slice(0, 10);
+  }, [recipes, search]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 w-full justify-start font-normal text-muted-foreground">
+          <Search className="h-3 w-3" />
+          Wyszukaj produkt lub recepturę…
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[350px] p-0 bg-popover z-50" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Szukaj produktu lub receptury…"
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>Nie znaleziono.</CommandEmpty>
+            {filteredProducts.length > 0 && (
+              <CommandGroup heading="Produkty">
+                {filteredProducts.map((p) => (
+                  <CommandItem
+                    key={`product-${p.id}`}
+                    value={`product-${p.id}`}
+                    onSelect={() => {
+                      onSelect("product", p.id, p.name);
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <Package className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                    <span className="text-sm">{p.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {filteredRecipes.length > 0 && (
+              <CommandGroup heading="Receptury">
+                {filteredRecipes.map((r) => (
+                  <CommandItem
+                    key={`recipe-${r.id}`}
+                    value={`recipe-${r.id}`}
+                    onSelect={() => {
+                      onSelect("recipe", r.id, r.name);
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <FlaskConical className="h-3.5 w-3.5 mr-2 text-primary" />
+                    <span className="text-sm">{r.name}</span>
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {r.portionWeight}g
+                    </Badge>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
