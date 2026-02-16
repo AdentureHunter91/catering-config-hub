@@ -88,9 +88,9 @@ function randomDish(): MenuCellDish {
   return { ...dishPool[Math.floor(Math.random() * dishPool.length)] };
 }
 
-function generateWeek(weekIndex: number, inherited: boolean): MenuWeek {
+function generateWeek(weekIndex: number, inherited: boolean, daysInCycle: number = 7): MenuWeek {
   const cells: MenuCell[] = [];
-  for (let d = 0; d < DAYS; d++) {
+  for (let d = 0; d < daysInCycle; d++) {
     for (const slotId of mealSlotIds) {
       cells.push({
         dayIndex: d,
@@ -124,6 +124,7 @@ export const mockMenuPackages: MenuPackage[] = [
     periodFrom: "2026-02-01",
     periodTo: "2026-02-28",
     cycle: "7",
+    tags: ["winter", "budget"],
     status: "active",
     avgDailyCost: 48.5,
     dietPlans: [
@@ -143,6 +144,7 @@ export const mockMenuPackages: MenuPackage[] = [
     periodFrom: "2026-02-03",
     periodTo: "2026-02-28",
     cycle: "14",
+    tags: ["winter"],
     status: "draft",
     avgDailyCost: 22.3,
     dietPlans: [

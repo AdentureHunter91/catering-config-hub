@@ -18,11 +18,28 @@ export type CycleType = "7" | "10" | "14" | "30" | "custom";
 
 export const CYCLE_LABELS: Record<CycleType, string> = {
   "7": "7-dniowy",
-  "10": "10-dniowy",
+  "10": "10-dniowy (dekada)",
   "14": "14-dniowy",
   "30": "Miesięczny",
   custom: "Niestandardowy",
 };
+
+export interface MenuPackageTag {
+  id: string;
+  label: string;
+  color: string;
+}
+
+export const PREDEFINED_TAGS: MenuPackageTag[] = [
+  { id: "summer", label: "Lato", color: "bg-amber-100 text-amber-800 border-amber-300" },
+  { id: "winter", label: "Zima", color: "bg-sky-100 text-sky-800 border-sky-300" },
+  { id: "spring", label: "Wiosna", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  { id: "autumn", label: "Jesień", color: "bg-orange-100 text-orange-800 border-orange-300" },
+  { id: "budget", label: "Budżetowy", color: "bg-violet-100 text-violet-800 border-violet-300" },
+  { id: "premium", label: "Premium", color: "bg-rose-100 text-rose-800 border-rose-300" },
+  { id: "holiday", label: "Świąteczny", color: "bg-red-100 text-red-800 border-red-300" },
+  { id: "lent", label: "Postny", color: "bg-gray-100 text-gray-800 border-gray-300" },
+];
 
 export interface MenuCellCompositionItem {
   name: string;
@@ -83,6 +100,7 @@ export interface MenuPackage {
   status: MenuPackageStatus;
   avgDailyCost: number;
   dietPlans: MenuDietPlan[];
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
