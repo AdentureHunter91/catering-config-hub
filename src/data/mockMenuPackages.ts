@@ -1,21 +1,84 @@
 import type { MenuPackage, MenuCellDish, MenuCell, MenuWeek, MenuDietPlan } from "@/types/menuPackage";
 
 const dishPool: MenuCellDish[] = [
-  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, carbs: 52, cost: 3.2, allergenIcons: ["🥛", "🌾"] },
-  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, carbs: 4, cost: 4.1, allergenIcons: ["🥚", "🥛"] },
-  { id: 3, name: "Jabłko", kcal: 52, protein: 0.3, fat: 0.2, carbs: 14, cost: 1.0, allergenIcons: [] },
-  { id: 4, name: "Marchewka (plasterki)", kcal: 41, protein: 0.9, fat: 0.2, carbs: 10, cost: 0.8, allergenIcons: [] },
-  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, carbs: 28, cost: 3.5, allergenIcons: ["🌾"] },
-  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, carbs: 22, cost: 4.0, allergenIcons: ["🥛"] },
-  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, carbs: 62, cost: 8.5, allergenIcons: [] },
-  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, carbs: 54, cost: 9.2, allergenIcons: ["🐟"] },
-  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, carbs: 6, cost: 1.5, allergenIcons: [] },
-  { id: 10, name: "Kompot owocowy", kcal: 80, protein: 0, fat: 0, carbs: 20, cost: 1.2, allergenIcons: [] },
-  { id: 11, name: "Budyń waniliowy", kcal: 150, protein: 4, fat: 5, carbs: 22, cost: 2.0, allergenIcons: ["🥛"] },
-  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, carbs: 72, cost: 6.0, allergenIcons: ["🌾"] },
-  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, carbs: 24, cost: 3.8, allergenIcons: [] },
-  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, carbs: 56, cost: 7.0, allergenIcons: ["🌾", "🥛"] },
-  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, carbs: 28, cost: 3.0, allergenIcons: ["🌾", "🥛"] },
+  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, carbs: 52, cost: 3.2, allergenIcons: ["🥛", "🌾"],
+    composition: [
+      { name: "Owsianka na mleku", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU", "MLK"] },
+      { name: "Mix owoców sezonowych", type: "recipe", portionLabel: "80g", allergenCodes: [] },
+      { name: "Miód naturalny", type: "product", portionLabel: "15g", allergenCodes: [] },
+    ] },
+  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, carbs: 4, cost: 4.1, allergenIcons: ["🥚", "🥛"],
+    composition: [
+      { name: "Jajecznica klasyczna", type: "recipe", portionLabel: "180g", allergenCodes: ["JAJ", "MLK"] },
+      { name: "Pieczywo pszenne", type: "product", portionLabel: "60g", allergenCodes: ["GLU"] },
+      { name: "Masło extra", type: "product", portionLabel: "10g", allergenCodes: ["MLK"] },
+    ] },
+  { id: 3, name: "Jabłko", kcal: 52, protein: 0.3, fat: 0.2, carbs: 14, cost: 1.0, allergenIcons: [],
+    composition: [
+      { name: "Jabłko świeże", type: "product", portionLabel: "150g", allergenCodes: [] },
+    ] },
+  { id: 4, name: "Marchewka (plasterki)", kcal: 41, protein: 0.9, fat: 0.2, carbs: 10, cost: 0.8, allergenIcons: [],
+    composition: [
+      { name: "Marchewka gotowana", type: "recipe", portionLabel: "120g", allergenCodes: [] },
+    ] },
+  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, carbs: 28, cost: 3.5, allergenIcons: ["🌾"],
+    composition: [
+      { name: "Zupa pomidorowa z makaronem", type: "recipe", portionLabel: "350ml", allergenCodes: ["GLU"] },
+      { name: "Śmietana 18%", type: "product", portionLabel: "15ml", allergenCodes: ["MLK"] },
+    ] },
+  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, carbs: 22, cost: 4.0, allergenIcons: ["🥛"],
+    composition: [
+      { name: "Krem brokułowy", type: "recipe", portionLabel: "300ml", allergenCodes: ["MLK"] },
+      { name: "Grzanki pszenne", type: "product", portionLabel: "20g", allergenCodes: ["GLU"] },
+    ] },
+  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, carbs: 62, cost: 8.5, allergenIcons: [],
+    composition: [
+      { name: "Udo drobiowe gotowane", type: "recipe", portionLabel: "140g", allergenCodes: [] },
+      { name: "Ryż biały", type: "recipe", portionLabel: "200g", allergenCodes: [] },
+      { name: "Sok owocowy", type: "product", portionLabel: "100ml", allergenCodes: [] },
+      { name: "Sos pieczeniowy", type: "recipe", portionLabel: "50ml", allergenCodes: ["GLU"] },
+    ] },
+  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, carbs: 54, cost: 9.2, allergenIcons: ["🐟"],
+    composition: [
+      { name: "Filet z dorsza pieczony", type: "recipe", portionLabel: "150g", allergenCodes: ["RYB"] },
+      { name: "Kasza gryczana", type: "recipe", portionLabel: "180g", allergenCodes: [] },
+      { name: "Masło klarowane", type: "product", portionLabel: "10g", allergenCodes: ["MLK"] },
+    ] },
+  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, carbs: 6, cost: 1.5, allergenIcons: [],
+    composition: [
+      { name: "Surówka z kapusty białej", type: "recipe", portionLabel: "120g", allergenCodes: [] },
+    ] },
+  { id: 10, name: "Kompot owocowy", kcal: 80, protein: 0, fat: 0, carbs: 20, cost: 1.2, allergenIcons: [],
+    composition: [
+      { name: "Kompot wieloowocowy", type: "recipe", portionLabel: "200ml", allergenCodes: [] },
+    ] },
+  { id: 11, name: "Budyń waniliowy", kcal: 150, protein: 4, fat: 5, carbs: 22, cost: 2.0, allergenIcons: ["🥛"],
+    composition: [
+      { name: "Budyń waniliowy na mleku", type: "recipe", portionLabel: "180g", allergenCodes: ["MLK"] },
+    ] },
+  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, carbs: 72, cost: 6.0, allergenIcons: ["🌾"],
+    composition: [
+      { name: "Makaron penne", type: "recipe", portionLabel: "200g", allergenCodes: ["GLU"] },
+      { name: "Sos bolognese", type: "recipe", portionLabel: "150g", allergenCodes: ["SLR"] },
+    ] },
+  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, carbs: 24, cost: 3.8, allergenIcons: [],
+    composition: [
+      { name: "Krem z dyni", type: "recipe", portionLabel: "300ml", allergenCodes: [] },
+      { name: "Pestki dyni", type: "product", portionLabel: "10g", allergenCodes: [] },
+    ] },
+  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, carbs: 56, cost: 7.0, allergenIcons: ["🌾", "🥛"],
+    composition: [
+      { name: "Pierogi ruskie (ciasto + farsz)", type: "recipe", portionLabel: "250g", allergenCodes: ["GLU", "MLK"] },
+      { name: "Cebula smażona", type: "recipe", portionLabel: "30g", allergenCodes: [] },
+      { name: "Śmietana 18%", type: "product", portionLabel: "30ml", allergenCodes: ["MLK"] },
+    ] },
+  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, carbs: 28, cost: 3.0, allergenIcons: ["🌾", "🥛"],
+    composition: [
+      { name: "Pieczywo żytnie", type: "product", portionLabel: "80g", allergenCodes: ["GLU"] },
+      { name: "Ser żółty gouda", type: "product", portionLabel: "40g", allergenCodes: ["MLK"] },
+      { name: "Masło extra", type: "product", portionLabel: "10g", allergenCodes: ["MLK"] },
+      { name: "Sałata zielona", type: "product", portionLabel: "20g", allergenCodes: [] },
+    ] },
 ];
 
 const DAYS = 7;
