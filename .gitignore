@@ -29,3 +29,4 @@ dist-ssr
 # Secrets / auth
 .env
 .auth/*
+.vscode/mcp.json
