@@ -17,6 +17,7 @@ import {
   Settings2,
   Database,
   Apple,
+  Ruler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,14 @@ const dietMenuItems: SidebarItem[] = [
       { label: "Kosztowy", path: "/dietetyka/raporty/kosztowy", icon: BarChart3 },
       { label: "Alergenów", path: "/dietetyka/raporty/alergeny", icon: BarChart3 },
       { label: "Odpadów", path: "/dietetyka/raporty/odpady", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Ustawienia",
+    path: "/dietetyka/ustawienia",
+    icon: Settings2,
+    submenu: [
+      { label: "Jednostki miary", path: "/dietetyka/ustawienia/jednostki", icon: Ruler },
     ],
   },
 ];

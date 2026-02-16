@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Table,
   TableBody,
   TableCell,
@@ -31,10 +44,15 @@ import {
   ArrowUp,
   ArrowDown,
   AlertTriangle,
+  Search,
+  FlaskConical,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MOCK_RECIPES } from "@/data/mockRecipes";
+import { getProducts, Product } from "@/api/products";
+import { getMeasurementUnits, MeasurementUnit } from "@/api/measurementUnits";
 import {
   Recipe,
   RecipeIngredient,
@@ -89,6 +107,21 @@ export default function RecipeEditor() {
   const navigate = useNavigate();
   const isNew = id === "nowa";
   const existing = !isNew ? MOCK_RECIPES.find((r) => r.id === Number(id)) : undefined;
+
+  // Load products and recipes for ingredient selection
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [availableUnits, setAvailableUnits] = useState<MeasurementUnit[]>([]);
+
+  useEffect(() => {
+    getProducts().then(setAvailableProducts).catch(console.error);
+    getMeasurementUnits().then(setAvailableUnits).catch(console.error);
+  }, []);
+
+  // Determine default unit for a product (lowest base unit: g or ml)
+  const getDefaultUnitForProduct = useCallback((_productId: number): string => {
+    // Default to g (lowest mass unit). In future, determine from subproducts.
+    return "g";
+  }, []);
 
   const [name, setName] = useState(existing?.name || "");
   const [category, setCategory] = useState<RecipeCategory>(existing?.category || "main_course");
@@ -194,6 +227,18 @@ export default function RecipeEditor() {
     setIngredients((prev) => [...prev, newIng]);
   }, [ingredients.length]);
 
+  const selectIngredientSource = useCallback(
+    (ingId: string, sourceType: "product" | "recipe", sourceId: number, sourceName: string, unit: string) => {
+      setIngredients((prev) =>
+        prev.map((ing) => {
+          if (ing.id !== ingId) return ing;
+          return { ...ing, type: sourceType, referenceId: sourceId, name: sourceName, unit };
+        })
+      );
+    },
+    []
+  );
+
   const handleSave = () => {
     if (!name.trim()) {
       toast.error("Podaj nazwę receptury");
@@ -296,6 +341,10 @@ export default function RecipeEditor() {
                 onRemove={removeIngredient}
                 onUpdate={updateIngredientField}
                 onAdd={addIngredient}
+                onSelectSource={selectIngredientSource}
+                availableProducts={availableProducts}
+                availableRecipes={MOCK_RECIPES}
+                currentRecipeId={existing?.id}
                 totals={totals}
                 showGross={false}
               />
@@ -308,6 +357,10 @@ export default function RecipeEditor() {
                 onRemove={removeIngredient}
                 onUpdate={updateIngredientField}
                 onAdd={addIngredient}
+                onSelectSource={selectIngredientSource}
+                availableProducts={availableProducts}
+                availableRecipes={MOCK_RECIPES}
+                currentRecipeId={existing?.id}
                 totals={totals}
                 showGross={true}
               />
@@ -637,14 +690,23 @@ interface IngredientsTableProps {
   onRemove: (id: string) => void;
   onUpdate: (id: string, field: keyof RecipeIngredient, value: number) => void;
   onAdd: () => void;
+  onSelectSource: (ingId: string, type: "product" | "recipe", sourceId: number, name: string, unit: string) => void;
+  availableProducts: Product[];
+  availableRecipes: Recipe[];
+  currentRecipeId?: number;
   totals: { kcal: number; protein: number; fat: number; carbs: number; cost: number; grossWeight: number };
   showGross: boolean;
 }
 
-function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, totals, showGross }: IngredientsTableProps) {
+function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, onSelectSource, availableProducts, availableRecipes, currentRecipeId, totals, showGross }: IngredientsTableProps) {
   const getIngAllergens = (ing: RecipeIngredient): string[] => {
     return PRODUCT_ALLERGENS[ing.referenceId] || [];
   };
+
+  // Filter out current recipe from nestable recipes
+  const nestableRecipes = availableRecipes.filter(
+    (r) => r.id !== currentRecipeId && r.status === "active"
+  );
 
   return (
     <div className="border rounded-lg overflow-auto">
@@ -652,7 +714,7 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
         <TableHeader>
           <TableRow>
             <TableHead className="w-8">#</TableHead>
-            <TableHead className="min-w-[240px]">Składnik</TableHead>
+            <TableHead className="min-w-[280px]">Składnik</TableHead>
             <TableHead className="w-24 text-right">Ilość</TableHead>
             <TableHead className="w-16">Jedn.</TableHead>
             <TableHead className="w-24 text-right">Ubytek tech. %</TableHead>
@@ -681,17 +743,29 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
                 >
                   <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      {ing.type === "recipe" && <span className="text-primary font-medium">→</span>}
-                      <span className="text-xs truncate">{ing.name || "Wyszukaj składnik…"}</span>
-                      {ingAllergens.length > 0 && (
-                        <div className="flex gap-0.5 shrink-0">
-                          {ingAllergens.map(a => (
-                            <span key={a} className="text-xs" title={a}>{ALLERGEN_ICONS[a] || "⚠️"}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    {ing.referenceId === 0 ? (
+                      <IngredientCombobox
+                        products={availableProducts}
+                        recipes={nestableRecipes}
+                        onSelect={(type, id, name, unit) => onSelectSource(ing.id, type, id, name, unit)}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {ing.type === "recipe" ? (
+                          <FlaskConical className="h-3.5 w-3.5 text-primary shrink-0" />
+                        ) : (
+                          <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="text-xs truncate">{ing.name}</span>
+                        {ingAllergens.length > 0 && (
+                          <div className="flex gap-0.5 shrink-0">
+                            {ingAllergens.map(a => (
+                              <span key={a} className="text-xs" title={a}>{ALLERGEN_ICONS[a] || "⚠️"}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Input
@@ -770,5 +844,97 @@ function IngredientsTable({ ingredients, onMove, onRemove, onUpdate, onAdd, tota
         </Button>
       </div>
     </div>
+  );
+}
+
+// === INGREDIENT COMBOBOX ===
+
+interface IngredientComboboxProps {
+  products: Product[];
+  recipes: Recipe[];
+  onSelect: (type: "product" | "recipe", id: number, name: string, unit: string) => void;
+}
+
+function IngredientCombobox({ products, recipes, onSelect }: IngredientComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredProducts = useMemo(() => {
+    if (!search) return products.slice(0, 20);
+    const q = search.toLowerCase();
+    return products.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 20);
+  }, [products, search]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!search) return recipes.slice(0, 10);
+    const q = search.toLowerCase();
+    return recipes.filter((r) => r.name.toLowerCase().includes(q)).slice(0, 10);
+  }, [recipes, search]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1 w-full justify-start font-normal text-muted-foreground">
+          <Search className="h-3 w-3" />
+          Wyszukaj produkt lub recepturę…
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[350px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Szukaj produktu lub receptury…"
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>Nie znaleziono.</CommandEmpty>
+            {filteredProducts.length > 0 && (
+              <CommandGroup heading="Produkty">
+                {filteredProducts.map((p) => (
+                  <CommandItem
+                    key={`product-${p.id}`}
+                    value={`product-${p.id}`}
+                    onSelect={() => {
+                      onSelect("product", p.id, p.name, "g");
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <Package className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                    <span className="text-sm">{p.name}</span>
+                    {p.allergens.length > 0 && (
+                      <Badge variant="outline" className="ml-auto text-[10px]">
+                        {p.allergens.length} alergenów
+                      </Badge>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {filteredRecipes.length > 0 && (
+              <CommandGroup heading="Receptury (zagnieżdżone)">
+                {filteredRecipes.map((r) => (
+                  <CommandItem
+                    key={`recipe-${r.id}`}
+                    value={`recipe-${r.id}`}
+                    onSelect={() => {
+                      onSelect("recipe", r.id, r.name, "g");
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    <FlaskConical className="h-3.5 w-3.5 mr-2 text-primary" />
+                    <span className="text-sm">{r.name}</span>
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {r.portionWeight}g
+                    </Badge>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

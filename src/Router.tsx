@@ -59,6 +59,7 @@ import DailyOperationalMenu from "./pages/diet/DailyOperationalMenu";
 import Dispatches from "./pages/diet/Dispatches";
 import ProductionPlanning from "./pages/diet/ProductionPlanning";
 import Reports from "./pages/diet/Reports";
+import MeasurementUnitsSettings from "./pages/diet/MeasurementUnitsSettings";
 
 export default function Router() {
     return (
@@ -457,6 +458,7 @@ export default function Router() {
             <Route path="/dietetyka/produkcja" element={<RequireLogin><ProductionPlanning /></RequireLogin>} />
             <Route path="/dietetyka/raporty" element={<RequireLogin><Reports /></RequireLogin>} />
             <Route path="/dietetyka/raporty/:reportType" element={<RequireLogin><Reports /></RequireLogin>} />
+            <Route path="/dietetyka/ustawienia/jednostki" element={<RequireLogin><MeasurementUnitsSettings /></RequireLogin>} />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
