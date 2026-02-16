@@ -2,18 +2,18 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ChevronLeft, ChevronRight, Printer, Download, RefreshCw, CheckCircle, AlertTriangle, Eye, List, RotateCcw } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
-import { DEFAULT_MEAL_SLOTS } from "@/types/menuPackage";
+import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
+import MenuCellContent from "@/components/MenuCellContent";
+import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
 
 const DAY_NAMES_FULL = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
 
-// Flatten slots for columns
 function getColumnSlots() {
   const cols: { id: string; label: string; parentLabel?: string }[] = [];
   for (const slot of DEFAULT_MEAL_SLOTS) {
@@ -30,20 +30,14 @@ function getColumnSlots() {
 
 const columnSlots = getColumnSlots();
 
-// Mock portion counts per diet
-const portionCounts: Record<string, number> = {
-  STANDARD: 45,
-  GF: 8,
-  DIABETIC: 12,
-  RENAL: 4,
-};
-
 export default function DailyOperationalMenu() {
   const { id } = useParams();
   const pkg = mockMenuPackages.find((p) => p.id === Number(id)) ?? mockMenuPackages[0];
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedClient] = useState(pkg.clientName);
   const [lastSync] = useState("12.02.2026 07:30");
+  const [detailLevel, setDetailLevel] = useState<"general" | "detailed">("general");
+  const [transposed, setTransposed] = useState(false);
 
   const baseDiet = pkg.dietPlans.find((d) => d.dietType === "base");
 
@@ -52,22 +46,18 @@ export default function DailyOperationalMenu() {
     return diet?.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId) ?? null;
   };
 
+  const getDishes = (dietIdx: number, slotId: string): MenuCellDish[] =>
+    getCell(dietIdx, slotId)?.dishes ?? [];
+
   const isDifferentFromBase = (dietIdx: number, slotId: string) => {
     if (!baseDiet || pkg.dietPlans[dietIdx].dietType === "base") return false;
-    const baseCell = baseDiet.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId);
-    const cell = getCell(dietIdx, slotId);
-    return baseCell?.dish?.id !== cell?.dish?.id;
+    const baseDishes = baseDiet.weeks[0]?.cells.find((c) => c.dayIndex === selectedDay && c.mealSlotId === slotId)?.dishes ?? [];
+    const cellDishes = getDishes(dietIdx, slotId);
+    if (baseDishes.length !== cellDishes.length) return true;
+    return baseDishes.some((bd, i) => bd.id !== cellDishes[i]?.id);
   };
 
-  // Summary
-  const totalPortions = Object.values(portionCounts).reduce((a, b) => a + b, 0);
-  const totalCost = pkg.dietPlans.reduce((sum, diet) => {
-    const portions = portionCounts[diet.dietCode] ?? 0;
-    const dayCost = diet.weeks[0]?.cells
-      .filter((c) => c.dayIndex === selectedDay)
-      .reduce((s, c) => s + (c.dish?.cost ?? 0), 0) ?? 0;
-    return sum + dayCost * (portions / 8); // rough estimate
-  }, 0);
+  const isDetailed = detailLevel === "detailed";
 
   return (
     <DietLayout pageKey="diet.meals_approval">
@@ -107,77 +97,132 @@ export default function DailyOperationalMenu() {
             <span>Źródło zamówień: Panel Klienta ✅ (sync: {lastSync})</span>
             <Button variant="ghost" size="sm" className="h-6 text-xs"><RefreshCw className="h-3 w-3 mr-1" /> Odśwież</Button>
           </div>
+
+          <div className="flex-1" />
+
+          <div className="flex items-center border rounded-md">
+            <Button variant={detailLevel === "general" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setDetailLevel("general")}>
+              <Eye className="h-4 w-4 mr-1" /> Ogólny
+            </Button>
+            <Button variant={detailLevel === "detailed" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setDetailLevel("detailed")}>
+              <List className="h-4 w-4 mr-1" /> Szczegółowy
+            </Button>
+          </div>
+
+          <Button variant={transposed ? "default" : "outline"} size="sm" onClick={() => setTransposed((t) => !t)}>
+            <RotateCcw className="h-4 w-4 mr-1" /> Transponuj
+          </Button>
         </div>
 
         {/* Main grid */}
         <Card>
           <CardContent className="p-0 overflow-x-auto">
             <TooltipProvider>
-              <table className="w-full text-xs table-fixed">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="p-2 text-left w-32 font-medium text-muted-foreground">Dieta</th>
+              {!transposed ? (
+                <table className="w-full text-xs table-fixed">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="p-2 text-left w-32 font-medium text-muted-foreground">Dieta</th>
+                      {columnSlots.map((col) => (
+                        <th key={col.id} className="p-2 text-center font-medium text-muted-foreground">
+                          {col.parentLabel && <span className="text-[10px] block text-muted-foreground/60">{col.parentLabel}</span>}
+                          {col.label}
+                        </th>
+                      ))}
+                      <th className="p-2 text-center font-medium text-muted-foreground border-l-2">Σ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pkg.dietPlans.map((diet, dietIdx) => {
+                      const allDishes = columnSlots.flatMap((col) => getDishes(dietIdx, col.id));
+                      const summary = computeDayNutrition(allDishes);
+                      return (
+                        <tr key={diet.dietId} className="border-b hover:bg-muted/20">
+                          <td className="p-2">
+                            <div className="font-medium text-sm">{diet.dietCode}</div>
+                            <div className="text-[10px] text-muted-foreground">{diet.dietName}</div>
+                          </td>
+                          {columnSlots.map((col) => {
+                            const diffFromBase = isDifferentFromBase(dietIdx, col.id);
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(
+                                  "p-1.5 border-l cursor-pointer transition-colors hover:bg-primary/5",
+                                  diffFromBase && "bg-blue-50 dark:bg-blue-950/20",
+                                )}
+                              >
+                                <MenuCellContent
+                                  dishes={getDishes(dietIdx, col.id)}
+                                  detailed={isDetailed}
+                                  diffFromBase={diffFromBase}
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="p-1.5 border-l-2 bg-muted/30">
+                            <NutritionSummaryCell summary={summary} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full text-xs table-fixed">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="p-2 text-left w-24 font-medium text-muted-foreground">Posiłek</th>
+                      {pkg.dietPlans.map((diet) => (
+                        <th key={diet.dietId} className="p-2 text-center font-medium text-muted-foreground">
+                          <div>{diet.dietCode}</div>
+                          <div className="text-[10px] text-muted-foreground/60">{diet.dietName}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
                     {columnSlots.map((col) => (
-                      <th key={col.id} className="p-2 text-center font-medium text-muted-foreground">
-                        {col.parentLabel && <span className="text-[10px] block text-muted-foreground/60">{col.parentLabel}</span>}
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pkg.dietPlans.map((diet, dietIdx) => {
-                    const portions = portionCounts[diet.dietCode] ?? 0;
-                    return (
-                      <tr key={diet.dietId} className="border-b hover:bg-muted/20">
-                        <td className="p-2">
-                          <div className="font-medium text-sm">{diet.dietCode}</div>
-                          <div className="text-[10px] text-muted-foreground">{diet.dietName}</div>
-                          <Badge variant="outline" className="text-[10px] mt-0.5">{portions > 0 ? `${portions} porcji` : "? porcji"}</Badge>
+                      <tr key={col.id} className="border-b hover:bg-muted/20">
+                        <td className="p-2 font-medium text-muted-foreground">
+                          {col.parentLabel && <span className="text-[10px] block text-muted-foreground/60">{col.parentLabel}</span>}
+                          {col.label}
                         </td>
-                        {columnSlots.map((col) => {
-                          const cell = getCell(dietIdx, col.id);
-                          const dish = cell?.dish;
+                        {pkg.dietPlans.map((diet, dietIdx) => {
                           const diffFromBase = isDifferentFromBase(dietIdx, col.id);
                           return (
                             <td
-                              key={col.id}
+                              key={diet.dietId}
                               className={cn(
                                 "p-1.5 border-l cursor-pointer transition-colors hover:bg-primary/5",
                                 diffFromBase && "bg-blue-50 dark:bg-blue-950/20",
                               )}
                             >
-                              {dish ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="min-h-[40px]">
-                                      <div className="text-[11px] font-medium leading-tight line-clamp-2">
-                                        {diffFromBase && <span className="text-primary">⚡</span>} {dish.name}
-                                      </div>
-                                      <div className="flex items-center gap-0.5 mt-0.5">
-                                        {dish.allergenIcons.map((icon, i) => (
-                                          <span key={i} className="text-[10px]">{icon}</span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="font-medium">{dish.name}</p>
-                                    <p className="text-xs">Kcal: {dish.kcal} | Koszt: {dish.cost.toFixed(2)} PLN</p>
-                                    {diffFromBase && <p className="text-xs text-primary">⚡ Różni się od diety bazowej</p>}
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <div className="min-h-[40px] flex items-center justify-center text-muted-foreground/40">—</div>
-                              )}
+                              <MenuCellContent
+                                dishes={getDishes(dietIdx, col.id)}
+                                detailed={isDetailed}
+                                diffFromBase={diffFromBase}
+                              />
                             </td>
                           );
                         })}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                    <tr className="border-t-2 bg-muted/40">
+                      <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
+                      {pkg.dietPlans.map((diet, dietIdx) => {
+                        const allDishes = columnSlots.flatMap((col) => getDishes(dietIdx, col.id));
+                        const summary = computeDayNutrition(allDishes);
+                        return (
+                          <td key={diet.dietId} className="p-1.5 border-l">
+                            <NutritionSummaryCell summary={summary} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </TooltipProvider>
           </CardContent>
         </Card>
@@ -188,16 +233,8 @@ export default function DailyOperationalMenu() {
             <h3 className="font-medium text-sm mb-2">Podsumowanie dnia</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Łączna liczba porcji:</span>
-                <span className="ml-2 font-mono font-medium">{totalPortions}</span>
-              </div>
-              <div>
                 <span className="text-muted-foreground">Liczba diet:</span>
                 <span className="ml-2 font-mono font-medium">{pkg.dietPlans.length}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Koszt dnia (est.):</span>
-                <span className="ml-2 font-mono font-medium">{totalCost.toFixed(2)} PLN</span>
               </div>
               <div className="flex items-center gap-1">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />

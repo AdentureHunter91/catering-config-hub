@@ -1,27 +1,33 @@
 import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { computeDayNutrition, NutritionSummaryCell } from "@/components/NutritionSummaryRow";
 import DietLayout from "@/components/DietLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, Pencil, Search, X,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  ChevronLeft, ChevronRight, Save, CheckCircle, Copy, Settings2, Link2, RotateCcw, Eye, List, Tag, Plus, X,
 } from "lucide-react";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
-import { DEFAULT_MEAL_SLOTS, type MenuCellDish } from "@/types/menuPackage";
+import { DEFAULT_MEAL_SLOTS, PREDEFINED_TAGS, type MenuCellDish, type MenuPackageTag } from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
+import MenuCellContent from "@/components/MenuCellContent";
+import MenuCellEditorDialog from "@/components/MenuCellEditorDialog";
 
-const DAY_NAMES = ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"];
+function getDayNames(cycleDays: number): string[] {
+  if (cycleDays <= 7) return ["Pon", "Wto", "Śro", "Czw", "Pią", "Sob", "Nie"].slice(0, cycleDays);
+  return Array.from({ length: cycleDays }, (_, i) => `Dz. ${i + 1}`);
+}
 
-// Flatten meal slots for column headers
 function getFlatSlots() {
   const flat: { id: string; label: string; parent?: string }[] = [];
   for (const slot of DEFAULT_MEAL_SLOTS) {
@@ -38,40 +44,36 @@ function getFlatSlots() {
 
 const flatSlots = getFlatSlots();
 
-const dishCatalog: MenuCellDish[] = [
-  { id: 1, name: "Owsianka z owocami", kcal: 320, protein: 12, fat: 8, carbs: 52, cost: 3.2, allergenIcons: ["🥛", "🌾"] },
-  { id: 2, name: "Jajecznica na maśle", kcal: 380, protein: 22, fat: 28, carbs: 4, cost: 4.1, allergenIcons: ["🥚", "🥛"] },
-  { id: 5, name: "Zupa pomidorowa", kcal: 180, protein: 5, fat: 6, carbs: 28, cost: 3.5, allergenIcons: ["🌾"] },
-  { id: 6, name: "Krem z brokułów", kcal: 160, protein: 6, fat: 5, carbs: 22, cost: 4.0, allergenIcons: ["🥛"] },
-  { id: 7, name: "Kurczak z ryżem", kcal: 520, protein: 38, fat: 14, carbs: 62, cost: 8.5, allergenIcons: [] },
-  { id: 8, name: "Ryba z kaszą", kcal: 480, protein: 32, fat: 16, carbs: 54, cost: 9.2, allergenIcons: ["🐟"] },
-  { id: 9, name: "Surówka z kapusty", kcal: 45, protein: 1.5, fat: 2, carbs: 6, cost: 1.5, allergenIcons: [] },
-  { id: 12, name: "Makaron z sosem", kcal: 450, protein: 15, fat: 12, carbs: 72, cost: 6.0, allergenIcons: ["🌾"] },
-  { id: 13, name: "Zupa dyniowa", kcal: 140, protein: 3, fat: 4, carbs: 24, cost: 3.8, allergenIcons: [] },
-  { id: 14, name: "Pierogi ruskie", kcal: 420, protein: 14, fat: 16, carbs: 56, cost: 7.0, allergenIcons: ["🌾", "🥛"] },
-  { id: 15, name: "Kanapka z serem", kcal: 280, protein: 12, fat: 14, carbs: 28, cost: 3.0, allergenIcons: ["🌾", "🥛"] },
-  { id: 16, name: "Sałatka grecka", kcal: 220, protein: 8, fat: 16, carbs: 12, cost: 5.5, allergenIcons: ["🥛"] },
-  { id: 17, name: "Kotlet schabowy", kcal: 580, protein: 30, fat: 32, carbs: 40, cost: 10.0, allergenIcons: ["🌾", "🥚"] },
-];
-
 export default function MenuEditor() {
   const { id } = useParams();
   const pkg = mockMenuPackages.find((p) => p.id === Number(id)) ?? mockMenuPackages[0];
+  const cycleDays = Number(pkg.cycle) || 7;
+  const DAY_NAMES = getDayNames(cycleDays);
 
   const [selectedDietIdx, setSelectedDietIdx] = useState(0);
   const [weekIdx, setWeekIdx] = useState(0);
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [selectedDay, setSelectedDay] = useState(0);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSlot, setPickerSlot] = useState<{ day: number; slotId: string } | null>(null);
-  const [pickerSearch, setPickerSearch] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorSlot, setEditorSlot] = useState<{ day: number; slotId: string } | null>(null);
   const [nutritionView, setNutritionView] = useState<"day" | "week">("day");
+  const [detailLevel, setDetailLevel] = useState<"general" | "detailed">("general");
+  const [transposed, setTransposed] = useState(false);
+
+  // Tags
+  const [allTags, setAllTags] = useState<MenuPackageTag[]>(PREDEFINED_TAGS);
+  const [pkgTags, setPkgTags] = useState<string[]>(pkg.tags);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [newTagLabel, setNewTagLabel] = useState("");
 
   const diet = pkg.dietPlans[selectedDietIdx];
   const week = diet?.weeks[weekIdx];
 
   const getCell = (dayIdx: number, slotId: string) =>
     week?.cells.find((c) => c.dayIndex === dayIdx && c.mealSlotId === slotId) ?? null;
+
+  const getDishes = (dayIdx: number, slotId: string): MenuCellDish[] =>
+    getCell(dayIdx, slotId)?.dishes ?? [];
 
   // Nutrition calculations
   const nutritionData = useMemo(() => {
@@ -80,12 +82,12 @@ export default function MenuEditor() {
     let kcal = 0, protein = 0, fat = 0, carbs = 0, cost = 0;
     for (const d of days) {
       for (const cell of week.cells.filter((c) => c.dayIndex === d)) {
-        if (cell.dish) {
-          kcal += cell.dish.kcal;
-          protein += cell.dish.protein;
-          fat += cell.dish.fat;
-          carbs += cell.dish.carbs;
-          cost += cell.dish.cost;
+        for (const dish of cell.dishes) {
+          kcal += dish.kcal;
+          protein += dish.protein;
+          fat += dish.fat;
+          carbs += dish.carbs;
+          cost += dish.cost;
         }
       }
     }
@@ -102,22 +104,32 @@ export default function MenuEditor() {
     return "bg-red-500";
   };
 
-  const openPicker = (day: number, slotId: string) => {
-    setPickerSlot({ day, slotId });
-    setPickerSearch("");
-    setPickerOpen(true);
+  const openEditor = (day: number, slotId: string) => {
+    setEditorSlot({ day, slotId });
+    setEditorOpen(true);
   };
 
-  const selectDish = (dish: MenuCellDish) => {
-    // In real app this would update state properly
-    setPickerOpen(false);
+  const handleEditorSave = (_dishes: MenuCellDish[]) => {
+    // In real app: update cell dishes in state
   };
 
-  const filteredDishes = dishCatalog.filter((d) =>
-    d.name.toLowerCase().includes(pickerSearch.toLowerCase())
-  );
+  const addNewTag = () => {
+    if (!newTagLabel.trim()) return;
+    const newId = newTagLabel.toLowerCase().replace(/\s+/g, "_");
+    const tag: MenuPackageTag = { id: newId, label: newTagLabel.trim(), color: "bg-slate-100 text-slate-800 border-slate-300" };
+    setAllTags((prev) => [...prev, tag]);
+    setPkgTags((prev) => [...prev, newId]);
+    setNewTagLabel("");
+  };
 
   const totalWeeks = diet?.weeks.length ?? 1;
+  const isDetailed = detailLevel === "detailed";
+
+  const visibleDays = viewMode === "week" ? DAY_NAMES.map((n, i) => ({ name: n, idx: i })) : [{ name: DAY_NAMES[selectedDay], idx: selectedDay }];
+
+  // Collect all dishes for a day across all slots (for nutrition summary)
+  const getAllDishesForDay = (dayIdx: number): MenuCellDish[] =>
+    flatSlots.flatMap((s) => getDishes(dayIdx, s.id));
 
   return (
     <DietLayout pageKey="diet.meals_approval">
@@ -127,6 +139,23 @@ export default function MenuEditor() {
           <div>
             <h1 className="text-xl font-bold">{pkg.name}</h1>
             <p className="text-sm text-muted-foreground">{pkg.clientName} • {pkg.periodFrom} — {pkg.periodTo}</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              {pkgTags.map((tagId) => {
+                const t = allTags.find((t) => t.id === tagId);
+                return t ? (
+                  <Badge key={tagId} variant="outline" className={cn("text-[10px] border", t.color)}>
+                    {t.label}
+                    <button className="ml-1 hover:text-destructive" onClick={() => setPkgTags((prev) => prev.filter((id) => id !== tagId))}>
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ) : null;
+              })}
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setTagDialogOpen(true)}>
+                <Plus className="h-3 w-3" /> Tag
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm"><Save className="h-4 w-4 mr-1" /> Zapisz</Button>
@@ -136,11 +165,8 @@ export default function MenuEditor() {
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-          {/* Diet selector */}
           <Select value={String(selectedDietIdx)} onValueChange={(v) => setSelectedDietIdx(Number(v))}>
-            <SelectTrigger className="w-64">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
             <SelectContent>
               {pkg.dietPlans.map((dp, idx) => (
                 <SelectItem key={dp.dietId} value={String(idx)}>
@@ -151,7 +177,6 @@ export default function MenuEditor() {
             </SelectContent>
           </Select>
 
-          {/* Week navigation */}
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekIdx(Math.max(0, weekIdx - 1))} disabled={weekIdx === 0}>
               <ChevronLeft className="h-4 w-4" />
@@ -162,7 +187,6 @@ export default function MenuEditor() {
             </Button>
           </div>
 
-          {/* View toggle */}
           <div className="flex items-center border rounded-md">
             <Button variant={viewMode === "week" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setViewMode("week")}>Tydzień</Button>
             <Button variant={viewMode === "day" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setViewMode("day")}>Dzień</Button>
@@ -181,7 +205,19 @@ export default function MenuEditor() {
 
           <div className="flex-1" />
 
-          {/* Copy menu */}
+          <div className="flex items-center border rounded-md">
+            <Button variant={detailLevel === "general" ? "default" : "ghost"} size="sm" className="rounded-r-none h-8" onClick={() => setDetailLevel("general")}>
+              <Eye className="h-4 w-4 mr-1" /> Ogólny
+            </Button>
+            <Button variant={detailLevel === "detailed" ? "default" : "ghost"} size="sm" className="rounded-l-none h-8" onClick={() => setDetailLevel("detailed")}>
+              <List className="h-4 w-4 mr-1" /> Szczegółowy
+            </Button>
+          </div>
+
+          <Button variant={transposed ? "default" : "outline"} size="sm" onClick={() => setTransposed((t) => !t)}>
+            <RotateCcw className="h-4 w-4 mr-1" /> Transponuj
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm"><Copy className="h-4 w-4 mr-1" /> Kopiuj menu</Button>
@@ -193,7 +229,6 @@ export default function MenuEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Bulk operations */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm"><Settings2 className="h-4 w-4 mr-1" /> Operacje</Button>
@@ -209,75 +244,111 @@ export default function MenuEditor() {
 
         {/* Main content */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-          {/* Grid */}
           <Card>
             <CardContent className="p-0 overflow-x-auto">
               <TooltipProvider>
-                <table className="w-full text-xs table-fixed">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
-                      <th className="p-2 text-left w-12 font-medium text-muted-foreground" />
+                {!transposed ? (
+                  <table className="w-full text-xs table-fixed">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-2 text-left w-12 font-medium text-muted-foreground" />
+                        {flatSlots.map((slot) => (
+                          <th key={slot.id} className="p-2 text-center font-medium text-muted-foreground">
+                            <div>{slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}{slot.label}</div>
+                          </th>
+                        ))}
+                        <th className="p-2 text-center font-medium text-muted-foreground border-l-2">Σ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleDays.map(({ name: dayName, idx: dayIdx }) => {
+                        const summary = computeDayNutrition(getAllDishesForDay(dayIdx));
+                        return (
+                          <tr key={dayIdx} className="border-b hover:bg-muted/20">
+                            <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
+                            {flatSlots.map((slot) => {
+                              const cell = getCell(dayIdx, slot.id);
+                              const isInherited = cell?.inherited && !cell?.overridden;
+                              return (
+                                <td
+                                  key={slot.id}
+                                  className={cn(
+                                    "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
+                                    isInherited && "bg-muted/20",
+                                  )}
+                                  onClick={() => openEditor(dayIdx, slot.id)}
+                                >
+                                  <MenuCellContent
+                                    dishes={cell?.dishes ?? []}
+                                    detailed={isDetailed}
+                                    isInherited={isInherited}
+                                    isOverridden={cell?.overridden}
+                                  />
+                                </td>
+                              );
+                            })}
+                            <td className="p-1.5 border-l-2 bg-muted/30">
+                              <NutritionSummaryCell summary={summary} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-xs table-fixed">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-2 text-left w-24 font-medium text-muted-foreground">Posiłek</th>
+                        {visibleDays.map(({ name, idx }) => (
+                          <th key={idx} className="p-2 text-center font-medium text-muted-foreground">{name}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
                       {flatSlots.map((slot) => (
-                        <th key={slot.id} className="p-2 text-center font-medium text-muted-foreground">
-                          <div>{slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}
+                        <tr key={slot.id} className="border-b hover:bg-muted/20">
+                          <td className="p-2 font-medium text-muted-foreground">
+                            {slot.parent && <span className="text-[10px] block text-muted-foreground/60">{slot.parent}</span>}
                             {slot.label}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(viewMode === "week" ? DAY_NAMES : [DAY_NAMES[selectedDay]]).map((dayName, rowIdx) => {
-                      const dayIdx = viewMode === "week" ? rowIdx : selectedDay;
-                      return (
-                        <tr key={dayIdx} className="border-b hover:bg-muted/20">
-                          <td className="p-2 font-medium text-muted-foreground text-center">{dayName}</td>
-                          {flatSlots.map((slot) => {
+                          </td>
+                          {visibleDays.map(({ idx: dayIdx }) => {
                             const cell = getCell(dayIdx, slot.id);
-                            const dish = cell?.dish;
                             const isInherited = cell?.inherited && !cell?.overridden;
                             return (
                               <td
-                                key={slot.id}
+                                key={dayIdx}
                                 className={cn(
                                   "p-1 border-l cursor-pointer transition-colors hover:bg-primary/5",
                                   isInherited && "bg-muted/20",
                                 )}
-                                onClick={() => openPicker(dayIdx, slot.id)}
+                                onClick={() => openEditor(dayIdx, slot.id)}
                               >
-                                {dish ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="space-y-0.5 min-h-[48px]">
-                                        <div className="text-[11px] font-medium leading-tight line-clamp-2">{dish.name}</div>
-                                        <div className="text-[10px] text-muted-foreground">{dish.kcal} kcal</div>
-                                        <div className="flex items-center gap-0.5">
-                                          {dish.allergenIcons.map((icon, i) => (
-                                            <span key={i} className="text-[10px]">{icon}</span>
-                                          ))}
-                                          {isInherited && <Link2 className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                          {cell?.overridden && <Pencil className="h-3 w-3 text-primary ml-auto" />}
-                                        </div>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="font-medium">{dish.name}</p>
-                                      <p className="text-xs">Kcal: {dish.kcal} | B: {dish.protein}g | T: {dish.fat}g | W: {dish.carbs}g</p>
-                                      <p className="text-xs">Koszt: {dish.cost.toFixed(2)} PLN</p>
-                                      {isInherited && <p className="text-xs text-muted-foreground mt-1">🔗 Odziedziczone z diety bazowej</p>}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  <div className="min-h-[48px] flex items-center justify-center text-muted-foreground/40 text-[10px]">—</div>
-                                )}
+                                <MenuCellContent
+                                  dishes={cell?.dishes ?? []}
+                                  detailed={isDetailed}
+                                  isInherited={isInherited}
+                                  isOverridden={cell?.overridden}
+                                />
                               </td>
                             );
                           })}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                      <tr className="border-t-2 bg-muted/40">
+                        <td className="p-2 font-semibold text-muted-foreground text-[10px]">Σ Podsumowanie</td>
+                        {visibleDays.map(({ idx: dayIdx }) => {
+                          const summary = computeDayNutrition(getAllDishesForDay(dayIdx));
+                          return (
+                            <td key={`sum-${dayIdx}`} className="p-1.5 border-l">
+                              <NutritionSummaryCell summary={summary} />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
               </TooltipProvider>
             </CardContent>
           </Card>
@@ -348,39 +419,57 @@ export default function MenuEditor() {
         </div>
       </div>
 
-      {/* Dish picker dialog */}
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-lg">
+      {/* Cell editor dialog */}
+      {editorSlot && (
+        <MenuCellEditorDialog
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          dayLabel={DAY_NAMES[editorSlot.day]}
+          slotLabel={flatSlots.find((s) => s.id === editorSlot.slotId)?.label ?? ""}
+          initialDishes={getDishes(editorSlot.day, editorSlot.slotId)}
+          onSave={handleEditorSave}
+        />
+      )}
+
+      {/* Tag management dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Wybierz danie</DialogTitle>
-            <DialogDescription>
-              {pickerSlot && `${DAY_NAMES[pickerSlot.day]}, ${flatSlots.find((s) => s.id === pickerSlot.slotId)?.label ?? ""}`}
-            </DialogDescription>
+            <DialogTitle>Zarządzaj tagami</DialogTitle>
+            <DialogDescription>Dodaj lub usuń tagi jadłospisu.</DialogDescription>
           </DialogHeader>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Szukaj dania..." value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} className="pl-9" />
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {allTags.map((tag) => {
+                const active = pkgTags.includes(tag.id);
+                return (
+                  <Badge
+                    key={tag.id}
+                    variant="outline"
+                    className={cn("cursor-pointer text-xs transition-all border", active ? tag.color + " border-2" : "hover:bg-muted")}
+                    onClick={() => setPkgTags((prev) => active ? prev.filter((id) => id !== tag.id) : [...prev, tag.id])}
+                  >
+                    {tag.label} {active && "✓"}
+                  </Badge>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nowy tag..."
+                value={newTagLabel}
+                onChange={(e) => setNewTagLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addNewTag()}
+                className="h-8 text-sm"
+              />
+              <Button size="sm" className="h-8" onClick={addNewTag} disabled={!newTagLabel.trim()}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-1">
-            {filteredDishes.map((dish) => (
-              <button
-                key={dish.id}
-                className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted text-left transition-colors"
-                onClick={() => selectDish(dish)}
-              >
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{dish.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {dish.kcal} kcal | B: {dish.protein}g | T: {dish.fat}g | W: {dish.carbs}g
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-mono">{dish.cost.toFixed(2)} PLN</div>
-                  <div className="flex gap-0.5">{dish.allergenIcons.map((a, i) => <span key={i} className="text-xs">{a}</span>)}</div>
-                </div>
-              </button>
-            ))}
-          </div>
+          <DialogFooter>
+            <Button onClick={() => setTagDialogOpen(false)}>Gotowe</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DietLayout>

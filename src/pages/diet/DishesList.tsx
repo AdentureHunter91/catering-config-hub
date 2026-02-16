@@ -195,9 +195,9 @@ export default function DishesList() {
                         <TooltipProvider key={a.name} delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className={cn("text-base", a.status === "may_contain" && "opacity-50")}>{a.icon}</span>
+                              <span className="text-base">{a.icon}</span>
                             </TooltipTrigger>
-                            <TooltipContent><span className="text-xs">{a.name} ({a.status === "contains" ? "zawiera" : "może zawierać"})</span></TooltipContent>
+                            <TooltipContent><span className="text-xs">{a.name}</span></TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       ))}

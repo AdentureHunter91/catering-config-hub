@@ -9,10 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Calendar, Edit, Eye } from "lucide-react";
+import { Plus, Search, Calendar, Edit, Eye, Copy, Tag, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { mockMenuPackages } from "@/data/mockMenuPackages";
-import { MENU_PACKAGE_STATUS_LABELS, MENU_PACKAGE_STATUS_COLORS, CYCLE_LABELS, type CycleType } from "@/types/menuPackage";
+import {
+  MENU_PACKAGE_STATUS_LABELS, MENU_PACKAGE_STATUS_COLORS,
+  CYCLE_LABELS, PREDEFINED_TAGS, type CycleType,
+} from "@/types/menuPackage";
 import { cn } from "@/lib/utils";
 
 const mockDietsForClient = [
@@ -26,6 +29,11 @@ const mockDietsForClient = [
 export default function MenuPackagesList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+
+  // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardName, setWizardName] = useState("");
@@ -33,13 +41,34 @@ export default function MenuPackagesList() {
   const [wizardCycle, setWizardCycle] = useState<CycleType>("7");
   const [wizardDiets, setWizardDiets] = useState<number[]>([]);
 
-  const filtered = mockMenuPackages.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.clientName.toLowerCase().includes(search.toLowerCase())
-  );
+  // Copy dialog state
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyClient, setCopyClient] = useState("");
+  const [copyFrom, setCopyFrom] = useState("");
+  const [copyTo, setCopyTo] = useState("");
+
+  const filtered = mockMenuPackages.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.clientName.toLowerCase().includes(search.toLowerCase());
+    const matchesTag = !filterTag || p.tags.includes(filterTag);
+    const matchesStatus = !filterStatus || p.status === filterStatus;
+    return matchesSearch && matchesTag && matchesStatus;
+  });
 
   const toggleDiet = (id: number) => {
     setWizardDiets((prev) => prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]);
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]);
+  };
+
+  const toggleAll = () => {
+    if (selected.length === filtered.length) {
+      setSelected([]);
+    } else {
+      setSelected(filtered.map((p) => p.id));
+    }
   };
 
   const handleCreate = () => {
@@ -48,19 +77,73 @@ export default function MenuPackagesList() {
     navigate("/dietetyka/jadlospisy/1/edytor");
   };
 
+  const handleBulkCopy = () => {
+    setCopyOpen(true);
+  };
+
+  const handleCopyConfirm = () => {
+    setCopyOpen(false);
+    setCopyClient("");
+    setCopyFrom("");
+    setCopyTo("");
+    setSelected([]);
+  };
+
+  const allTags = PREDEFINED_TAGS;
+  const getTagDef = (id: string) => allTags.find((t) => t.id === id);
+
   return (
     <DietLayout pageKey="diet.meals_approval">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Jadłospisy — Pakiety menu</h1>
-        <Button onClick={() => { setWizardOpen(true); setWizardStep(1); }}>
-          <Plus className="h-4 w-4 mr-2" /> Nowy pakiet
-        </Button>
+        <div className="flex items-center gap-2">
+          {selected.length > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">Zaznaczono: {selected.length}</span>
+              <Button variant="outline" onClick={handleBulkCopy}>
+                <Copy className="h-4 w-4 mr-2" /> Kopiuj zaznaczone
+              </Button>
+            </>
+          )}
+          <Button onClick={() => { setWizardOpen(true); setWizardStep(1); }}>
+            <Plus className="h-4 w-4 mr-2" /> Nowy pakiet
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Szukaj pakietu..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+
+        <Select value={filterStatus ?? "all"} onValueChange={(v) => setFilterStatus(v === "all" ? null : v)}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie statusy</SelectItem>
+            {Object.entries(MENU_PACKAGE_STATUS_LABELS).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-1.5">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          {allTags.map((tag) => (
+            <Badge
+              key={tag.id}
+              variant="outline"
+              className={cn(
+                "cursor-pointer text-xs transition-all",
+                filterTag === tag.id ? tag.color + " border-2" : "hover:bg-muted",
+              )}
+              onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)}
+            >
+              {tag.label}
+              {filterTag === tag.id && <X className="h-3 w-3 ml-1" />}
+            </Badge>
+          ))}
         </div>
       </div>
 
@@ -69,11 +152,18 @@ export default function MenuPackagesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selected.length === filtered.length && filtered.length > 0}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
                 <TableHead>Nazwa pakietu</TableHead>
                 <TableHead>Klient</TableHead>
                 <TableHead>Okres</TableHead>
                 <TableHead className="text-center">Diety</TableHead>
                 <TableHead>Cykl</TableHead>
+                <TableHead>Tagi</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Koszt śr./dzień</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
@@ -81,7 +171,13 @@ export default function MenuPackagesList() {
             </TableHeader>
             <TableBody>
               {filtered.map((pkg) => (
-                <TableRow key={pkg.id}>
+                <TableRow key={pkg.id} className={cn(selected.includes(pkg.id) && "bg-primary/5")}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.includes(pkg.id)}
+                      onCheckedChange={() => toggleSelect(pkg.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{pkg.name}</TableCell>
                   <TableCell>{pkg.clientName}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -90,6 +186,18 @@ export default function MenuPackagesList() {
                   </TableCell>
                   <TableCell className="text-center">{pkg.dietPlans.length}</TableCell>
                   <TableCell>{CYCLE_LABELS[pkg.cycle]}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {pkg.tags.map((tagId) => {
+                        const t = getTagDef(tagId);
+                        return t ? (
+                          <Badge key={tagId} variant="outline" className={cn("text-[10px] border", t.color)}>
+                            {t.label}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge className={cn("text-xs", MENU_PACKAGE_STATUS_COLORS[pkg.status])}>
                       {MENU_PACKAGE_STATUS_LABELS[pkg.status]}
@@ -104,13 +212,16 @@ export default function MenuPackagesList() {
                       <Button size="sm" variant="ghost" onClick={() => navigate(`/dietetyka/jadlospisy/${pkg.id}/dzienny`)}>
                         <Eye className="h-4 w-4" />
                       </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setSelected([pkg.id]); handleBulkCopy(); }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                     Brak pakietów menu
                   </TableCell>
                 </TableRow>
@@ -224,6 +335,54 @@ export default function MenuPackagesList() {
                 <Button onClick={handleCreate}>Utwórz pakiet</Button>
               )}
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy dialog */}
+      <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kopiuj jadłospis{selected.length > 1 ? "y" : ""}</DialogTitle>
+            <DialogDescription>
+              {selected.length > 1
+                ? `Kopiujesz ${selected.length} jadłospisów na nowy okres.`
+                : "Skopiuj jadłospis na inny okres lub do innego klienta."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Docelowy klient</Label>
+              <Select value={copyClient} onValueChange={setCopyClient}>
+                <SelectTrigger><SelectValue placeholder="Ten sam klient" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="same">Ten sam klient</SelectItem>
+                  <SelectItem value="4">Szpital Miejski w Nidzicy</SelectItem>
+                  <SelectItem value="5">Przedszkole Słoneczko</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nowa data od</Label>
+                <Input type="date" value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} />
+              </div>
+              <div>
+                <Label>Nowa data do</Label>
+                <Input type="date" value={copyTo} onChange={(e) => setCopyTo(e.target.value)} />
+              </div>
+            </div>
+            {selected.length > 1 && (
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                Kopiowane jadłospisy: {selected.map((id) => mockMenuPackages.find((p) => p.id === id)?.name).filter(Boolean).join(", ")}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyOpen(false)}>Anuluj</Button>
+            <Button onClick={handleCopyConfirm}>
+              <Copy className="h-4 w-4 mr-2" /> Kopiuj
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
