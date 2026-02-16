@@ -107,6 +107,15 @@ const Layout = ({ children, pageKey, noPadding }: LayoutProps) => {
     { label: "Wydawki", path: "/dietetyka/wydawki", pageKey: "diet.meals_approval", icon: FileText },
     { label: "Produkcja", path: "/dietetyka/produkcja", pageKey: "diet.meals_approval", icon: Building2 },
     { label: "Raporty", path: "/dietetyka/raporty", pageKey: "diet.meals_approval", icon: FileText },
+    {
+      label: "Ustawienia",
+      path: "",
+      pageKey: "diet.settings",
+      icon: Settings,
+      submenu: [
+        { label: "Jednostki miary", path: "/dietetyka/ustawienia/jednostki", pageKey: "diet.settings" },
+      ],
+    },
   ];
 
   // ---- PODMENU (USTAWIENIA) ----
